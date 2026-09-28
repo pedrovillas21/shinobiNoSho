@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #16120e;
+  --color-ink-2: #1b1612;
+  --color-panel: #211b15;
+  --color-panel-2: #2a221a;
+  --color-line: #2e261e;
+  --color-line-2: #3a3027;
+  --color-text: #efe6d6;
+  --color-muted: #b3a48c;
+  --color-faint: #8f8170;
+
+  --color-paper: #f3e9d6;
+  --color-paper-2: #e7d8bc;
+  --color-paper-3: #dccbaa;
+  --color-paper-ink: #231b13;
+  --color-paper-muted: #5b4a36;
+
+  --color-seal: #c2381b;
+  --color-seal-dark: #a12f16;
+  --color-chakra: #f0892a;
+  --color-ok: #7fb069;
+  --color-bad: #e0573a;
+  --color-vit-bg: #2b1712;
+  --color-vit: #ffd9cf;
+  --color-vit-muted: #e8a08e;
+  --color-chk-bg: #13202b;
+  --color-chk: #d6e9fa;
+  --color-chk-muted: #8fb7d9;
+
+  --font-display: var(--font-shippori), "Georgia", serif;
+  --font-sans: var(--font-zen), system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-chakra);
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  input[type="range"] {
+    accent-color: var(--color-chakra);
+  }
+  ::selection {
+    background: var(--color-chakra);
+    color: var(--color-paper-ink);
+  }
+}
+
+@utility field {
+  @apply w-full rounded-xl border border-line-2 bg-ink-2 px-3.5 py-2.5 text-text placeholder:text-faint outline-none transition focus:border-chakra;
+}
+@utility label {
+  @apply text-xs font-bold uppercase tracking-[0.14em] text-muted;
+}
+@utility card {
+  @apply rounded-2xl border border-line bg-panel;
+}
+@utility btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition select-none disabled:cursor-not-allowed disabled:opacity-40;
+}
+@utility btn-primary {
+  @apply btn bg-seal text-white hover:bg-seal-dark;
+}
+@utility btn-ghost {
+  @apply btn border border-line-2 text-text hover:border-muted;
+}
+@utility chip {
+  @apply inline-flex min-h-9 items-center gap-1.5 rounded-full border border-line-2 px-3 text-sm transition;
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Impressão: só a ficha em pergaminho */
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .print-avoid {
+    break-inside: avoid;
+  }
+}

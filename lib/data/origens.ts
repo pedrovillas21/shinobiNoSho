@@ -1,0 +1,72 @@
+import type { Origin } from "../types";
+
+const opt = (aptidoes: string[], poderes: string[] = [], label = "Padrão", note?: string) => ({ label, aptidoes, poderes, note });
+
+const TENSAI_APTS = ["aprendizagem-rapida", "talento-natural", "tecnica-avancada", "capacidade", "controle-perfeito", "instinto-batalha", "deus-trovao"];
+
+export const ORIGENS: Origin[] = [
+  // ---------------- Clãs ----------------
+  { id: "aburame", name: "Clã Aburame", kind: "cla", kanji: "蟲", source: "Básico", desc: "Insetos sugadores de chakra vivem no corpo e servem de arma e suporte.", options: [opt(["kikaichuu", "shokaichuu", "kidaichuu", "rinkaichuu"], ["kikai-ninpou"])] },
+  { id: "akimichi", name: "Clã Akimichi", kanji: "倍", kind: "cla", source: "Básico", desc: "Força física, calorias convertidas em chakra e expansão do corpo.", options: [opt(["corpulencia", "resiliencia", "controle-caloria"], ["baika"])] },
+  { id: "hatake", name: "Clã Hatake", kanji: "牙", kind: "cla", source: "Básico", desc: "Cães ninja e o brilhantismo da Presa Branca.", options: [opt([], ["kuchiyose"], "Opção 1 · Kuchiyose (Cães)"), opt([...TENSAI_APTS, "presa-prata"], ["versatilidade", "hibon", "kuchiyose"], "Opção 2 · Tensai + Presa de Prata")] },
+  { id: "hyuuga", name: "Clã Hyuuga", kanji: "白", kind: "cla", source: "Básico", desc: "Byakugan e o Juuken, o taijutsu mais forte da Folha.", options: [opt(["byakugan", "tenketsu-byakugan"], ["juuken"])] },
+  { id: "inuzuka", name: "Clã Inuzuka", kanji: "犬", kind: "cla", source: "Básico", desc: "Parceiros caninos, faro apurado e técnicas bestiais.", options: [opt(["companheiro-animal", "hakken"], ["shikakyu"])] },
+  { id: "nara", name: "Clã Nara", kanji: "影", kind: "cla", source: "Básico", desc: "Estrategistas que prendem e controlam pelas sombras.", options: [opt([], ["kagejutsu"])] },
+  { id: "sarutobi", name: "Clã Sarutobi", kanji: "猿", kind: "cla", source: "Básico", desc: "Leais à Vontade do Fogo; macacos invocados ou genialidade.", options: [opt([], ["kuchiyose"], "Opção 1 · Kuchiyose (Macacos)"), opt([...TENSAI_APTS, "vontade-fogo"], ["versatilidade", "hibon", "kuchiyose"], "Opção 2 · Tensai + Vontade do Fogo")] },
+  { id: "senju", name: "Clã Senju", kanji: "木", kind: "cla", source: "Básico", desc: "Clã das Mil Habilidades: Mokuton, regeneração e Senjutsu.", options: [opt(["maximizar", "regeneracao"], ["mokuton", "senjutsu"], "Opção 1 · Mokuton"), opt([...TENSAI_APTS, "maximizar"], ["versatilidade", "hibon"], "Opção 2 · Tensai + Maximizar")] },
+  { id: "uchiha", name: "Clã Uchiha", kanji: "写", kind: "cla", source: "Básico", desc: "Sharingan em quatro estágios e afinidade natural com Katon. Vol. 2 adiciona Izanagi e Izanami.", options: [opt(["elemento-natural-katon", "sharingan", "nidan-sharingan", "sandan-sharingan", "mangekyou", "izanagi", "izanami"])] },
+  { id: "uzumaki", name: "Clã Uzumaki", kanji: "渦", kind: "cla", source: "Básico", desc: "Vitalidade enorme, reservas de chakra e selamento. Poderes recomendados: Fuuinjutsu, Ninpou, Iryou.", options: [opt(["regeneracao", "chakra-expandido", "mil-clones", "kongou-fuusa"], [], "Opção 1"), opt(["kagura-shingan", "ryoushitsu-kagura", "regeneracao", "regeneracao-vigor", "kongou-fuusa"], [], "Opção 2 · Kagura Shingan")] },
+  { id: "yamanaka", name: "Clã Yamanaka", kanji: "心", kind: "cla", source: "Básico", desc: "Transmissão e troca de mentes.", options: [opt([], ["shindenshin"])] },
+  { id: "fuuma", name: "Clã Fuuma", kanji: "風", kind: "cla", source: "Hijutsus 1", desc: "Agressivos, criadores das Fuuma Shurikens.", options: [opt([...TENSAI_APTS, "demonio-vento"], ["versatilidade", "hibon"], "Tensai + Demônio do Vento")] },
+  { id: "hoshigaki", name: "Clã Hoshigaki", kanji: "鮫", kind: "cla", source: "Hijutsus 1", desc: "Aparência de tubarão, especialistas em Suiton.", options: [opt(["predador-aquatico", "elemento-natural-suiton", "reserva-agua"])] },
+  { id: "hozuki", name: "Clã Hōzuki", kanji: "水", kind: "cla", source: "Hijutsus 1", desc: "Liquefazem o corpo com o Suika no Jutsu.", options: [opt(["suika"])] },
+  { id: "kaguya", name: "Clã Kaguya", kanji: "骨", kind: "cla", source: "Hijutsus 1", desc: "Guerreiros bárbaros do Shikotsumyaku, o pulso dos ossos mortais.", options: [opt(["shikotsumyaku", "tsubaki-no-mai", "yanagi-no-mai", "tessenka-no-mai", "sawarabi-no-mai", "regeneracao"])] },
+  { id: "yotsuki", name: "Clã Yotsuki", kanji: "雷", kind: "cla", source: "Hijutsus 1", desc: "Clã de Kumogakure; genialidade e a Lâmina da Lua.", options: [opt([...TENSAI_APTS, "lamina-lua"], ["versatilidade", "hibon"], "Tensai + Lâmina da Lua")] },
+  { id: "yuki", name: "Clã Yuki", kanji: "氷", kind: "cla", source: "Hijutsus 1", desc: "Hyouton: vento e água que formam gelo.", options: [opt(["selos-especiais", "congelamento"], ["hyouton"])] },
+  { id: "shimura", name: "Clã Shimura", kanji: "志", kind: "cla", source: "Hijutsus 2", desc: "Fuuton natural, Kuchiyose Baku ou genialidade.", options: [opt(["elemento-natural-fuuton"], ["kuchiyose"], "1ª opção · Kuchiyose (Baku)"), opt(["elemento-natural-fuuton", ...TENSAI_APTS], ["versatilidade"], "2ª opção · Tensai (Fuuinjutsu/Fuuton)")] },
+  { id: "hoshigakure", name: "Clã de Hoshigakure", kanji: "星", kind: "cla", source: "Hijutsus 2", desc: "Kujaku Myoho, a arte do pavão.", options: [opt(["chakra-expandido", "kujaku-cura", "kujaku-saimin", "kujaku-sacrificio"], ["kujaku"])] },
+
+  // ---------------- Hijutsus ----------------
+  { id: "dokujutsu", name: "Dokujutsu", kind: "hijutsu", kanji: "毒", source: "Guia Avançado", desc: "A arte dos venenos em combate.", options: [opt([], ["dokujutsu"])] },
+  { id: "hachimon", name: "Hachimon Tonkou", kind: "hijutsu", kanji: "門", source: "Básico", stackable: true, desc: "Os Oito Portões Celestiais. Pode ser combinado com clã/hijutsu.", options: [opt(["estilo-lotus"], ["hachimon"])] },
+  { id: "hibon", name: "Hibon Ninpou", kind: "hijutsu", kanji: "秘", source: "Básico", desc: "Ninjutsu único da família. Combina com Trabalho Duro ou Tensai.", options: [opt(["trabalho-duro"], ["hibon"])] },
+  { id: "jinchuuriki", name: "Jinchuuriki", kind: "hijutsu", kanji: "尾", source: "Básico", desc: "Uma Bijuu selada no corpo. Escolha a besta de caudas.", options: [opt([], ["jinchuuriki", "sabaku", "hyouton"], "Padrão", "Alguns elementos (Aoi Katon, Sanbi Suiton, Yonbi Youton, Gobi Futton, Rokubi Suiton, Sabaku) vêm da bijuu escolhida.")] },
+  { id: "kagura", name: "Kagura Shingan", kind: "hijutsu", kanji: "神", source: "Básico", desc: "A técnica final dos ninjas sensores.", options: [opt(["kagura-shingan", "ryoushitsu-kagura"])] },
+  { id: "kuchiyose", name: "Kuchiyose (Hijutsu)", kind: "hijutsu", kanji: "召", source: "Básico", desc: "Contrato restrito de invocação (sapos, cobras, lesmas…). Também existe como poder comum.", options: [opt([], ["kuchiyose", "senjutsu"])] },
+  { id: "magen", name: "Magen", kind: "hijutsu", kanji: "幻", source: "Básico", desc: "Ilusões demoníacas. Requer Fascinar, Miragem e Ilusão Profunda.", options: [opt(["ilusao-fluida"], ["magen"])] },
+  { id: "senjutsu", name: "Senjutsu", kind: "hijutsu", kanji: "仙", source: "Guia Avançado", desc: "Técnica eremita: mistura energia natural ao chakra.", options: [opt([], ["senjutsu"])] },
+  { id: "tensai", name: "Tensai (Genialidade)", kind: "hijutsu", kanji: "才", source: "Básico", desc: "Versatilidade ou Hibon Ninpou e duas Aptidões Especiais.", options: [opt(TENSAI_APTS, ["versatilidade", "hibon"])] },
+  { id: "jiton", name: "Jiton", kind: "hijutsu", kanji: "磁", source: "Hijutsus 1", desc: "Magnetismo: Satetsu ou Sakin. Vol. 2 traz a Versão II.", options: [opt(["peso-ouro", "marca-ferro"], ["jiton"])] },
+  { id: "juuinka", name: "Juuinka (Selo Amaldiçoado)", kind: "hijutsu", kanji: "呪", source: "Hijutsus 1", desc: "Selo amaldiçoado que transforma o corpo.", options: [opt(["juuinka-ichi", "juuinka-ni"])] },
+  { id: "kamijutsu", name: "Kamijutsu", kind: "hijutsu", kanji: "紙", source: "Hijutsus 1", desc: "Técnica secreta dos papéis.", options: [opt(["shikigami-no-mai"], ["kami-ninpou"])] },
+  { id: "nintaijutsu", name: "Nintaijutsu", kind: "hijutsu", kanji: "雷", source: "Hijutsus 1", desc: "Raiton unido ao combate físico.", options: [opt(["armadura-raios"], ["nintaijutsu"])] },
+  { id: "rinnegan", name: "Rinnegan", kind: "hijutsu", kanji: "輪", source: "Hijutsus 1", desc: "O olho dos Seis Caminhos.", options: [opt(["rinnegan", "shurado", "jigokudo", "ningendo", "gakido", "chikushodo", "tendo", "gedo", "rinbo-hengoku"], ["rinne-ninpou"])] },
+  { id: "samurai", name: "Samurai", kind: "hijutsu", kanji: "侍", source: "Hijutsus 1", desc: "Guerreiros do País do Ferro. Não compram poderes comuns nem aptidões shinobi.", options: [opt(["armadura-samurai", "sabre-samurai", "espadachim", "iaido", "iaigiri", "impedir-selos", "issen", "yojinbo"])] },
+  { id: "senninka", name: "Senninka", kind: "hijutsu", kanji: "仙", source: "Hijutsus 1", desc: "Transformação eremita do corpo.", options: [opt([], ["senninka"])] },
+  { id: "bakuton", name: "Bakuton", kind: "hijutsu", kanji: "爆", source: "Hijutsus 2", desc: "Elemento explosão.", options: [opt(["demolicao"], ["bakuton"])] },
+  { id: "buki-senmon", name: "Buki Senmon", kind: "hijutsu", kanji: "武", source: "Hijutsus 2", desc: "Mestre de armas.", options: [opt(["usar-arma-arsenal", "acuidade-perfeita", "arsenal-completo", "mestre-manobras", "instinto-batalha"])] },
+  { id: "chouju-giga", name: "Chouju-Giga", kind: "hijutsu", kanji: "墨", source: "Hijutsus 2", desc: "Pergaminho da Super Besta: pinturas que ganham vida.", options: [opt(["arte-combate"], ["sumi-ninpou"])] },
+  { id: "daikiga", name: "Daikiga", kind: "hijutsu", kanji: "飢", source: "Hijutsus 2", desc: "Fome insaciável de chakra.", options: [opt(["resistencia-insaciavel", "ingestao-chakra", "rakanken", "terra-insaciavel"])] },
+  { id: "gorudogumo", name: "Gorudogumo", kind: "hijutsu", kanji: "蜘", source: "Hijutsus 2", desc: "Aranha dourada: seis braços e teia de ouro.", options: [opt(["seis-bracos", "olho-aranha", "ouro-pegajoso"], ["kumo-ninpou"])] },
+  { id: "hebinomichi", name: "Hebinomichi", kind: "hijutsu", kanji: "蛇", source: "Hijutsus 2", desc: "Caminho da Serpente de Orochimaru.", options: [opt(["possessao-serpente", "yamata"], ["hebi-ninpou"])] },
+  { id: "jashin", name: "Jashin Juusha", kind: "hijutsu", kanji: "邪", source: "Hijutsus 2", desc: "Servo de Jashin: imortalidade e rituais.", options: [opt(["regeneracao", "usar-armas-jashin", "ritual-conexao", "imortalidade", "combatente-sadico", "jashinista-experiente"])] },
+  { id: "jingokuon", name: "Jingokuon", kind: "hijutsu", kanji: "音", source: "Hijutsus 2", desc: "Som infernal.", options: [opt(["sensibilidade-auditiva", "tubos-ar", "kyoumei-supika", "reverberacao"], ["ototon"])] },
+  { id: "jiongu", name: "Jiongu", kind: "hijutsu", kanji: "縫", source: "Hijutsus 2", desc: "Rancor da Terra do Medo (Takigakure).", options: [opt(["corpo-fios", "chakra-expandido-jiongu"], ["jiongu"])] },
+  { id: "kakuran", name: "Kakuran Tensai", kind: "hijutsu", kanji: "乱", source: "Hijutsus 2", desc: "Gênio da agitação.", options: [opt(["kakuran-taijutsu", ...TENSAI_APTS], ["kakuran"])] },
+  { id: "jinton", name: "Jinton (Kekkei Touta)", kind: "hijutsu", kanji: "塵", source: "Hijutsus 2", desc: "Elemento Poeira.", options: [opt(["maximizar", "elemento-natural-terra"], ["jinton"], "Opção 1"), opt(["fissao", "apagar-presenca"], ["jinton"], "Opção 2")] },
+  { id: "kibaku-nendo", name: "Kibaku Nendo", kind: "hijutsu", kanji: "粘", source: "Hijutsus 2", desc: "Argila explosiva de Iwagakure.", options: [opt(["boca-moldagem"], ["kibaku-nendo"])] },
+  { id: "kugutsu", name: "Kugutsu no Jutsu", kind: "hijutsu", kanji: "傀", source: "Hijutsus 2", desc: "Marionetes como armas de batalha.", options: [opt(["kugutsu", "estrangular", "kurohigi", "shirohigi", "akahigi", "hitokugutsu"])] },
+  { id: "kuroi-kaminari", name: "Kuroi Kaminari", kind: "hijutsu", kanji: "黒", source: "Hijutsus 2", desc: "Relâmpago negro.", options: [opt([], ["kuroi-kaminari"])] },
+  { id: "mateki", name: "Mateki", kind: "hijutsu", kanji: "笛", source: "Hijutsus 2", desc: "Flauta demoníaca.", options: [opt(["flautista", "ilusoes-avancadas"], ["kuchiyose"])] },
+  { id: "mei", name: "Mei Kekkei Genkai", kind: "hijutsu", kanji: "溶", source: "Hijutsus 2", desc: "Futton (vapor) e Youton (lava).", options: [opt(["futton-sufocante", "youton-corrosivo", "dupla-linhagem"], ["futton", "youton"])] },
+  { id: "nan-no-kaizou", name: "Nan no Kaizou", kind: "hijutsu", kanji: "改", source: "Hijutsus 2", desc: "Corpo modificado.", options: [opt(["extracao-energetica"], ["nan-no-kaizou"])] },
+  { id: "ranton", name: "Ranton", kind: "hijutsu", kanji: "嵐", source: "Hijutsus 2", desc: "Elemento Tempestade.", options: [opt(["efeito-estroboscopio"], ["ranton"])] },
+  { id: "shakuton", name: "Shakuton", kind: "hijutsu", kanji: "灼", source: "Hijutsus 2", desc: "Elemento Calor.", options: [opt(["mumificar"], ["shakuton"])] },
+  { id: "shouton", name: "Shouton", kind: "hijutsu", kanji: "晶", source: "Hijutsus 2", desc: "Elemento Cristal.", options: [opt(["cristal-guiado", "barreira-regenerativa", "cristalizacao", "congelamento"], ["shouton"])] },
+  { id: "souma", name: "Souma no Jutsu", kind: "hijutsu", kanji: "双", source: "Hijutsus 2", desc: "Técnica dos demônios gêmeos.", options: [opt(["regeneracao-gemea"], ["souma"])] },
+  { id: "tessenjutsu", name: "Tessenjutsu", kind: "hijutsu", kanji: "扇", source: "Hijutsus 2", desc: "O Leque Gigante de Sunagakure.", options: [opt(["mestre-leques", "brisa-navalha", "capacidade-ventos"])] },
+  { id: "zetsu", name: "Zetsu Seitai", kind: "hijutsu", kanji: "胞", source: "Hijutsus 2", desc: "Corpo do Zetsu.", options: [opt(["anatomia-zetsu", "clone-zetsu", "elementos-irrestritos"], ["mokuton"])] },
+  { id: "saika-ikki", name: "Saika Ikki", kind: "hijutsu", kanji: "銃", source: "Guia Avançado", desc: "Estilo com armas de fogo.", options: [opt(["disparos-sujos", "recarga-precisa", "gun-fu", "mira-vital", "armamento-pesado", "alcance-estendido", "atirador-agil"], ["saika-ikki"])] },
+];
+
+export const ORIGIN_BY_ID: Record<string, Origin> = Object.fromEntries(ORIGENS.map((o) => [o.id, o]));
