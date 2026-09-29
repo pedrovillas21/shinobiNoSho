@@ -200,9 +200,15 @@ function BuilderView({
             <button type="button" className="btn-ghost" onClick={() => go(step - 1)} disabled={step === 0}>
               <IconLeft className="size-4" /> {step > 0 ? STEPS[step - 1].label : "Anterior"}
             </button>
-            <button type="button" className="btn-primary" onClick={() => go(step + 1)} disabled={step === STEPS.length - 1}>
-              {step < STEPS.length - 1 ? STEPS[step + 1].label : "Fim"} <IconRight className="size-4" />
-            </button>
+            {step < STEPS.length - 1 ? (
+              <button type="button" className="btn-primary" onClick={() => go(step + 1)}>
+                {STEPS[step + 1].label} <IconRight className="size-4" />
+              </button>
+            ) : (
+              <Link href={`/ficha/${c.id}/mesa`} className="btn-primary">
+                Ir para a Mesa <IconRight className="size-4" />
+              </Link>
+            )}
           </div>
         </main>
 
@@ -223,9 +229,15 @@ function BuilderView({
             <IconList className="size-4" /> Resumo
             {issues.some((i) => i.sev === "erro") && <IconAlert className="size-4 text-bad" />}
           </button>
-          <button type="button" className="btn-primary h-12 flex-1" onClick={() => go(step + 1)} disabled={step === STEPS.length - 1}>
-            {step < STEPS.length - 1 ? STEPS[step + 1].label : "Fim"} <IconRight className="size-4" />
-          </button>
+          {step < STEPS.length - 1 ? (
+            <button type="button" className="btn-primary h-12 flex-1" onClick={() => go(step + 1)}>
+              {STEPS[step + 1].label} <IconRight className="size-4" />
+            </button>
+          ) : (
+            <Link href={`/ficha/${c.id}/mesa`} className="btn-primary h-12 flex-1">
+              Mesa <IconRight className="size-4" />
+            </Link>
+          )}
         </div>
       </div>
 

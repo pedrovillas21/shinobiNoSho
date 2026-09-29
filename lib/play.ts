@@ -1,5 +1,6 @@
 import { ATTRS, COMBAT, SKILLS } from "./data/base";
 import { JUUINKA_BONUS, JUUINKA_BONUS_BY, JUUINKA_ICHI_PICKS, JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "./data/juuinka";
+import { CONTADORES, ESTADOS, ESTADO_BY_ID, blankEffect, ccFromFor, makeEstado, refreshEstado, sg } from "./estados";
 import { aptLevel, combatTotal, derived, hasApt, powerLevel, skillTotal, uid } from "./rules";
 import type { AptEntry, AttrKey, Character, CombatKey, ModTarget, PlayCond, PlayCounter, PlayEffect, PlayLog, PlayMod, PlayState } from "./types";
 
@@ -90,7 +91,7 @@ export const RESET_LABEL: Record<PlayCounter["reset"], string> = {
 
 /* ---------------- utilidades ---------------- */
 
-export const sg = (v: number) => (v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : "0");
+export { sg };
 
 export function modLabel(m: PlayMod) {
   if (m.t === "acel") return m.v >= 2 ? "Super acelerado" : "Acelerado";
@@ -108,26 +109,6 @@ export function vitStatus(v: number) {
 export const hasCond = (p: PlayState, k: string) => p.conds.some((c) => c.k === k);
 
 /* ---------------- presets de estados ---------------- */
-
-const blankEffect = (): PlayEffect => ({
-  id: uid(),
-  name: "Novo estado",
-  src: "Personalizado",
-  active: false,
-  costVit: 0,
-  costChk: 0,
-  gainChk: 0,
-  usedScene: false,
-  perVit: 0,
-  perChk: 0,
-  turns: 0,
-  left: 0,
-  after: "",
-  afterNote: "",
-  afterTurns: 0,
-  hint: "",
-  mods: [],
-});
 
 export const makeCustom = (): PlayEffect => blankEffect();
 
@@ -205,30 +186,39 @@ const YAMATA = [
   { size: "Imenso", bonus: 5, desloc: 9, alcance: 4, furt: -3, intim: 2, chk: 7 },
 ] as const;
 
-const yamataSig = (c: Character | undefined) => `${Math.min(2, Math.max(1, c ? aptLevel(c, "yamata") : 1))}|${c && hasApt(c, "corpulencia") ? "corp" : ""}`;
+// "dv" marca a versão com Dureza de Corpo, CC com Acuidade e a Vitalidade da regra da mesa: estados antigos são remontados.
+const yamataSig = (c: Character | undefined) =>
+  `dv|${Math.min(2, Math.max(1, c ? aptLevel(c, "yamata") : 1))}|${c && hasApt(c, "corpulencia") ? "corp" : ""}|${c ? `${c.attrs.FOR}|${c.attrs.DES}|${c.acuidade && hasApt(c, "acuidade")}` : ""}`;
 
 function applyYamata(e: PlayEffect, c: Character | undefined) {
   const lvl = Math.min(2, Math.max(1, c ? aptLevel(c, "yamata") : 1));
   const Y = YAMATA[lvl - 1];
-  // Tamanho temporário não aumenta a Vitalidade, e o bônus de Força por tamanho não entra no CC.
+  // O bônus de Força por tamanho não entra no CC; a Destreza do Yamata não é de tamanho e, com Acuidade, conta.
+  // Regra da mesa: o Vigor do Yamata aumenta a Vitalidade (o livro diz que tamanho temporário não aumenta).
   const vitPerVig = c && hasApt(c, "corpulencia") ? 6 : 3;
+  const cc = c ? ccFromFor(c, Y.bonus, 0, Y.bonus) : Y.bonus;
   e.auto = "yamata";
   e.sig = yamataSig(c);
   e.src = `Hebinomichi · tamanho ${Y.size}${lvl > 1 ? " · nível 2" : ""}`;
   e.costChk = Y.chk;
+  e.gainVit = vitPerVig * Y.bonus;
   e.mods = [
     { t: "FOR", v: Y.bonus, on: true },
     { t: "DES", v: Y.bonus, on: true },
     { t: "VIG", v: Y.bonus, on: true },
     { t: "desloc", v: Y.desloc, on: true },
-    { t: "CC", v: -Y.bonus, on: true },
-    { t: "vit", v: -vitPerVig * Y.bonus, on: true },
+    ...(cc ? [{ t: "CC" as const, v: -cc, on: true }] : []),
+    { t: "dureza", v: lvl, on: true },
   ];
   e.hint = [
-    `Ação de movimento, contínua. Tamanho ${Y.size}: alcance CC ${Y.alcance}m, Furtividade ${sg(Y.furt)}, Intimidar ${sg(Y.intim)} (soma na Dif do Infligir Medo).`,
+    `Ação de movimento, contínua. Tamanho ${Y.size}: alcance CC ${Y.alcance}m, Furtividade ${sg(Y.furt)}, Intimidar ${sg(Y.intim)} (soma na Dif do Infligir Medo). Dureza de Corpo ${lvl} enquanto estiver na forma.`,
     "Só usa armas e técnicas do Hebi Ninpou, que saem sem selos de mão e sem penalidade por combate próximo.",
-    `CC ${sg(-Y.bonus)} e Vit. máx. ${sg(-vitPerVig * Y.bonus)} desfazem o que a Força e o Vigor somariam: o bônus de Força por tamanho não entra no CC e tamanho temporário não aumenta a Vitalidade.`,
-  ].join(" ");
+    cc ? `CC ${sg(-cc)} desfaz o que a Força de tamanho somaria (Livro Básico, pág. 271: Força de tamanho não entra no CC).` : "",
+    c?.acuidade && hasApt(c, "acuidade") ? `Com Acuidade, a Destreza +${Y.bonus} do Yamata (que não é de tamanho) conta no CC.` : "",
+    `Regra da mesa: o Vigor +${Y.bonus} aumenta a Vitalidade (+${e.gainVit} no máximo e na vida atual ao ativar). Ao desativar, a vida volta a caber no máximo normal.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export const makeYamata = (c?: Character): PlayEffect => {
@@ -288,6 +278,48 @@ export function syncPlay(c: Character, p: PlayState): boolean {
       markSeen("hachimon");
     }
   }
+  // Estados do catálogo: remonta os que já estão na mesa e cria os que a ficha tem.
+  for (const e of p.effects) {
+    const def = e.auto ? ESTADO_BY_ID[e.auto] : undefined;
+    if (def && e.sig !== def.sig(c)) {
+      refreshEstado(e, def, c);
+      changed = true;
+    }
+  }
+  for (const def of ESTADOS) {
+    if (def.auto === false || !def.has(c)) continue;
+    if (p.effects.some((e) => e.auto === def.id)) markSeen(def.id);
+    else if (!seen.has(def.id)) {
+      p.effects.push(makeEstado(def, c));
+      markSeen(def.id);
+    }
+  }
+  // Kawarimi: a Possessão da Serpente Branca troca a pele (ação parcial) e, no nível 2, dá um uso a mais.
+  const kw = p.counters.find((k) => k.auto === "kawarimi") ?? p.counters.find((k) => !k.auto && k.n === "Kawarimi no Jutsu");
+  if (kw) {
+    const pos = aptLevel(c, "possessao-serpente");
+    const max = pos >= 2 ? 2 : 1;
+    const note = pos
+      ? `Troca de pele: ação parcial (sem se deslocar; para se mover, use a ação de movimento)${pos >= 2 ? " · +1 uso pela Possessão da Serpente Branca Nv 2" : ""}`
+      : undefined;
+    if (kw.auto !== "kawarimi" || kw.max !== max || kw.note !== note) {
+      kw.cur = Math.max(0, Math.min(max, kw.cur + max - kw.max));
+      kw.max = max;
+      kw.note = note;
+      kw.auto = "kawarimi";
+      changed = true;
+    }
+  }
+  for (const k of CONTADORES) {
+    if (!k.has(c)) continue;
+    const key = `contador:${k.id}`;
+    if (p.counters.some((x) => x.n === k.n)) markSeen(key);
+    else if (!seen.has(key)) {
+      const max = k.max(c);
+      p.counters.push({ id: uid(), n: k.n, cur: max, max, reset: k.reset });
+      markSeen(key);
+    }
+  }
   return changed;
 }
 
@@ -335,7 +367,7 @@ export function makeHachimon(level = 1): PlayEffect {
 export function newPlay(c: Character): PlayState {
   const d = derived(c);
   const effects: PlayEffect[] = [];
-  const counters: PlayCounter[] = [{ id: uid(), n: "Kawarimi no Jutsu", cur: 1, max: 1, reset: "cena" }];
+  const counters: PlayCounter[] = [{ id: uid(), n: "Kawarimi no Jutsu", cur: 1, max: 1, reset: "cena", auto: "kawarimi" }];
   for (const it of c.items) {
     if (!it.name.trim()) continue;
     const pill = /p[ií]lula/i.test(it.name);
@@ -353,7 +385,8 @@ export function playView(c: Character, p: PlayState) {
   const add: Partial<Record<ModTarget, number>> = {};
   for (const e of p.effects) {
     if (!e.active) continue;
-    for (const m of e.mods) if (m.on) add[m.t] = (add[m.t] ?? 0) + m.v;
+    // Acelerado não soma entre estados: vale o maior (2 = super acelerado).
+    for (const m of e.mods) if (m.on) add[m.t] = m.t === "acel" ? Math.max(add.acel ?? 0, m.v) : (add[m.t] ?? 0) + m.v;
   }
   const g = (k: ModTarget) => add[k] ?? 0;
 
@@ -489,7 +522,8 @@ function checkGates(p: PlayState, log: Logger) {
   p.effects.forEach((e) => e.active && e.gate && deactivate(p, e, log, "Vitalidade em 0"));
 }
 
-export function toggleEffect(p: PlayState, id: string, log: Logger) {
+/** `c` é usado para devolver a vida ao máximo normal quando um estado com `gainVit` é desligado. */
+export function toggleEffect(p: PlayState, id: string, log: Logger, c?: Character) {
   const e = p.effects.find((x) => x.id === id);
   if (!e) return;
   const isIchi = e.auto === "juuinka-ichi" || (!e.auto && e.name === "Juuinka · Ichi");
@@ -498,17 +532,29 @@ export function toggleEffect(p: PlayState, id: string, log: Logger) {
     // Fechar o 1º estágio fecha o 2º junto.
     const ni = isIchi ? findJuuinka(p, "juuinka-ni") : undefined;
     if (ni?.active) deactivate(p, ni, log, "1º estágio desativado");
-    return deactivate(p, e, log);
+    deactivate(p, e, log);
+    if (e.gainVit && c) {
+      const max = playView(c, p).vitMax;
+      if (p.vit > max) {
+        log(`${e.name}: Vitalidade volta ao máximo (${p.vit} → ${max})`, "n");
+        p.vit = max;
+      }
+    }
+    return;
   }
   // O 2º estágio exige o 1º liberado antes.
   const ichi = isNi ? findJuuinka(p, "juuinka-ichi") : undefined;
-  if (ichi && !ichi.active) toggleEffect(p, ichi.id, log);
+  if (ichi && !ichi.active) toggleEffect(p, ichi.id, log, c);
   e.active = true;
   e.left = e.turns || 0;
   const parts: string[] = [];
   if (e.costVit) {
     p.vit -= e.costVit;
     parts.push(`−${e.costVit} Vit`);
+  }
+  if (e.gainVit) {
+    p.vit += e.gainVit;
+    parts.push(`+${e.gainVit} Vit`);
   }
   if (e.costChk) {
     p.chk -= e.costChk;
@@ -548,6 +594,44 @@ export function toggleMod(e: PlayEffect, i: number, log: Logger) {
   while (order.length > e.pick) e.mods[order.shift()!].on = false;
   e.picked = order;
   if (e.active) log(`${e.name}: bônus agora ${onLabels(e) || "nenhum"}`, "n");
+}
+
+/** Troca a forma de um estado do catálogo; com ele ligado, paga os custos da forma nova. */
+export function setEstadoStage(p: PlayState, id: string, stage: number, c: Character, log: Logger) {
+  const e = p.effects.find((x) => x.id === id);
+  const def = e?.auto ? ESTADO_BY_ID[e.auto] : undefined;
+  if (!e || !def) return;
+  const from = e.stage ?? 0;
+  if (from === stage) return;
+  e.stage = stage;
+  refreshEstado(e, def, c);
+  if (!e.active) return;
+  const cost = def.switchCost ? def.switchCost(e, from, stage, c) : { vit: e.costVit, chk: e.costChk, gain: e.gainChk };
+  const parts: string[] = [];
+  if (cost.vit) {
+    p.vit -= cost.vit;
+    parts.push(`−${cost.vit} Vit`);
+  }
+  if (cost.chk) {
+    p.chk -= cost.chk;
+    parts.push(`−${cost.chk} Chakra`);
+  }
+  if (cost.gain) {
+    p.chk += cost.gain;
+    parts.push(`+${cost.gain} Chakra`);
+  }
+  log(`${e.name}: ${def.stages?.(c)[stage]?.label ?? "nova forma"}${parts.length ? ` (${parts.join(", ")})` : ""}`, "n");
+  checkChakra(p, log);
+}
+
+/** Liga/desliga a opção de um estado do catálogo (Controle Total, pílula…). */
+export function toggleEstadoOpt(p: PlayState, id: string, c: Character, log: Logger) {
+  const e = p.effects.find((x) => x.id === id);
+  const def = e?.auto ? ESTADO_BY_ID[e.auto] : undefined;
+  if (!e || !def?.opt) return;
+  e.opt = !e.opt;
+  refreshEstado(e, def, c);
+  log(`${e.name}: ${def.opt} ${e.opt ? "ligado" : "desligado"}`, "n");
 }
 
 export function nextTurn(p: PlayState, log: Logger) {

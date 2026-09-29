@@ -261,6 +261,8 @@ export interface PlayEffect {
   costChk: number;
   /** Chakra ganho ao ativar, uma vez por cena (ex.: Juuinka Ni). */
   gainChk: number;
+  /** Vitalidade atual ganha ao ativar, por aumento da Vit. máx. (ex.: Yamata pela regra da mesa). Ao desativar, a vida volta ao máximo normal. */
+  gainVit?: number;
   usedScene: boolean;
   perVit: number;
   perChk: number;
@@ -282,6 +284,10 @@ export interface PlayEffect {
   pick?: number;
   /** Índices dos bônus ligados, na ordem em que foram escolhidos. */
   picked?: number[];
+  /** Forma escolhida em estados do catálogo com várias formas (tamanho do Baika, modo da Bijuu…). */
+  stage?: number;
+  /** Opção liga/desliga do estado do catálogo (Controle Total, pílula…). */
+  opt?: boolean;
   mods: PlayMod[];
 }
 
@@ -302,6 +308,10 @@ export interface PlayCounter {
   max: number;
   reset: "cena" | "descanso" | "nunca";
   pill?: boolean;
+  /** Contador criado a partir da ficha (ex.: "kawarimi"); a mesa o mantém em dia com as aptidões. */
+  auto?: string;
+  /** Regra curta mostrada abaixo do nome. */
+  note?: string;
 }
 
 /** Ataque anotado à mão na mesa (arma, taijutsu, técnica de outro livro…). */

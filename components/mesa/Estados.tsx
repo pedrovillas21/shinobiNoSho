@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { ESTADOS, ESTADO_BY_ID, makeEstado } from "@/lib/estados";
 import {
   COND_BY,
   GATES,
@@ -13,21 +14,33 @@ import {
   makeJuuinkaNi,
   makeYamata,
   modLabel,
+  setEstadoStage,
   toggleEffect,
+  toggleEstadoOpt,
   toggleMod,
 } from "@/lib/play";
-import { powerLevel } from "@/lib/rules";
+import { hasApt, powerLevel } from "@/lib/rules";
 import type { Character, ModTarget, PlayEffect } from "@/lib/types";
 import { IconPlus, IconX } from "../ui";
 import { NumInput, SectionTitle, type MesaProps } from "./shared";
 
-const PRESETS = [
-  { label: "Juuinka · Ichi", make: (_lvl: number, c: Character) => makeJuuinkaIchi(c) },
-  { label: "Juuinka · Ni", make: (_lvl: number, c: Character) => makeJuuinkaNi(c) },
-  { label: "Hachimon Tonkou", make: (lvl: number) => makeHachimon(lvl) },
-  { label: "Yamata no Jutsu", make: (_lvl: number, c: Character) => makeYamata(c) },
-  { label: "Estado personalizado", make: () => makeCustom() },
+interface Preset {
+  id: string;
+  label: string;
+  has: (c: Character) => boolean;
+  make: (c: Character) => PlayEffect;
+}
+
+/** Todos os poderes e aptidões ativáveis dos livros; os que a ficha tem aparecem como botão. */
+const BUILTIN: Preset[] = [
+  { id: "juuinka-ichi", label: "Juuinka · Ichi", has: (c) => hasApt(c, "juuinka-ichi"), make: (c) => makeJuuinkaIchi(c) },
+  { id: "juuinka-ni", label: "Juuinka · Ni", has: (c) => hasApt(c, "juuinka-ni"), make: (c) => makeJuuinkaNi(c) },
+  { id: "hachimon", label: "Hachimon Tonkou", has: (c) => powerLevel(c, "hachimon") > 0, make: (c) => makeHachimon(Math.max(1, powerLevel(c, "hachimon"))) },
+  { id: "yamata", label: "Yamata no Jutsu", has: (c) => hasApt(c, "yamata"), make: (c) => makeYamata(c) },
 ];
+const PRESETS: Preset[] = [...BUILTIN, ...ESTADOS.map((d) => ({ id: d.id, label: d.name, has: d.has, make: (c: Character) => makeEstado(d, c) }))].sort((a, b) =>
+  a.label.localeCompare(b.label, "pt"),
+);
 
 export function Estados(props: MesaProps) {
   const { c, p, commit } = props;
@@ -41,26 +54,48 @@ export function Estados(props: MesaProps) {
       return n;
     });
 
-  const add = (i: number) => {
-    const e = PRESETS[i].make(hachiLevel, c);
+  const push = (e: PlayEffect, edit = false) => {
     commit((pl, log) => {
       pl.effects.push(e);
       log(`${e.name} adicionado`, "n");
     });
-    if (i === PRESETS.length - 1) setEditing((s) => new Set(s).add(e.id));
+    if (edit) setEditing((s) => new Set(s).add(e.id));
   };
+  const mine = PRESETS.filter((pr) => pr.has(c));
+  const others = PRESETS.filter((pr) => !pr.has(c));
 
   return (
     <section aria-labelledby="h-estados" className="card flex flex-col gap-4 p-4 sm:p-5">
       <SectionTitle id="h-estados" title="Estados e transformações">
         Ligue para somar os bônus à ficha em tempo real. Toque num bônus para escolher se ele vale; em “Editar” tudo pode ser mudado.
       </SectionTitle>
-      <div className="flex flex-wrap gap-2">
-        {PRESETS.map((pr, i) => (
-          <button key={pr.label} type="button" className="chip text-text hover:border-muted" onClick={() => add(i)}>
+      <div className="flex flex-wrap items-center gap-2">
+        {mine.map((pr) => (
+          <button key={pr.id} type="button" className="chip text-text hover:border-muted" onClick={() => push(pr.make(c))}>
             <IconPlus className="size-4" /> {pr.label}
           </button>
         ))}
+        <button type="button" className="chip text-text hover:border-muted" onClick={() => push(makeCustom(), true)}>
+          <IconPlus className="size-4" /> Estado personalizado
+        </button>
+        {others.length > 0 && (
+          <select
+            aria-label="Adicionar estado de outro poder do livro"
+            className="field min-h-10 w-auto py-1.5 text-sm"
+            value=""
+            onChange={(ev) => {
+              const pr = PRESETS.find((x) => x.id === ev.target.value);
+              if (pr) push(pr.make(c));
+            }}
+          >
+            <option value="">Outros do livro…</option>
+            {others.map((pr) => (
+              <option key={pr.id} value={pr.id}>
+                {pr.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {p.effects.length === 0 ? (
@@ -86,6 +121,7 @@ function costLine(e: PlayEffect) {
   const parts: string[] = [];
   if (e.costVit) parts.push(`${e.costVit} Vit ao ativar`);
   if (e.costChk) parts.push(`${e.costChk} Chakra ao ativar`);
+  if (e.gainVit) parts.push(`+${e.gainVit} Vit ao ativar`);
   if (e.perVit) parts.push(`−${e.perVit} Vit por turno`);
   if (e.perChk) parts.push(`−${e.perChk} Chakra por turno`);
   if (e.gainChk) parts.push(`+${e.gainChk} Chakra 1×/cena${e.usedScene ? " (usado)" : ""}`);
@@ -102,11 +138,14 @@ function EffectCard({
   edit,
   onToggleEdit,
   hachiLevel,
+  c,
   commit,
   patch,
 }: MesaProps & { e: PlayEffect; edit: boolean; onToggleEdit: () => void; hachiLevel: number }) {
   const [newT, setNewT] = useState<ModTarget>("FOR");
   const [newV, setNewV] = useState(1);
+  const def = e.auto ? ESTADO_BY_ID[e.auto] : undefined;
+  const stages = def?.stages?.(c);
 
   /** Mudanças de jogo no estado (entram no desfazer). */
   const change = (fn: (x: PlayEffect) => void) =>
@@ -129,7 +168,7 @@ function EffectCard({
           role="switch"
           aria-checked={e.active}
           aria-label={`Ativar ${e.name}`}
-          onClick={() => commit((pl, log) => toggleEffect(pl, e.id, log))}
+          onClick={() => commit((pl, log, cd) => toggleEffect(pl, e.id, log, cd))}
           className={`relative mt-1 inline-flex h-8 w-14 shrink-0 rounded-full transition sm:mt-0 ${e.active ? "bg-chakra" : "bg-line-2"}`}
         >
           <motion.span layout className={`absolute top-1 size-6 rounded-full bg-white ${e.active ? "right-1" : "left-1"}`} />
@@ -170,6 +209,38 @@ function EffectCard({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {(stages || def?.opt) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {stages?.map((s, i) => {
+            const sel = (e.stage ?? 0) === i;
+            return (
+              <button
+                key={s.label}
+                type="button"
+                aria-pressed={sel}
+                title={s.faint ? "Acima do que a ficha permite hoje" : undefined}
+                onClick={() => commit((pl, log, cd) => setEstadoStage(pl, e.id, i, cd, log))}
+                className={`min-h-10 rounded-lg border px-3 text-sm font-bold transition ${sel ? "border-chakra bg-chakra text-paper-ink" : s.faint ? "border-line-2 text-faint hover:border-muted" : "border-line-2 text-text hover:border-muted"}`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+          {def?.opt && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!e.opt}
+              onClick={() => commit((pl, log, cd) => toggleEstadoOpt(pl, e.id, cd, log))}
+              className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-bold transition ${stages ? "sm:ml-2" : ""} ${e.opt ? "border-chakra bg-[#3a2410] text-[#ffd3a8]" : "border-dashed border-line-2 text-muted hover:border-muted"}`}
+            >
+              <span className={`size-2 rounded-full ${e.opt ? "bg-chakra" : "bg-[#5a4c3c]"}`} />
+              {def.opt}
+            </button>
+          )}
         </div>
       )}
 

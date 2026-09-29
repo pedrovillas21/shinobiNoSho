@@ -110,7 +110,7 @@ function Contadores({ c, v, p, commit, patch }: MesaProps) {
       </h2>
       <ul className="flex flex-col">
         {p.counters.map((k) => (
-          <li key={k.id} className="flex items-center gap-2 border-b border-line py-2">
+          <li key={k.id} className="flex flex-wrap items-center gap-2 border-b border-line py-2">
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-bold">{k.n}</span>
               <span className="text-xs text-muted">
@@ -141,6 +141,7 @@ function Contadores({ c, v, p, commit, patch }: MesaProps) {
             >
               <IconTrash className="size-4" />
             </button>
+            {k.note && <span className="basis-full text-xs leading-snug text-muted">{k.note}</span>}
           </li>
         ))}
         {p.counters.length === 0 && <li className="py-2 text-sm text-muted">Nenhum contador.</li>}

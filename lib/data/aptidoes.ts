@@ -68,7 +68,7 @@ const COMUNS: Aptidao[] = [
   { id: "derrubar-agressivo", name: "Derrubar Agressivo", cat: "manobra", free: true, source: "Básico", reqText: "Lutador ou Guerreiro", req: [ANY(AP("lutador"), AP("guerreiro"))], desc: "Causa dano e derruba o inimigo." },
   { id: "desarme-agressivo", name: "Desarme Agressivo", cat: "manobra", free: true, source: "Básico", reqText: "Lutador ou Guerreiro", req: [ANY(AP("lutador"), AP("guerreiro"))], desc: "Causa dano e desarma o inimigo." },
   { id: "desarme-distancia", name: "Desarme à Distância", cat: "manobra", source: "Guia Avançado", reqText: "Combate à Distância 11; Inteligência 3", req: [C("CD", 11), A("INT", 3)], desc: "Desarma com projéteis." },
-  { id: "zui-quan", name: "Estilo Zui Quan (Punhos Bêbados)", cat: "manobra", source: "Guia Avançado", reqText: "Ponto Cego; Punho de Ferro; Vigor 8", req: [AP("ponto-cego"), AP("punho-ferro"), A("VIG", 8)], desc: "Estilo imprevisível do punho bêbado." },
+  { id: "zui-quan", name: "Estilo Zui Quan (Punhos Bêbados)", cat: "manobra", maxLevel: 2, source: "Guia Avançado", reqText: "Ponto Cego; Punho de Ferro; Vigor 8", req: [AP("ponto-cego"), AP("punho-ferro"), A("VIG", 8)], desc: "Estilo imprevisível do punho bêbado. Nível 2 (Força 15, Vigor 12, Resistência Maior: Vigor): entra com ação livre, sem bebida nem confusão, e fica contínuo." },
   { id: "flechada-joelho", name: "Flechada no Joelho", cat: "manobra", source: "Guia Avançado", reqText: "Combate à Distância 11; Inteligência 3", req: [C("CD", 11), A("INT", 3)], desc: "Disparo que reduz a mobilidade do alvo." },
   { id: "golpe-atemi", name: "Golpe Atemi", cat: "manobra", source: "Básico", reqText: "Ataque Poderoso; Crítico Aprimorado", req: [AP("ataque-poderoso"), AP("critico-aprimorado")], desc: "Mira um ponto vital, causando mais dano." },
   { id: "golpe-carate", name: "Golpe Caratê", cat: "manobra", source: "Básico", reqText: "Combate Corporal 15; Especialista (Ataque Desarmado)", req: [C("CC", 15), AP("especialista")], desc: "Golpe forte que ignora durezas." },
@@ -230,7 +230,7 @@ const RESTRITAS: Aptidao[] = [
   r("issen", "Issen", "Hijutsus 1", "Corte de um só traço.", "Destreza 12; Espírito 12; Sabre Samurai; Ambidestria", [A("DES", 12), A("ESP", 12), AP("sabre-samurai"), AP("ambidestria")]),
   r("yojinbo", "Yojinbo", "Hijutsus 1", "Guarda-costas implacável.", "Destreza 10; Espadachim; Saque Rápido; Iaido; Ataque em Movimento", [A("DES", 10), AP("iaido"), AP("ataque-em-movimento")]),
   // Senninka / Nintaijutsu
-  r("armadura-raios", "Armadura de Raios", "Hijutsus 1", "Nintaijutsu: manto de raios que acelera o corpo."),
+  r("armadura-raios", "Armadura de Raios", "Hijutsus 1", "Nintaijutsu: manto de raios que acelera o corpo. Nível 1: 4 chakra, dureza 1, +5m, acelerado. Nível 2 (Nintaijutsu 6, Espírito 9): 6 chakra, dureza 2, +10m. Nível 3 (Nintaijutsu 8, Espírito 14): 8 chakra, dureza 3, +15m.", "Nintaijutsu 5; Espírito 6", [P("nintaijutsu", 5), A("ESP", 6)], { maxLevel: 3 }),
   // Vol 2
   r("elemento-natural-fuuton", "Elemento Natural: Fuuton", "Hijutsus 2", "Fuuton natural do clã Shimura.", "Espírito 1; Fuuton 1", [A("ESP", 1), P("fuuton", 1)]),
   r("kujaku-cura", "Kujaku Myoho: Cura", "Hijutsus 2", "Cura com a arte do pavão.", "Ninja Médico; Kujaku Myoho 5", [AP("ninja-medico"), P("kujaku", 5)]),
