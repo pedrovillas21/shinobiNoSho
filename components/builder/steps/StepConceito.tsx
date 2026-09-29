@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { ALIGNMENTS, VILLAGES } from "@/lib/data/base";
-import { NC_MAX, NC_MIN, budgetFor, rankLabel } from "@/lib/rules";
+import { NC_MAX, NC_MIN, POWER_BONUS, POWER_BONUS_NCS, budgetFor, rankLabel } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 import { StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
@@ -106,6 +106,10 @@ export function StepConceito({ c, set }: StepProps) {
         </div>
         <p className="text-sm leading-relaxed text-muted">
           Regra da mesa: o NC vai até <strong className="text-paper">30</strong>. Acima do 20, cada nível soma +6 atributos, +4 perícias e +2 poderes, e o mínimo de atributo sobe 1 a cada NC ímpar.
+          Nos NCs <strong className="text-paper">{POWER_BONUS_NCS.join(", ")}</strong> você ganha <strong className="text-paper">+{POWER_BONUS} pontos de poder</strong> além do normal.
+        </p>
+        <p className="text-sm leading-relaxed text-muted">
+          A criação é livre: nada é travado. Quando algo sai das regras normais (pontos a mais, restrito de outro clã, pré-requisito faltando), a ficha só mostra uma observação.
         </p>
       </section>
 
@@ -113,16 +117,10 @@ export function StepConceito({ c, set }: StepProps) {
         <h3 className="font-display text-2xl font-extrabold text-paper">Regras opcionais</h3>
         <p className="mb-2 text-sm text-muted">Combine com o mestre antes de ativar.</p>
         <Toggle
-          checked={c.optionals.livre}
-          onChange={(v) => set((d) => void (d.optionals.livre = v))}
-          label="Modo livre (sem travas)"
-          hint="Ignora orçamentos, limites de NC e pré-requisitos. Tudo vira aviso em vez de erro. Bom para PdMs e fichas da casa."
-        />
-        <Toggle
           checked={c.optionals.tresPontosPoder}
           onChange={(v) => set((d) => void (d.optionals.tresPontosPoder = v))}
           label="3 pontos de poder por NC (Guia Avançado)"
-          hint="Começa com 6 no NC 4, +3 por nível, 60 no NC 20 (e +3 por nível acima)."
+          hint="Começa com 6 no NC 4, +3 por nível, 60 no NC 20 (e +3 por nível acima, mais os bônus da mesa)."
         />
         <Toggle
           checked={c.optionals.aptidoesBanidas}
@@ -140,7 +138,7 @@ export function StepConceito({ c, set }: StepProps) {
           checked={c.optionals.multiHijutsu}
           onChange={(v) => set((d) => void (d.optionals.multiHijutsu = v))}
           label="Dois ou mais clãs/hijutsus (Livro Básico)"
-          hint="Permite escolher origens extras na etapa Clã. Use com cautela."
+          hint="Sem ela, origens extras na etapa Clã aparecem como observação. Use com cautela."
         />
       </section>
     </div>

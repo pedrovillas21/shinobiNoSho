@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { endCombat, newPlay, nextTurn, playView, type Logger } from "@/lib/play";
+import { endCombat, newPlay, nextTurn, playView, syncPlay, type Logger } from "@/lib/play";
 import { originKanji, originName, rankLabel, uid } from "@/lib/rules";
 import { downloadJSON, useChars, useHydrated } from "@/lib/store";
 import type { Character, PlayLog, PlayState } from "@/lib/types";
 import { AnimatedNumber, IconDownload, IconInfo, IconLeft, IconRight } from "../ui";
+import { Ataques } from "./Ataques";
 import { Condicoes } from "./Condicoes";
 import { Energias } from "./Energias";
 import { Estados } from "./Estados";
@@ -21,7 +22,10 @@ export function Mesa({ id }: { id: string }) {
 
   // Primeira abertura da mesa: vitalidade e chakra cheios, estados sugeridos pela ficha.
   useEffect(() => {
-    if (hydrated && c && !c.play) update(id, (d) => void (d.play = newPlay(d)));
+    if (!hydrated || !c) return;
+    if (!c.play) update(id, (d) => void (d.play = newPlay(d)));
+    // Aptidões compradas ou escolhas mudadas depois da primeira abertura entram na mesa.
+    else if (syncPlay(c, structuredClone(c.play))) update(id, (d) => void (d.play && syncPlay(d, d.play)));
   }, [hydrated, c, id, update]);
 
   useEffect(() => {
@@ -132,7 +136,7 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
         <div className="border-t border-[#4a3218] bg-[#2a1c10]">
           <p className="mx-auto flex max-w-7xl items-start gap-2 px-4 py-2 text-[13px] leading-snug text-[#ffd3a8] sm:px-8">
             <IconInfo className="mt-0.5 size-4 shrink-0" />
-            Modo livre: nada é travado. O site só faz as contas; bônus, custos e condições podem ser ligados, desligados e editados a qualquer momento. Quem arbitra é a mesa.
+            Nada é travado. O site só faz as contas; bônus, custos e condições podem ser ligados, desligados e editados a qualquer momento. Quem arbitra é a mesa.
           </p>
         </div>
       </header>
@@ -140,6 +144,7 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 pt-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <main className="flex min-w-0 flex-col gap-6">
           <Energias {...props} />
+          <Ataques {...props} />
           <Estados {...props} />
           <Condicoes {...props} />
           <Numeros {...props} />

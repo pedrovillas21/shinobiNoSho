@@ -47,7 +47,7 @@ export function StepCla({ c, set }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
       <StepHeader kicker="Etapa 2" title="Clã ou Hijutsu">
-        Escolher não custa pontos: libera a compra das aptidões e poderes restritos. Por regra, apenas um clã ou um hijutsu (Hachimon Tonkou pode ser somado).
+        Escolher não custa pontos: libera a compra das aptidões e poderes restritos. Por regra, apenas um clã ou um hijutsu (Hachimon Tonkou pode ser somado); origens extras sem a regra opcional ficam como observação.
       </StepHeader>
 
       <AnimatePresence initial={false}>
@@ -165,7 +165,8 @@ export function StepCla({ c, set }: StepProps) {
         {list.map((o) => {
           const on = c.originId === o.id;
           const extra = c.extraOrigins.includes(o.id);
-          const canExtra = !!c.originId && !on && (c.optionals.multiHijutsu || o.stackable);
+          const canExtra = !!c.originId && !on;
+          const extraRule = !o.stackable && !c.optionals.multiHijutsu;
           const n = o.options.reduce((t, x) => t + x.aptidoes.length + x.poderes.length, 0);
           return (
             <motion.li layout key={o.id} className={`relative flex flex-col gap-3 rounded-2xl border-2 p-4 transition ${on ? "border-seal bg-paper text-paper-ink" : extra ? "border-chakra bg-panel" : "border-line bg-panel hover:border-line-2"}`}>
@@ -192,7 +193,7 @@ export function StepCla({ c, set }: StepProps) {
                 </span>
                 {canExtra && (
                   <button type="button" onClick={() => toggleExtra(o)} className="relative z-10 chip min-h-8 text-xs text-text">
-                    {extra ? "Remover extra" : "+ Extra"}
+                    {extra ? "Remover extra" : extraRule ? "+ Extra (fora da regra)" : "+ Extra"}
                   </button>
                 )}
               </div>

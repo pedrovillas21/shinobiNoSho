@@ -65,6 +65,8 @@ export interface Efeito {
   level: number;
   desc: string;
   source: Source;
+  /** Níveis do poder em que o efeito pode ser escolhido de novo para evoluir, em ordem (ex.: Raio: [5, 8]). */
+  evolves?: number[];
 }
 
 export type PowerMode = "efeitos" | "tecnicas" | "livre";
@@ -133,6 +135,12 @@ export interface AptEntry {
   detail?: string;
   level: number;
   free: boolean;
+  /** Escolhas feitas na compra (ex.: os 2 bônus do Juuinka). */
+  choices?: string[];
+  /** Variante escolhida na compra (ex.: Selo do Céu ou da Terra). */
+  variant?: string;
+  /** Efeito/observação escrito pela pessoa (aptidões personalizadas). */
+  note?: string;
 }
 
 export interface ItemEntry {
@@ -153,8 +161,6 @@ export interface Optionals {
   danoExtraAuto: boolean;
   /** Livro Básico: mais de um clã/hijutsu. */
   multiHijutsu: boolean;
-  /** Modo livre: ignora orçamentos e limites (PdMs, fichas da casa). */
-  livre: boolean;
 }
 
 /** Clã ou hijutsu criado pelo próprio jogador/mestre. */
@@ -268,6 +274,14 @@ export interface PlayEffect {
   hint: string;
   /** Portão do Hachimon, quando o estado é um Hachimon. */
   gate?: number;
+  /** Estado criado a partir da ficha (ex.: "juuinka-ichi"); a mesa o mantém em dia com as escolhas da criação. */
+  auto?: string;
+  /** Assinatura das escolhas usadas para montar os bônus. */
+  sig?: string;
+  /** Quantos bônus podem ficar ligados ao mesmo tempo (ex.: 2 no Juuinka · Ichi); ligar outro desliga o mais antigo. */
+  pick?: number;
+  /** Índices dos bônus ligados, na ordem em que foram escolhidos. */
+  picked?: number[];
   mods: PlayMod[];
 }
 
@@ -290,6 +304,15 @@ export interface PlayCounter {
   pill?: boolean;
 }
 
+/** Ataque anotado à mão na mesa (arma, taijutsu, técnica de outro livro…). */
+export interface PlayAttack {
+  id: string;
+  name: string;
+  base: number;
+  cost: number;
+  note: string;
+}
+
 export interface PlayLog {
   id: string;
   r: string;
@@ -306,4 +329,10 @@ export interface PlayState {
   counters: PlayCounter[];
   log: PlayLog[];
   notes: string;
+  /** Estados automáticos já criados uma vez (se a pessoa remover, a mesa não recria). */
+  autoSeen?: string[];
+  /** Ataques personalizados do painel de ataques. */
+  attacks?: PlayAttack[];
+  /** Bônus de dano extra por poder (id do poder), para bônus que a ficha não sabe calcular. */
+  dmgExtra?: Record<string, number>;
 }

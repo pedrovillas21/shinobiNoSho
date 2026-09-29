@@ -66,7 +66,7 @@ export const ORIGENS: Origin[] = [
   { id: "souma", name: "Souma no Jutsu", kind: "hijutsu", kanji: "双", source: "Hijutsus 2", desc: "Técnica dos demônios gêmeos.", options: [opt(["regeneracao-gemea"], ["souma"])] },
   { id: "tessenjutsu", name: "Tessenjutsu", kind: "hijutsu", kanji: "扇", source: "Hijutsus 2", desc: "O Leque Gigante de Sunagakure.", options: [opt(["mestre-leques", "brisa-navalha", "capacidade-ventos"])] },
   { id: "zetsu", name: "Zetsu Seitai", kind: "hijutsu", kanji: "胞", source: "Hijutsus 2", desc: "Corpo do Zetsu.", options: [opt(["anatomia-zetsu", "clone-zetsu", "elementos-irrestritos"], ["mokuton"])] },
-  { id: "saika-ikki", name: "Saika Ikki", kind: "hijutsu", kanji: "銃", source: "Guia Avançado", desc: "Estilo com armas de fogo.", options: [opt(["disparos-sujos", "recarga-precisa", "gun-fu", "mira-vital", "armamento-pesado", "alcance-estendido", "atirador-agil"], ["saika-ikki"])] },
+  { id: "saika-ikki", name: "Saika Ikki", kind: "hijutsu", kanji: "銃", source: "Guia Avançado", desc: "Estilo com armas de fogo.", options: [opt(["disparos-sujos", "recarga-precisa", "gun-fu", "mira-vital", "armamento-pesado", "alcance-estendido", "atirador-agil"])] },
 ];
 
 export const ORIGIN_BY_ID: Record<string, Origin> = Object.fromEntries(ORIGENS.map((o) => [o.id, o]));

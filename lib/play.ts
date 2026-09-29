@@ -1,6 +1,7 @@
 import { ATTRS, COMBAT, SKILLS } from "./data/base";
-import { combatTotal, derived, hasApt, powerLevel, skillTotal, uid } from "./rules";
-import type { AttrKey, Character, CombatKey, ModTarget, PlayCond, PlayCounter, PlayEffect, PlayLog, PlayMod, PlayState } from "./types";
+import { JUUINKA_BONUS, JUUINKA_BONUS_BY, JUUINKA_ICHI_PICKS, JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "./data/juuinka";
+import { aptLevel, combatTotal, derived, hasApt, powerLevel, skillTotal, uid } from "./rules";
+import type { AptEntry, AttrKey, Character, CombatKey, ModTarget, PlayCond, PlayCounter, PlayEffect, PlayLog, PlayMod, PlayState } from "./types";
 
 /* ---------------- catálogos ---------------- */
 
@@ -130,36 +131,165 @@ const blankEffect = (): PlayEffect => ({
 
 export const makeCustom = (): PlayEffect => blankEffect();
 
-export const makeJuuinkaIchi = (): PlayEffect => ({
-  ...blankEffect(),
-  name: "Juuinka · Ichi",
-  src: "Selo Amaldiçoado · 1º estágio",
-  costVit: 8,
-  after: "fatigado",
-  afterNote: "30 min · selo desativado",
-  hint: "O livro pede 2 bônus fixos da lista. Aqui você marca os que a mesa aceitar e pode mudar os valores em “Editar”.",
-  mods: [
-    { t: "FOR", v: 4, on: false },
-    { t: "dano", v: 2, on: false },
-    { t: "precAtk", v: 1, on: false },
-    { t: "precDef", v: 1, on: false },
-    { t: "dif", v: 1, on: false },
-    { t: "dureza", v: 1, on: false },
-  ],
-});
+const aptEntry = (c: Character | undefined, id: string): AptEntry | undefined => c?.aptidoes.find((a) => a.id === id);
 
-export const makeJuuinkaNi = (): PlayEffect => ({
-  ...blankEffect(),
-  name: "Juuinka · Ni",
-  src: "Selo Amaldiçoado · 2º estágio",
-  costVit: 4,
-  gainChk: 20,
-  hint: "Soma os bônus do 1º estágio (deixe-o ativo). Selo do Céu ou da Terra: ligue “Desloc. +3m”.",
-  mods: [
-    { t: "acel", v: 1, on: true },
-    { t: "desloc", v: 3, on: false },
-  ],
-});
+/** Os bônus do Ichi são escolhidos na Mesa a cada ativação (regra da mesa), então não dependem da ficha. */
+const ICHI_SIG = "mesa";
+
+/** Assinatura das escolhas da ficha: quando muda, a mesa remonta os bônus do selo. */
+function juuinkaSig(c: Character | undefined, id: "juuinka-ichi" | "juuinka-ni"): string {
+  if (id === "juuinka-ichi") return ICHI_SIG;
+  const e = aptEntry(c, id);
+  if (!e) return "";
+  return `${niChoices(e.choices).join(",")}|${e.variant ?? ""}`;
+}
+
+/** Aplica ao estado os bônus escolhidos na criação da ficha (Livro de Hijutsus, pág. 56–57). */
+function applyJuuinka(e: PlayEffect, c: Character | undefined, id: "juuinka-ichi" | "juuinka-ni") {
+  const entry = aptEntry(c, id);
+  e.auto = id;
+  e.sig = juuinkaSig(c, id);
+  if (id === "juuinka-ichi") {
+    // Regra da mesa: os 6 bônus ficam na lista e a pessoa liga 2 a cada ativação (dá para trocar com o selo ativo).
+    // Mantém o que já estava ligado; em estados antigos, usa as escolhas feitas na criação.
+    const wasOn = new Set(e.mods.filter((m) => m.on).map((m) => `${m.t}:${m.v}`));
+    const fromSheet = new Set(entry?.choices ?? []);
+    e.mods = JUUINKA_BONUS.map((b) => ({ t: b.t, v: b.v, on: wasOn.size ? wasOn.has(`${b.t}:${b.v}`) : fromSheet.has(b.k) }));
+    e.pick = JUUINKA_ICHI_PICKS;
+    e.picked = e.mods.flatMap((m, i) => (m.on ? [i] : []));
+    e.hint = `Regra da mesa: escolha ${JUUINKA_ICHI_PICKS} bônus sempre que ativar (pode trocar com o selo ativo; ligar outro desliga o mais antigo). Força +4 não acumula com Dano Base +2 (que vale para um ataque).`;
+    return;
+  }
+  const ni = niChoices(entry?.choices);
+  e.gainChk = ni.includes("chk20") ? 20 : 0;
+  const mods: PlayMod[] = [];
+  for (const k of ni) {
+    if (k === "acel") mods.push({ t: "acel", v: 1, on: true });
+    else if (JUUINKA_BONUS_BY[k]) mods.push({ t: JUUINKA_BONUS_BY[k].t, v: JUUINKA_BONUS_BY[k].v, on: true });
+  }
+  const selo = JUUINKA_SELOS.find((x) => x.k === (entry?.variant ?? ""));
+  if (selo?.k) mods.push({ t: "desloc", v: 3, on: true });
+  e.mods = mods;
+  e.src = `Selo Amaldiçoado · 2º estágio${selo?.k ? ` · ${selo.label}` : ""}`;
+  e.hint = [
+    "Soma os bônus do 1º estágio (ele é ativado junto, se estiver desligado).",
+    `Benefícios: ${ni.map(juuinkaChoiceLabel).join(" e ")}.`,
+    selo && "hint" in selo ? selo.hint : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export const makeJuuinkaIchi = (c?: Character): PlayEffect => {
+  const e: PlayEffect = {
+    ...blankEffect(),
+    name: "Juuinka · Ichi",
+    src: "Selo Amaldiçoado · 1º estágio",
+    costVit: 8,
+    after: "fatigado",
+    afterNote: "30 min · selo desativado",
+  };
+  applyJuuinka(e, c, "juuinka-ichi");
+  return e;
+};
+
+export const makeJuuinkaNi = (c?: Character): PlayEffect => {
+  const e: PlayEffect = { ...blankEffect(), name: "Juuinka · Ni", src: "Selo Amaldiçoado · 2º estágio", costVit: 4 };
+  applyJuuinka(e, c, "juuinka-ni");
+  return e;
+};
+
+/* Yamata no Jutsu (Livro de Hijutsus Vol. 2, pág. 38; Tabela de Tamanho do Livro Básico, pág. 271). */
+const YAMATA = [
+  { size: "Enorme", bonus: 3, desloc: 6, alcance: 3, furt: -2, intim: 1, chk: 5 },
+  { size: "Imenso", bonus: 5, desloc: 9, alcance: 4, furt: -3, intim: 2, chk: 7 },
+] as const;
+
+const yamataSig = (c: Character | undefined) => `${Math.min(2, Math.max(1, c ? aptLevel(c, "yamata") : 1))}|${c && hasApt(c, "corpulencia") ? "corp" : ""}`;
+
+function applyYamata(e: PlayEffect, c: Character | undefined) {
+  const lvl = Math.min(2, Math.max(1, c ? aptLevel(c, "yamata") : 1));
+  const Y = YAMATA[lvl - 1];
+  // Tamanho temporário não aumenta a Vitalidade, e o bônus de Força por tamanho não entra no CC.
+  const vitPerVig = c && hasApt(c, "corpulencia") ? 6 : 3;
+  e.auto = "yamata";
+  e.sig = yamataSig(c);
+  e.src = `Hebinomichi · tamanho ${Y.size}${lvl > 1 ? " · nível 2" : ""}`;
+  e.costChk = Y.chk;
+  e.mods = [
+    { t: "FOR", v: Y.bonus, on: true },
+    { t: "DES", v: Y.bonus, on: true },
+    { t: "VIG", v: Y.bonus, on: true },
+    { t: "desloc", v: Y.desloc, on: true },
+    { t: "CC", v: -Y.bonus, on: true },
+    { t: "vit", v: -vitPerVig * Y.bonus, on: true },
+  ];
+  e.hint = [
+    `Ação de movimento, contínua. Tamanho ${Y.size}: alcance CC ${Y.alcance}m, Furtividade ${sg(Y.furt)}, Intimidar ${sg(Y.intim)} (soma na Dif do Infligir Medo).`,
+    "Só usa armas e técnicas do Hebi Ninpou, que saem sem selos de mão e sem penalidade por combate próximo.",
+    `CC ${sg(-Y.bonus)} e Vit. máx. ${sg(-vitPerVig * Y.bonus)} desfazem o que a Força e o Vigor somariam: o bônus de Força por tamanho não entra no CC e tamanho temporário não aumenta a Vitalidade.`,
+  ].join(" ");
+}
+
+export const makeYamata = (c?: Character): PlayEffect => {
+  const e: PlayEffect = { ...blankEffect(), name: "Yamata no Jutsu", src: "Hebinomichi" };
+  applyYamata(e, c);
+  return e;
+};
+
+const findJuuinka = (p: PlayState, id: "juuinka-ichi" | "juuinka-ni") =>
+  p.effects.find((e) => e.auto === id) ?? p.effects.find((e) => !e.auto && e.name === (id === "juuinka-ichi" ? "Juuinka · Ichi" : "Juuinka · Ni"));
+
+/**
+ * Mantém os estados automáticos em dia com a ficha: cria os que faltam (aptidão comprada depois
+ * da primeira abertura da mesa) e remonta os bônus do Juuinka quando as escolhas mudam.
+ * Retorna true se algo mudou.
+ */
+export function syncPlay(c: Character, p: PlayState): boolean {
+  let changed = false;
+  const seen = new Set(p.autoSeen ?? []);
+  const markSeen = (k: string) => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    p.autoSeen = [...seen];
+    changed = true;
+  };
+  for (const id of ["juuinka-ichi", "juuinka-ni"] as const) {
+    if (!hasApt(c, id)) continue;
+    const e = findJuuinka(p, id);
+    if (e) markSeen(id);
+    if (!e) {
+      if (seen.has(id)) continue;
+      p.effects.push(id === "juuinka-ichi" ? makeJuuinkaIchi(c) : makeJuuinkaNi(c));
+      markSeen(id);
+    } else if (e.auto !== id || e.sig !== juuinkaSig(c, id)) {
+      applyJuuinka(e, c, id);
+      changed = true;
+    }
+  }
+  if (hasApt(c, "yamata")) {
+    const e = p.effects.find((x) => x.auto === "yamata") ?? p.effects.find((x) => !x.auto && x.name === "Yamata no Jutsu");
+    if (e) {
+      markSeen("yamata");
+      if (e.auto !== "yamata" || e.sig !== yamataSig(c)) {
+        applyYamata(e, c);
+        changed = true;
+      }
+    } else if (!seen.has("yamata")) {
+      p.effects.push(makeYamata(c));
+      markSeen("yamata");
+    }
+  }
+  const hachi = powerLevel(c, "hachimon");
+  if (hachi > 0) {
+    if (p.effects.some((e) => e.gate !== undefined)) markSeen("hachimon");
+    else if (!seen.has("hachimon")) {
+      p.effects.push(makeHachimon(hachi));
+      markSeen("hachimon");
+    }
+  }
+  return changed;
+}
 
 export function gateMods(g: number, level = g): PlayMod[] {
   const G = GATES[g - 1];
@@ -205,10 +335,6 @@ export function makeHachimon(level = 1): PlayEffect {
 export function newPlay(c: Character): PlayState {
   const d = derived(c);
   const effects: PlayEffect[] = [];
-  if (hasApt(c, "juuinka-ichi")) effects.push(makeJuuinkaIchi());
-  if (hasApt(c, "juuinka-ni")) effects.push(makeJuuinkaNi());
-  const hachi = powerLevel(c, "hachimon");
-  if (hachi > 0) effects.push(makeHachimon(hachi));
   const counters: PlayCounter[] = [{ id: uid(), n: "Kawarimi no Jutsu", cur: 1, max: 1, reset: "cena" }];
   for (const it of c.items) {
     if (!it.name.trim()) continue;
@@ -216,7 +342,9 @@ export function newPlay(c: Character): PlayState {
     const max = pill && /10/.test(it.name) ? it.qty * 10 : it.qty;
     counters.push({ id: uid(), n: it.name, cur: max, max, reset: "nunca", pill });
   }
-  return { vit: d.vit, chk: d.chakra, round: 0, conds: [], effects, counters, log: [], notes: "" };
+  const p: PlayState = { vit: d.vit, chk: d.chakra, round: 0, conds: [], effects, counters, log: [], notes: "" };
+  syncPlay(c, p);
+  return p;
 }
 
 /* ---------------- números com estados aplicados ---------------- */
@@ -364,7 +492,17 @@ function checkGates(p: PlayState, log: Logger) {
 export function toggleEffect(p: PlayState, id: string, log: Logger) {
   const e = p.effects.find((x) => x.id === id);
   if (!e) return;
-  if (e.active) return deactivate(p, e, log);
+  const isIchi = e.auto === "juuinka-ichi" || (!e.auto && e.name === "Juuinka · Ichi");
+  const isNi = e.auto === "juuinka-ni" || (!e.auto && e.name === "Juuinka · Ni");
+  if (e.active) {
+    // Fechar o 1º estágio fecha o 2º junto.
+    const ni = isIchi ? findJuuinka(p, "juuinka-ni") : undefined;
+    if (ni?.active) deactivate(p, ni, log, "1º estágio desativado");
+    return deactivate(p, e, log);
+  }
+  // O 2º estágio exige o 1º liberado antes.
+  const ichi = isNi ? findJuuinka(p, "juuinka-ichi") : undefined;
+  if (ichi && !ichi.active) toggleEffect(p, ichi.id, log);
   e.active = true;
   e.left = e.turns || 0;
   const parts: string[] = [];
@@ -383,9 +521,33 @@ export function toggleEffect(p: PlayState, id: string, log: Logger) {
       parts.push(`+${e.gainChk} Chakra`);
     } else parts.push("bônus de chakra já usado nesta cena");
   }
+  if (e.pick) parts.push(onLabels(e) || "nenhum bônus escolhido");
   log(`${e.name} ativado${parts.length ? `: ${parts.join(", ")}` : ""}`, "ok");
   checkChakra(p, log);
   checkGates(p, log);
+}
+
+const onLabels = (e: PlayEffect) =>
+  e.mods
+    .filter((m) => m.on)
+    .map(modLabel)
+    .join(" e ");
+
+/**
+ * Liga/desliga um bônus do estado. Em estados de escolha limitada (Juuinka · Ichi),
+ * ligar além do limite desliga o bônus escolhido há mais tempo.
+ */
+export function toggleMod(e: PlayEffect, i: number, log: Logger) {
+  const m = e.mods[i];
+  if (!m) return;
+  m.on = !m.on;
+  if (!e.pick) return;
+  const valid = (e.picked ?? []).filter((j) => j !== i && e.mods[j]?.on);
+  const rest = e.mods.flatMap((x, j) => (x.on && j !== i && !valid.includes(j) ? [j] : []));
+  const order = [...valid, ...rest, ...(m.on ? [i] : [])];
+  while (order.length > e.pick) e.mods[order.shift()!].on = false;
+  e.picked = order;
+  if (e.active) log(`${e.name}: bônus agora ${onLabels(e) || "nenhum"}`, "n");
 }
 
 export function nextTurn(p: PlayState, log: Logger) {

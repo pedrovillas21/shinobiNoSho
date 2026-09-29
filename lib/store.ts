@@ -56,7 +56,7 @@ export const useChars = create<State>()(
       name: "sns-fichas-v1",
       storage: createJSONStorage(() => localStorage),
       version: 2,
-      // Fichas antigas ganham os campos novos (clã próprio, perícias próprias, modo livre).
+      // Fichas antigas ganham os campos novos (clã próprio, perícias próprias, escolhas de aptidões).
       migrate: (persisted) => {
         const p = persisted as { chars?: Record<string, Partial<Character>> };
         const chars = Object.fromEntries(Object.entries(p?.chars ?? {}).map(([id, c]) => [id, normalize({ ...c, id })]));

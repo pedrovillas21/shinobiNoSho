@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { NC_MAX, NC_MIN, budgetFor, derived, rankLabel, spent, validate } from "@/lib/rules";
+import { NC_MAX, NC_MIN, POWER_BONUS, POWER_BONUS_NCS, budgetFor, derived, rankLabel, spent, validate } from "@/lib/rules";
 import { downloadJSON, useChars, useHydrated } from "@/lib/store";
 import type { Character } from "@/lib/types";
 import { AnimatedNumber, IconAlert, IconDownload, IconLeft, IconList, IconRight, Logo, Sheet } from "../ui";
@@ -283,14 +283,14 @@ function Summary({ c, issues, goTo }: { c: Character; issues: ReturnType<typeof 
 
       <div className="card flex flex-col gap-3 p-5">
         <div className="flex items-baseline justify-between">
-          <span className="label">Validação</span>
+          <span className="label">Observações</span>
           <span className="text-xs text-faint">
-            {errors.length} erro(s) · {warns.length} aviso(s)
+            {errors.length} fora da regra · {warns.length} em aberto
           </span>
         </div>
         {shown.length === 0 ? (
           <p className="flex items-center gap-2 text-sm text-ok">
-            <span className="size-2.5 rounded-full bg-ok" /> Tudo certo! Ficha válida.
+            <span className="size-2.5 rounded-full bg-ok" /> Tudo certo! Ficha dentro das regras.
           </p>
         ) : (
           <ul className="flex flex-col gap-1">
@@ -309,7 +309,7 @@ function Summary({ c, issues, goTo }: { c: Character; issues: ReturnType<typeof 
       {c.nc > 20 && (
         <div className="rounded-2xl bg-chakra p-4 text-paper-ink">
           <p className="font-display text-base font-extrabold">NC estendido da mesa</p>
-          <p className="text-sm leading-snug">Acima do NC 20, cada nível soma +6 atributos, +4 perícias e +2 poderes. Poderes podem passar do nível 10 e ganham um efeito novo por nível.</p>
+          <p className="text-sm leading-snug">Acima do NC 20, cada nível soma +6 atributos, +4 perícias e +2 poderes, com +{POWER_BONUS} poderes extras nos NCs {POWER_BONUS_NCS.filter((x) => x > 20).join(", ")}. Poderes podem passar do nível 10 e ganham um efeito novo por nível.</p>
         </div>
       )}
     </>

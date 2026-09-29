@@ -1,6 +1,6 @@
 import { APT_BY_ID, BANNED_APTS } from "./data/aptidoes";
 import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
-import { ORIGIN_BY_ID } from "./data/origens";
+import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
 import { EFEITO_BY_ID, PODER_BY_ID } from "./data/poderes";
 import type { Aptidao, AttrKey, Character, CombatKey, Optionals, Req, SkillKey } from "./types";
 
@@ -24,17 +24,25 @@ export interface Budget {
   ryos: number;
 }
 
+/** NCs que dão pontos de poder extras: o 20 é o bônus de Kage do livro, os demais são regra da mesa. */
+export const POWER_BONUS_NCS = [20, 24, 27, 30];
+export const POWER_BONUS = 4;
+
+/** Pontos de poder extras acumulados até o NC (com 3 pontos por NC, o bônus do NC 20 vira +6, como no Guia). */
+export function powerBonusFor(nc: number, opt: Pick<Optionals, "tresPontosPoder">): number {
+  return POWER_BONUS_NCS.filter((x) => nc >= x).reduce((t, x) => t + (x === 20 && opt.tresPontosPoder ? 6 : POWER_BONUS), 0);
+}
+
 /**
  * Tabela de evolução estendida até NC 30.
- * Cada NC acima de 4 soma +6 atributos, +4 perícias e +2 poderes (o NC 20 dá +4 extras de Kage).
- * O mínimo de atributo sobe 1 a cada NC ímpar.
+ * Cada NC acima de 4 soma +6 atributos, +4 perícias e +2 poderes (3 com a regra do Guia).
+ * NC 20, 24, 27 e 30 dão +4 pontos de poder além do normal. O mínimo de atributo sobe 1 a cada NC ímpar.
  */
 export function budgetFor(nc: number, opt: Optionals): Budget {
   const n = Math.min(NC_MAX, Math.max(NC_MIN, Math.round(nc)));
   const steps = n - NC_MIN;
-  let power: number;
-  if (opt.tresPontosPoder) power = n >= 20 ? 60 + 3 * (n - 20) : 6 + 3 * steps;
-  else power = n >= 20 ? 40 + 2 * (n - 20) : 4 + 2 * steps;
+  let power = opt.tresPontosPoder ? 6 + 3 * steps : 4 + 2 * steps;
+  power += powerBonusFor(n, opt);
   if (opt.aptidoesBanidas) power += 4;
   const minAttr = Math.max(0, Math.ceil((n - 4) / 2));
   const rank = [...RANKS].reverse().find((r) => n >= r.min)!;
@@ -64,6 +72,23 @@ export const hasApt = (c: Character, id: string, level = 1) => aptLevel(c, id) >
 
 export function powerLevel(c: Character, id: string): number {
   return c.poderes.filter((p) => p.id === id).reduce((m, p) => Math.max(m, p.level), 0);
+}
+
+/** Quantas vezes o efeito do nível `i` já foi escolhido antes nesta compra (0 = efeito novo, 1 = 1ª evolução…). */
+export function evolutionIndex(effects: (string | null)[], i: number): number {
+  const id = effects[i];
+  return id ? effects.slice(0, i).filter((x) => x === id).length : 0;
+}
+
+/** Nível do poder exigido pela evolução `k` do efeito (1 = 1ª evolução), ou null se não existe. */
+export function evolutionLevel(effectId: string, k: number): number | null {
+  return EFEITO_BY_ID[effectId]?.evolves?.[k - 1] ?? null;
+}
+
+/** Compra repetida de um poder de efeitos (a 2ª compra em diante tem o nível 1 gratuito). */
+export function isRepurchase(c: Character, idx: number): boolean {
+  const p = c.poderes[idx];
+  return PODER_BY_ID[p.id]?.mode === "efeitos" && c.poderes.slice(0, idx).some((x) => x.id === p.id);
 }
 
 export function combatTotal(c: Character, k: CombatKey): number {
@@ -162,11 +187,16 @@ export function originKanji(c: Character): string {
   return (c.originId && ORIGIN_BY_ID[c.originId]?.kanji) || "忍";
 }
 
-/** Limites efetivos: no modo livre nada é travado. */
-export function limitsFor(c: Character) {
-  const b = budgetFor(c.nc, c.optionals);
-  const free = c.optionals.livre;
-  return { attrMax: free ? 99 : c.nc, cap: free ? 99 : b.cap, enforce: !free };
+/** Clãs e hijutsus do catálogo que liberam uma aptidão ou poder restrito. */
+export function restrictedOwners(kind: "aptidoes" | "poderes", id: string): string[] {
+  return ORIGENS.filter((o) => o.options.some((x) => x[kind].includes(id))).map((o) => o.name);
+}
+
+/** Texto curto de onde vem uma aptidão/poder restrito, para as observações. */
+export function ownersText(kind: "aptidoes" | "poderes", id: string): string {
+  const names = restrictedOwners(kind, id);
+  if (!names.length) return "outro clã/hijutsu";
+  return names.length > 3 ? `${names.slice(0, 3).join(", ")} e outros` : names.join(", ");
 }
 
 export function allowedRestricted(c: Character) {
@@ -218,7 +248,8 @@ export function derived(c: Character) {
 export function spent(c: Character) {
   const attr = ATTRS.reduce((t, a) => t + (c.attrs[a.key] || 0), 0);
   const skill = SKILLS.reduce((t, s) => t + (c.skills[s.key] || 0), 0) + c.customSkills.reduce((t, s) => t + (s.pts || 0), 0);
-  const powerLevels = c.poderes.reduce((t, p) => t + p.level, 0);
+  // Comprar o mesmo poder de novo: o nível 1 da nova compra é gratuito (Livro Básico, pág. 95).
+  const powerLevels = c.poderes.reduce((t, p, i) => t + p.level - (isRepurchase(c, i) ? 1 : 0), 0);
   const paidApts = c.aptidoes.filter((a) => !a.free).reduce((t, a) => t + a.level * APT_COST, 0);
   const freeUsed = c.aptidoes.filter((a) => a.free).length;
   const social = c.social.car + c.social.man;
@@ -229,6 +260,7 @@ export function spent(c: Character) {
 
 /* ---------------- validação ---------------- */
 
+/** "erro" = fora das regras normais (só observação: nada é bloqueado); "aviso" = algo em aberto. */
 export type Severity = "erro" | "aviso" | "ok";
 export interface Issue {
   sev: Severity;
@@ -237,6 +269,8 @@ export interface Issue {
 }
 
 const ELEMENTS = ["doton", "fuuton", "katon", "raiton", "suiton"];
+/** Aptidões Especiais do Tensai que o catálogo guarda como restritas de clã. */
+const TENSAI_SPECIAL = ["presa-prata", "vontade-fogo", "maximizar"];
 const NATURAL: Record<string, string> = {
   "elemento-natural-katon": "katon",
   "elemento-natural-suiton": "suiton",
@@ -291,9 +325,9 @@ export function validate(c: Character): Issue[] {
     const a = APT_BY_ID[e.id];
     if (!a) continue;
     if (c.optionals.aptidoesBanidas && BANNED_APTS.includes(a.id)) push("erro", "aptidoes", `${a.name} está banida pela regra opcional.`);
-    if ((a.cat === "restrita" || a.cat === "especial") && !allowed.apts.has(a.id)) push("erro", "aptidoes", `${a.name} é restrita a outro clã/hijutsu.`);
+    if ((a.cat === "restrita" || a.cat === "especial") && !allowed.apts.has(a.id)) push("erro", "aptidoes", `${a.name} é restrita a: ${ownersText("aptidoes", a.id)}.`);
     if (!reqsMet(c, a.req)) push("erro", "aptidoes", `${a.name}: pré-requisito não atendido (${a.reqText}).`);
-    if (e.free && !isFreeEligible(a)) push("erro", "aptidoes", `${a.name} não pode ser escolhida como gratuita.`);
+    if (e.free && !isFreeEligible(a)) push("erro", "aptidoes", `${a.name} normalmente não pode ser uma das gratuitas.`);
     if (a.maxLevel && e.level > a.maxLevel) push("erro", "aptidoes", `${a.name} vai até o nível ${a.maxLevel}.`);
     if (c.originId === "samurai" && a.cat === "shinobi") push("erro", "aptidoes", `Samurais não compram aptidões shinobi (${a.name}).`);
   }
@@ -304,6 +338,8 @@ export function validate(c: Character): Issue[] {
     dupes.set(e.id, (dupes.get(e.id) ?? 0) + 1);
   });
   dupes.forEach((n, id) => n > 1 && push("erro", "aptidoes", `${APT_BY_ID[id].name} foi adicionada ${n} vezes (use o nível).`));
+  const especiais = c.aptidoes.filter((e) => APT_BY_ID[e.id]?.cat === "especial" || TENSAI_SPECIAL.includes(e.id));
+  if (new Set(especiais.map((e) => e.id)).size > 2) push("erro", "aptidoes", "Tensai dá direito a no máximo 2 Aptidões Especiais diferentes.");
 
   // Poderes
   if (s.power > b.power) push("erro", "poderes", `Pontos de poder: ${s.power - b.power} acima do limite (${b.power}).`);
@@ -318,14 +354,24 @@ export function validate(c: Character): Issue[] {
     const name = def?.name ?? p.customName ?? "Poder";
     if (p.level > b.cap) push("erro", "poderes", `${name} ${p.level} passa do limite de poder ${b.cap}.`);
     if (!def) continue;
-    if (def.restricted && !allowed.powers.has(def.id)) push("erro", "poderes", `${def.name} é restrito a outro clã/hijutsu.`);
+    if (def.restricted && !allowed.powers.has(def.id)) push("erro", "poderes", `${def.name} é restrito a: ${ownersText("poderes", def.id)}.`);
     if (!reqsMet(c, def.req)) push("erro", "poderes", `${def.name}: pré-requisito não atendido (${def.reqText}).`);
     if (c.originId === "samurai" && !def.restricted) push("erro", "poderes", `Samurais não compram poderes comuns (${def.name}).`);
     if (def.mode === "efeitos") {
+      // A ordem das escolhas é livre: o limite é o nível do poder (o mais alto entre as compras).
+      const top = powerLevel(c, p.id);
       p.effects.slice(0, p.level).forEach((eid, i) => {
         if (!eid) return;
         const ef = EFEITO_BY_ID[eid];
-        if (ef && ef.level > i + 1) push("erro", "poderes", `${def.name} nv ${i + 1}: ${ef.name} é de nível ${ef.level}.`);
+        if (!ef) return;
+        const k = evolutionIndex(p.effects, i);
+        if (!k) {
+          if (ef.level > top) push("erro", "poderes", `${def.name}: ${ef.name} é de nível ${ef.level}, acima do nível ${top} do poder.`);
+          return;
+        }
+        const need = evolutionLevel(eid, k);
+        if (need === null) push("erro", "poderes", `${def.name}: ${ef.name} não tem ${k > 1 ? `${k}ª ` : ""}evolução.`);
+        else if (need > top) push("erro", "poderes", `${def.name}: a evolução ${ef.name} Nv ${need} pede o poder no nível ${need}.`);
       });
       const missing = p.effects.slice(0, p.level).filter((x) => !x).length + Math.max(0, p.level - p.effects.length);
       if (missing > 0) push("aviso", "poderes", `${def.name}: ${missing} efeito(s) por escolher.`);
@@ -338,11 +384,16 @@ export function validate(c: Character): Issue[] {
   const compLimit = 3 + (hasApt(c, "burro-carga") ? 1 : 0);
   if (s.comps > compLimit) push("aviso", "equipamento", `${s.comps} compartimentos: acima de ${compLimit} o deslocamento cai 3m.`);
 
+  // Origem
+  const extras = c.extraOrigins.filter((x) => x && x !== c.originId);
+  const extraNeedsRule = extras.filter((x) => !ORIGIN_BY_ID[x]?.stackable);
+  if (extraNeedsRule.length && !c.optionals.multiHijutsu)
+    push("erro", "cla", `Mais de um clã/hijutsu (${extraNeedsRule.map((x) => ORIGIN_BY_ID[x]?.name ?? x).join(", ")}) exige a regra opcional de 2+ hijutsus.`);
+
   if (!c.name.trim()) push("aviso", "conceito", "Dê um nome ao seu shinobi.");
   if (!c.originId && !hasApt(c, "trabalho-duro")) push("aviso", "cla", "Sem clã ou hijutsu: considere a aptidão Trabalho Duro.");
 
-  // Modo livre: nada bloqueia, tudo vira lembrete.
-  return c.optionals.livre ? out.map((i) => (i.sev === "erro" ? { ...i, sev: "aviso" as const } : i)) : out;
+  return out;
 }
 
 /* ---------------- ficha padrão ---------------- */
@@ -374,7 +425,7 @@ export function newCharacter(nc = 4): Character {
     history: "",
     goals: "",
     nc,
-    optionals: { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false, livre: false },
+    optionals: { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false },
     originId: null,
     originOption: 0,
     extraOrigins: [],

@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { ATTRS, SKILLS } from "@/lib/data/base";
-import { budgetFor, hasApt, limitsFor, skillTotal, spent, uid } from "@/lib/rules";
+import { budgetFor, hasApt, skillTotal, spent, uid } from "@/lib/rules";
 import type { AttrKey, CustomSkill } from "@/lib/types";
 import { AnimatedNumber, Badge, IconLock, IconPlus, IconTrash, Stepper, StepHeader } from "../../ui";
 import type { StepProps } from "../shared";
@@ -27,9 +27,7 @@ function BonusInput({ label, value, onChange }: { label: string; value: number; 
 export function StepPericias({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
   const s = spent(c);
-  const lim = limitsFor(c);
   const left = b.skill - s.skill;
-  const canSpend = !lim.enforce || left > 0;
   const [name, setName] = useState("");
   const [attr, setAttr] = useState<AttrKey>("INT");
 
@@ -38,7 +36,7 @@ export function StepPericias({ c, set }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
       <StepHeader kicker="Etapa 4" title="Perícias">
-        O nível inicial é metade do atributo (arredondado para cima). Cada ponto soma +1, e você pode gastar no máximo {b.cap} pontos por perícia. Perícias treinadas só podem ser usadas com ao menos 1 ponto.
+        O nível inicial é metade do atributo (arredondado para cima). Cada ponto soma +1, e pela regra você gasta no máximo {b.cap} pontos por perícia. Perícias treinadas só podem ser usadas com ao menos 1 ponto. Nada é travado: o que passar vira observação.
       </StepHeader>
       <span className={`self-start rounded-xl px-3 py-2 text-sm font-bold ${left < 0 ? "bg-bad/15 text-bad" : left === 0 ? "bg-ok/15 text-ok" : "bg-chakra/15 text-chakra"}`}>
         {left >= 0 ? `${left} ponto(s) de perícia restantes` : `${-left} ponto(s) a mais`}
@@ -49,9 +47,10 @@ export function StepPericias({ c, set }: StepProps) {
           const pts = c.skills[sk.key] || 0;
           const base = Math.ceil(c.attrs[sk.attr] / 2);
           const total = skillTotal(c, sk.key);
-          const locked = lim.enforce && sk.needsQuimico && !hasApt(c, "quimico");
+          const locked = sk.needsQuimico && !hasApt(c, "quimico");
+          const over = pts > b.cap;
           return (
-            <li key={sk.key} className={`card flex items-center gap-3 p-3 ${locked ? "opacity-60" : ""}`}>
+            <li key={sk.key} className={`card flex items-center gap-3 p-3 ${(locked && pts > 0) || over ? "border-bad/50" : ""}`}>
               <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-paper text-paper-ink">
                 {total === null ? <span className="text-lg font-bold text-paper-muted">—</span> : <AnimatedNumber value={total} className="font-display text-2xl font-extrabold" />}
               </div>
@@ -62,17 +61,18 @@ export function StepPericias({ c, set }: StepProps) {
                   {sk.trained && <Badge tone="chakra">treinada</Badge>}
                   {sk.armor && <Badge>armadura</Badge>}
                   {locked && (
-                    <Badge tone="bad">
-                      <IconLock className="size-3" /> Químico
+                    <Badge tone={pts > 0 ? "bad" : "muted"}>
+                      <IconLock className="size-3" /> requer Químico
                     </Badge>
                   )}
+                  {over && <Badge tone="bad">acima do limite {b.cap}</Badge>}
                 </div>
                 <span className="truncate text-xs text-faint" title={sk.desc}>
                   base {base} + {pts} pt{c.skillBonus[sk.key] ? ` + ${c.skillBonus[sk.key]} outros` : ""} · {sk.desc}
                 </span>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <Stepper size="sm" label={sk.name} value={pts} max={lim.cap} canInc={canSpend && !locked} onChange={(n) => set((d) => void (d.skills[sk.key] = n))} />
+                <Stepper size="sm" label={sk.name} value={pts} onChange={(n) => set((d) => void (d.skills[sk.key] = n))} />
                 <BonusInput label={`Bônus em ${sk.name}`} value={c.skillBonus[sk.key]} onChange={(n) => set((d) => void (d.skillBonus[sk.key] = n))} />
               </div>
             </li>
@@ -110,7 +110,7 @@ export function StepPericias({ c, set }: StepProps) {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Stepper size="sm" label={cs.name || "perícia"} value={cs.pts} max={lim.cap} canInc={canSpend} onChange={(n) => editCustom(cs.uid, (x) => void (x.pts = n))} />
+                    <Stepper size="sm" label={cs.name || "perícia"} value={cs.pts} onChange={(n) => editCustom(cs.uid, (x) => void (x.pts = n))} />
                     <button type="button" onClick={() => set((d) => void (d.customSkills = d.customSkills.filter((x) => x.uid !== cs.uid)))} className="flex items-center gap-1 text-[11px] text-faint hover:text-bad" aria-label={`Remover ${cs.name || "perícia"}`}>
                       <IconTrash className="size-3.5" /> remover
                     </button>
@@ -144,7 +144,7 @@ export function StepPericias({ c, set }: StepProps) {
       </section>
 
       <p className="text-xs leading-relaxed text-faint">
-        “Outros” é para bônus de aptidões (como Perito) ou técnicas; bônus de precisão não contam para pré-requisitos. Venefício só pode ser comprada com a aptidão Químico.
+        “Outros” é para bônus de aptidões (como Perito) ou técnicas; bônus de precisão não contam para pré-requisitos. Venefício normalmente só pode ser comprada com a aptidão Químico.
       </p>
     </div>
   );

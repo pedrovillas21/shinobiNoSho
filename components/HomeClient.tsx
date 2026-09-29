@@ -24,7 +24,7 @@ export function HomeClient() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const list = Object.values(chars).sort((a, b) => b.updatedAt - a.updatedAt);
-  const b = budgetFor(nc, { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false, livre: false });
+  const b = budgetFor(nc, { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false });
 
   const onNew = () => router.push(`/ficha/${create(nc)}`);
   const onImport = async (f: File | undefined) => {

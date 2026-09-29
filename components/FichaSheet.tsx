@@ -1,7 +1,8 @@
 import { APT_BY_ID } from "@/lib/data/aptidoes";
+import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka";
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
-import { CUSTOM_ORIGIN, budgetFor, combatTotal, derived, hasApt, originName, rankLabel, skillTotal } from "@/lib/rules";
+import { CUSTOM_ORIGIN, budgetFor, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 
 function H({ children }: { children: React.ReactNode }) {
@@ -121,11 +122,19 @@ export function FichaSheet({ c }: { c: Character }) {
                       {name}
                       {e.detail ? `: ${e.detail}` : ""}
                       {e.level > 1 ? ` (nv ${e.level})` : ""}
+                      {e.id === "juuinka-ni" ? ` · ${niChoices(e.choices).map(juuinkaChoiceLabel).join(", ")}${e.variant ? ` · ${JUUINKA_SELOS.find((x) => x.k === e.variant)?.label}` : ""}` : ""}
                     </li>
                   );
                 })}
               </ul>
             )}
+            {c.aptidoes
+              .filter((e) => !APT_BY_ID[e.id] && e.note?.trim())
+              .map((e) => (
+                <p key={e.uid} className="text-sm leading-snug">
+                  <strong>{e.customName}:</strong> {e.note}
+                </p>
+              ))}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -135,21 +144,27 @@ export function FichaSheet({ c }: { c: Character }) {
               const def = PODER_BY_ID[p.id];
               const title = p.customName && def ? `${def.name} — ${p.customName}` : def?.name ?? p.customName;
               const unlocked = def?.techniques?.filter((t) => t.level <= p.level) ?? [];
+              const top = powerLevel(c, p.id);
               return (
                 <div key={i} className="print-avoid flex flex-col gap-1 rounded-xl bg-paper-2 p-3">
                   <div className="flex justify-between gap-2">
                     <span className="font-display font-extrabold">{title}</span>
-                    <span className="shrink-0 text-sm font-bold">Nível {p.level}</span>
+                    <span className="shrink-0 text-sm font-bold">
+                      Nível {p.level}
+                      {isRepurchase(c, i) ? " · nova compra" : ""}
+                    </span>
                   </div>
                   {def?.mode === "efeitos" && (
                     <>
                       <p className="text-xs text-paper-muted">
-                        Dano base {p.level + Math.ceil(c.attrs.ESP / 2)} · Dif {9 + p.level + Math.ceil(c.attrs.ESP / 2)} · Custo = nível usado
+                        Dano base {top + Math.ceil(c.attrs.ESP / 2)} · Dif {9 + top + Math.ceil(c.attrs.ESP / 2)} · Custo = nível usado
                       </p>
                       <ol className="text-sm leading-snug">
                         {p.effects.slice(0, p.level).map((e, n) => (
                           <li key={n}>
-                            <span className="text-paper-muted">Nv {n + 1}:</span> {e ? EFEITO_BY_ID[e]?.name : "—"}
+                            {e ? EFEITO_BY_ID[e]?.name : "—"}
+                            {e && !evolutionIndex(p.effects, n) ? <span className="text-paper-muted"> (nv {EFEITO_BY_ID[e]?.level})</span> : null}
+                            {e && evolutionIndex(p.effects, n) > 0 ? ` → evolução Nv ${evolutionLevel(e, evolutionIndex(p.effects, n)) ?? "?"}` : ""}
                             {p.techniques[n] ? ` (${p.techniques[n]})` : ""}
                           </li>
                         ))}

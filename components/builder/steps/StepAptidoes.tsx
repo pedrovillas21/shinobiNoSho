@@ -3,8 +3,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { APTIDOES, APT_BY_ID, APT_CATEGORIES, BANNED_APTS } from "@/lib/data/aptidoes";
-import { APT_COST, FREE_APTS, allowedRestricted, budgetFor, isFreeEligible, reqsMet, spent, uid } from "@/lib/rules";
-import type { AptCategory, Aptidao } from "@/lib/types";
+import { JUUINKA_BONUS, JUUINKA_ICHI_PICKS, JUUINKA_NI_DEFAULT, JUUINKA_SELOS, niChoices } from "@/lib/data/juuinka";
+import { APT_COST, FREE_APTS, allowedRestricted, budgetFor, isFreeEligible, ownersText, reqsMet, spent, uid } from "@/lib/rules";
+import type { AptCategory, AptEntry, Aptidao } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, Stepper, StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
 
@@ -14,6 +15,7 @@ export function StepAptidoes({ c, set }: StepProps) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<AptCategory | "todas">("todas");
   const [onlyAvail, setOnlyAvail] = useState(false);
+  const [showOthers, setShowOthers] = useState(false);
   const [custom, setCustom] = useState("");
   const b = budgetFor(c.nc, c.optionals);
   const s = spent(c);
@@ -31,13 +33,13 @@ export function StepAptidoes({ c, set }: StepProps) {
   const catalog = useMemo(() => {
     return APTIDOES.filter((a) => {
       if (cat !== "todas" && a.cat !== cat) return false;
-      if (!c.optionals.livre && (a.cat === "restrita" || a.cat === "especial") && !allowed.apts.has(a.id) && cat !== "restrita" && cat !== "especial") return false;
+      if (!showOthers && (a.cat === "restrita" || a.cat === "especial") && !allowed.apts.has(a.id) && cat !== "restrita" && cat !== "especial") return false;
       if (q && !norm(`${a.name} ${a.desc} ${a.reqText ?? ""}`).includes(norm(q))) return false;
       if (onlyAvail && !status(a).available) return false;
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cat, q, onlyAvail, c, allowed]);
+  }, [cat, q, onlyAvail, showOthers, c, allowed]);
 
   const add = (a: Aptidao) =>
     set((d) => {
@@ -55,7 +57,7 @@ export function StepAptidoes({ c, set }: StepProps) {
   return (
     <div className="flex flex-col gap-8">
       <StepHeader kicker="Etapa 5" title="Aptidões">
-        Você tem {FREE_APTS} aptidões gratuitas (das opções marcadas como gratuitas, ou restritas alcançáveis por um Genin). Cada aptidão adicional custa {APT_COST} pontos de poder.
+        Você tem {FREE_APTS} aptidões gratuitas (das opções marcadas como gratuitas, ou restritas alcançáveis por um Genin). Cada aptidão adicional custa {APT_COST} pontos de poder. Qualquer aptidão pode ser adicionada; o que não seria possível pelas regras normais ganha uma observação.
       </StepHeader>
 
       <section className="flex flex-col gap-3">
@@ -90,9 +92,10 @@ export function StepAptidoes({ c, set }: StepProps) {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="font-bold text-paper">{a?.name ?? e.customName}</span>
                         <Badge>{a ? APT_CATEGORIES.find((x) => x.key === a.cat)?.label : "Personalizada"}</Badge>
-                        {st?.restricted && <Badge tone="bad">restrita a outro clã</Badge>}
+                        {st?.restricted && <Badge tone="bad">restrita: {ownersText("aptidoes", a!.id)}</Badge>}
                         {st?.banned && <Badge tone="bad">banida</Badge>}
                         {st && !st.met && <Badge tone="bad">pré-req.</Badge>}
+                        {e.free && !freeOk && <Badge tone="bad">gratuita fora da regra</Badge>}
                       </div>
                       {a?.reqText && <span className={`text-xs ${st?.met ? "text-faint" : "text-bad"}`}>Pré-requisito: {a.reqText}</span>}
                       {a?.generic && (
@@ -102,6 +105,17 @@ export function StepAptidoes({ c, set }: StepProps) {
                           value={e.detail ?? ""}
                           onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.detail = ev.target.value))}
                           aria-label={`Categoria de ${a.name}`}
+                        />
+                      )}
+                      {a && (a.id === "juuinka-ichi" || a.id === "juuinka-ni") && <JuuinkaChoices e={e} set={set} />}
+                      {!a && (
+                        <textarea
+                          rows={2}
+                          className="field mt-1 resize-y py-1.5 text-sm"
+                          placeholder="Efeito da aptidão (o que ela faz, pré-requisito combinado com o mestre, custo…)"
+                          value={e.note ?? ""}
+                          onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.note = ev.target.value))}
+                          aria-label={`Efeito de ${e.customName}`}
                         />
                       )}
                     </div>
@@ -115,7 +129,6 @@ export function StepAptidoes({ c, set }: StepProps) {
                       <button
                         type="button"
                         onClick={() => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.free = !e.free))}
-                        disabled={!e.free && (!freeOk || s.freeUsed >= FREE_APTS)}
                         className={`chip min-h-10 font-bold ${e.free ? "border-ok bg-ok/15 text-ok" : "text-muted"} disabled:opacity-40`}
                         aria-pressed={e.free}
                       >
@@ -162,6 +175,9 @@ export function StepAptidoes({ c, set }: StepProps) {
           <div className="md:w-72">
             <Toggle checked={onlyAvail} onChange={setOnlyAvail} label="Só as que posso pegar" />
           </div>
+          <div className="md:w-80">
+            <Toggle checked={showOthers} onChange={setShowOthers} label="Mostrar restritas de outros clãs" />
+          </div>
         </div>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
           {[{ key: "todas" as const, label: "Todas" }, ...APT_CATEGORIES].map((x) => (
@@ -174,7 +190,7 @@ export function StepAptidoes({ c, set }: StepProps) {
         <ul className="grid gap-2 md:grid-cols-2">
           {catalog.map((a) => {
             const st = status(a);
-            const disabled = (st.owned && !a.generic) || (!c.optionals.livre && (st.banned || st.restricted));
+            const disabled = st.owned && !a.generic;
             return (
               <li key={a.id} className={`card flex gap-3 p-3 ${st.available ? "" : "opacity-70"}`}>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -192,6 +208,7 @@ export function StepAptidoes({ c, set }: StepProps) {
                     </span>
                   )}
                   {st.banned && <span className="text-xs text-bad">Banida pela regra opcional.</span>}
+                  {st.restricted && <span className="text-xs text-bad">Restrita a: {ownersText("aptidoes", a.id)}. Pode pegar, mas fica como observação.</span>}
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.9 }}
@@ -209,6 +226,53 @@ export function StepAptidoes({ c, set }: StepProps) {
         </ul>
         {catalog.length === 0 && <p className="text-center text-muted">Nenhuma aptidão com esses filtros.</p>}
       </section>
+    </div>
+  );
+}
+
+/** Escolhas feitas na compra do Juuinka (Livro de Hijutsus, pág. 56–57). A Mesa usa isso para montar os bônus do selo. */
+function JuuinkaChoices({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
+  const edit = (fn: (x: AptEntry) => void) => set((d) => fn(d.aptidoes.find((x) => x.uid === e.uid)!));
+
+  if (e.id === "juuinka-ichi")
+    return (
+      <span className="mt-1 text-xs text-muted">
+        Regra da mesa: os {JUUINKA_ICHI_PICKS} bônus do selo são escolhidos na Mesa, a cada ativação (dá para trocar ao vivo).
+      </span>
+    );
+
+  const ni = niChoices(e.choices);
+  const setNi = (i: number, k: string) =>
+    edit((x) => {
+      const cur = niChoices(x.choices);
+      cur[i] = k;
+      x.choices = cur;
+    });
+  return (
+    <div className="mt-1 grid gap-2 sm:grid-cols-3">
+      {JUUINKA_NI_DEFAULT.map((d, i) => (
+        <label key={d.k} className="flex flex-col gap-1 text-xs text-muted">
+          Benefício {i + 1}
+          <select className="field py-1.5 text-sm" value={ni[i]} onChange={(ev) => setNi(i, ev.target.value)}>
+            <option value={d.k}>{d.label}</option>
+            {JUUINKA_BONUS.map((b) => (
+              <option key={b.k} value={b.k}>
+                Trocar por {b.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Tipo de selo
+        <select className="field py-1.5 text-sm" value={e.variant ?? ""} onChange={(ev) => edit((x) => void (x.variant = ev.target.value))}>
+          {JUUINKA_SELOS.map((x) => (
+            <option key={x.k} value={x.k}>
+              {x.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

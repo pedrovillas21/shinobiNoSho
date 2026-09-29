@@ -11,18 +11,21 @@ import {
   makeHachimon,
   makeJuuinkaIchi,
   makeJuuinkaNi,
+  makeYamata,
   modLabel,
   toggleEffect,
+  toggleMod,
 } from "@/lib/play";
 import { powerLevel } from "@/lib/rules";
-import type { ModTarget, PlayEffect } from "@/lib/types";
+import type { Character, ModTarget, PlayEffect } from "@/lib/types";
 import { IconPlus, IconX } from "../ui";
 import { NumInput, SectionTitle, type MesaProps } from "./shared";
 
 const PRESETS = [
-  { label: "Juuinka · Ichi", make: () => makeJuuinkaIchi() },
-  { label: "Juuinka · Ni", make: () => makeJuuinkaNi() },
+  { label: "Juuinka · Ichi", make: (_lvl: number, c: Character) => makeJuuinkaIchi(c) },
+  { label: "Juuinka · Ni", make: (_lvl: number, c: Character) => makeJuuinkaNi(c) },
   { label: "Hachimon Tonkou", make: (lvl: number) => makeHachimon(lvl) },
+  { label: "Yamata no Jutsu", make: (_lvl: number, c: Character) => makeYamata(c) },
   { label: "Estado personalizado", make: () => makeCustom() },
 ];
 
@@ -39,7 +42,7 @@ export function Estados(props: MesaProps) {
     });
 
   const add = (i: number) => {
-    const e = PRESETS[i].make(hachiLevel);
+    const e = PRESETS[i].make(hachiLevel, c);
     commit((pl, log) => {
       pl.effects.push(e);
       log(`${e.name} adicionado`, "n");
@@ -170,6 +173,11 @@ function EffectCard({
         </div>
       )}
 
+      {e.pick !== undefined && (
+        <p className={`text-[13px] font-bold ${e.mods.filter((m) => m.on).length === e.pick ? "text-muted" : "text-chakra"}`}>
+          Escolha {e.pick} bônus · {e.mods.filter((m) => m.on).length}/{e.pick} ligados
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {e.mods.map((m, i) => {
           const live = m.on && e.active;
@@ -178,7 +186,12 @@ function EffectCard({
               <button
                 type="button"
                 aria-pressed={m.on}
-                onClick={() => change((x) => void (x.mods[i].on = !x.mods[i].on))}
+                onClick={() =>
+                  commit((pl, log) => {
+                    const x = pl.effects.find((y) => y.id === e.id);
+                    if (x) toggleMod(x, i, log);
+                  })
+                }
                 className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-bold transition ${
                   live ? "border-chakra bg-chakra text-paper-ink" : m.on ? "border-chakra bg-[#3a2410] text-[#ffd3a8]" : "border-line-2 text-muted hover:border-muted"
                 }`}
@@ -194,7 +207,7 @@ function EffectCard({
                   <button type="button" className="btn-ghost size-10 min-h-10 px-0" aria-label={`Aumentar ${modLabel(m)}`} onClick={() => change((x) => void (x.mods[i].v += 1))}>
                     +
                   </button>
-                  <button type="button" className="btn-ghost size-10 min-h-10 px-0 text-bad" aria-label={`Remover ${modLabel(m)}`} onClick={() => change((x) => void x.mods.splice(i, 1))}>
+                  <button type="button" className="btn-ghost size-10 min-h-10 px-0 text-bad" aria-label={`Remover ${modLabel(m)}`} onClick={() => change((x) => void (x.mods.splice(i, 1), (x.picked = undefined)))}>
                     <IconX className="size-4" />
                   </button>
                 </>

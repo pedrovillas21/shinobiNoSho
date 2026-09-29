@@ -16,7 +16,7 @@ export function StepFicha({ c, issues, goTo }: StepProps & { issues: Issue[]; go
     <div className="flex flex-col gap-6">
       <div className="no-print flex flex-col gap-4">
         <StepHeader kicker="Etapa 9" title="Ficha">
-          Revise os pontos e pré-requisitos. Na criação, todos os pontos devem ser gastos.
+          Revise os pontos e pré-requisitos. Nada é travado: o que sair das regras normais aparece aqui como observação para a mesa decidir.
         </StepHeader>
         <div className="flex flex-wrap gap-2">
           <Link href={`/ficha/${c.id}/mesa`} className="btn-primary">
@@ -31,7 +31,7 @@ export function StepFicha({ c, issues, goTo }: StepProps & { issues: Issue[]; go
         </div>
         <div className={`rounded-2xl border p-4 ${errors.length ? "border-bad/50 bg-bad/10" : warns.length ? "border-chakra/40 bg-chakra/10" : "border-ok/40 bg-ok/10"}`}>
           <p className="font-bold">
-            {errors.length ? `${errors.length} erro(s) para corrigir` : warns.length ? "Quase lá: alguns pontos em aberto" : "Ficha válida para a criação!"}
+            {errors.length ? `${errors.length} observação(ões) fora das regras normais` : warns.length ? "Quase lá: alguns pontos em aberto" : "Ficha dentro das regras!"}
           </p>
           {(errors.length > 0 || warns.length > 0) && (
             <ul className="mt-2 flex flex-col gap-1">
