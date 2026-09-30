@@ -497,10 +497,10 @@ export const ESTADOS: EstadoDef[] = [
   {
     id: "senjutsu",
     name: "Modo Eremita",
-    has: (c) => powerLevel(c, "senjutsu") >= 1,
-    sig: (c) => `${powerLevel(c, "senjutsu")}|${c.attrs.VIG}|${c.attrs.ESP}`,
+    has: (c) => aptLevel(c, "senjutsu") >= 1,
+    sig: (c) => `${aptLevel(c, "senjutsu")}|${c.attrs.VIG}|${c.attrs.ESP}`,
     build(e, c) {
-      const lvl = powerLevel(c, "senjutsu");
+      const lvl = aptLevel(c, "senjutsu");
       const esp = c.attrs.ESP;
       e.src = `Senjutsu · ${senjutsuPoints(c)} pontos de Chakra Senjutsu`;
       e.gainChk = lvl >= 2 ? 20 : 0;
@@ -582,7 +582,7 @@ export function makeEstado(def: EstadoDef, c: Character): PlayEffect {
 /* ---------------- contadores de recursos ---------------- */
 
 export const CONTADORES: { id: string; n: string; has: (c: Character) => boolean; max: (c: Character) => number; reset: PlayCounter["reset"] }[] = [
-  { id: "senjutsu", n: "Chakra Senjutsu", has: (c) => powerLevel(c, "senjutsu") >= 1, max: senjutsuPoints, reset: "cena" },
+  { id: "senjutsu", n: "Chakra Senjutsu", has: (c) => aptLevel(c, "senjutsu") >= 1, max: senjutsuPoints, reset: "cena" },
   { id: "suika", n: "Pontos Suika", has: (c) => hasApt(c, "suika"), max: (c) => 3 * c.attrs.VIG, reset: "descanso" },
   { id: "shikigami", n: "Pontos Kami", has: (c) => hasApt(c, "shikigami-no-mai"), max: (c) => 3 * c.attrs.ESP, reset: "descanso" },
 ];

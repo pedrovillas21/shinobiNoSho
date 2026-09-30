@@ -56,7 +56,19 @@ export interface Aptidao {
   generic?: boolean;
   /** Evolutiva: número máximo de níveis. */
   maxLevel?: number;
+  /** Pré-requisito e benefício de cada nível acima do 1º (índice 0 = nível 2). */
+  levels?: AptLevel[];
+  /** Os níveis vêm de graça ao cumprir o pré-requisito (ex.: Kurohigi); senão cada nível é uma nova compra. */
+  levelsFree?: boolean;
+  /** Aptidões recebidas de graça na compra (ex.: Técnica Avançada dá 2 de técnica). */
+  grants?: { cat: AptCategory; n: number };
   source: Source;
+}
+
+export interface AptLevel {
+  reqText: string;
+  req?: Req[];
+  desc: string;
 }
 
 export interface Efeito {
@@ -135,7 +147,7 @@ export interface AptEntry {
   detail?: string;
   level: number;
   free: boolean;
-  /** Escolhas feitas na compra (ex.: os 2 bônus do Juuinka). */
+  /** Escolhas feitas na compra (ex.: os 2 bônus do Juuinka, as 2 aptidões da Técnica Avançada). */
   choices?: string[];
   /** Variante escolhida na compra (ex.: Selo do Céu ou da Terra). */
   variant?: string;

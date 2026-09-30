@@ -1,4 +1,4 @@
-import type { Aptidao, AttrKey, Req, SkillKey } from "../types";
+import type { AptLevel, Aptidao, AttrKey, Req, SkillKey } from "../types";
 
 const A = (k: AttrKey, min: number): Req => ({ t: "attr", k, min });
 const S = (k: SkillKey, min: number): Req => ({ t: "skill", k, min });
@@ -6,6 +6,8 @@ const C = (k: "CC" | "CD" | "ESQ" | "LM", min: number): Req => ({ t: "combat", k
 const AP = (id: string, level?: number): Req => ({ t: "apt", id, level });
 const P = (id: string, min: number): Req => ({ t: "power", id, min });
 const ANY = (...of: Req[]): Req => ({ t: "any", of });
+/** Nível 2, 3… de uma aptidão evolutiva. */
+const L = (reqText: string, req: Req[] | undefined, desc: string): AptLevel => ({ reqText, req, desc });
 
 /* Aptidões comuns (Livro Básico, com revisões do Guia Avançado quando marcadas com *) */
 const COMUNS: Aptidao[] = [
@@ -20,9 +22,9 @@ const COMUNS: Aptidao[] = [
   { id: "bloqueio-ambidestro", name: "Bloqueio Ambidestro", cat: "combate", source: "Básico", reqText: "Ambidestria", req: [AP("ambidestria")], desc: "Melhora o bloqueio ao usar duas armas ou arma dupla." },
   { id: "combate-defensivo", name: "Combate Defensivo", cat: "combate", free: true, source: "Básico", reqText: "Combate Corporal 9", req: [C("CC", 9)], desc: "Reduz a precisão corpo-a-corpo para melhorar a esquiva." },
   { id: "critico-aprimorado", name: "Crítico Aprimorado", cat: "combate", generic: true, source: "Guia Avançado", reqText: "Especialista; CC ou CD 13", req: [AP("especialista"), ANY(C("CC", 13), C("CD", 13))], desc: "Aumenta a margem de acerto crítico com armados ou desarmados." },
-  { id: "dano-extra", name: "Dano Extra", cat: "combate", source: "Básico", reqText: "Combate 18 (Corporal ou à Distância)", req: [ANY(C("CC", 18), C("CD", 18))], desc: "Aumenta o dano de ataques que usam dano de arma." },
+  { id: "dano-extra", name: "Dano Extra", cat: "combate", generic: true, source: "Básico", reqText: "Combate 18 (Corporal ou à Distância)", req: [ANY(C("CC", 18), C("CD", 18))], desc: "Aumenta o dano de ataques que usam dano de arma." },
   { id: "de-pe", name: "De Pé", cat: "combate", free: true, source: "Básico", desc: "Levanta-se como ação livre; uma vez por cena, como reação." },
-  { id: "diligente", name: "Diligente", cat: "combate", free: true, source: "Básico", desc: "+3 em Iniciativa e pode rolar novamente uma vez por cena." },
+  { id: "diligente", name: "Diligente", cat: "combate", free: true, source: "Básico", desc: "+3 em Iniciativa e pode rolar novamente uma vez por cena.", levels: [L("Iniciativa 21, sem o bônus do Diligente (Guia)", undefined, "Na 1ª rodada, quem ainda não agiu está fintado contra você; na rodada surpresa, age com todas as ações.")] },
   { id: "especialista", name: "Especialista", cat: "combate", free: true, generic: true, source: "Básico", desc: "+1 de precisão com um tipo de arma ou combate desarmado." },
   { id: "esquiva-risco", name: "Esquiva de Risco", cat: "combate", source: "Guia Avançado", reqText: "Reflexos; Esquiva 11", req: [AP("reflexos"), C("ESQ", 11)], desc: "Arrisca-se para esquivas mais eficientes." },
   { id: "fuuma-criadas", name: "Fuuma Shuriken Criadas", cat: "combate", source: "Guia Avançado", reqText: "Usar Arma: Fuuma Shuriken; Criar Arma 2", req: [AP("usar-arma")], desc: "Cria Fuuma Shurikens com o efeito Criar Arma." },
@@ -30,12 +32,12 @@ const COMUNS: Aptidao[] = [
   { id: "guerreiro", name: "Guerreiro", cat: "combate", generic: true, source: "Guia Avançado", reqText: "Força ou Destreza 8 (leves) ou 10 (medianas, longas, pesadas)", req: [ANY(A("FOR", 8), A("DES", 8))], desc: "Realiza manobras especiais com a categoria de arma escolhida." },
   { id: "intuicao", name: "Intuição", cat: "combate", free: true, source: "Básico", desc: "+1 de precisão em Ler Movimento." },
   { id: "lutador", name: "Lutador", cat: "combate", free: true, source: "Básico", desc: "Manobras especiais desarmadas sem a penalidade de -2." },
-  { id: "lutar-cegas", name: "Lutar às Cegas", cat: "combate", free: true, source: "Básico", desc: "Melhora o combate sob escuridão e camuflagens." },
+  { id: "lutar-cegas", name: "Lutar às Cegas", cat: "combate", free: true, source: "Básico", desc: "Melhora o combate sob escuridão e camuflagens.", levels: [L("Prontidão 11 (Guia)", [S("prontidao", 11)], "Teste de Prontidão contra Ataque Furtivo; luta sem contato visual olho a olho.")] },
   { id: "maestria", name: "Maestria", cat: "combate", free: true, generic: true, source: "Básico", desc: "+1 de precisão com um poder ou técnica ofensiva escolhida." },
   { id: "mestre-selos", name: "Mestre dos Selos", cat: "combate", source: "Básico", reqText: "Prestidigitação 12; Ponto Cego", req: [S("prestidigitacao", 12), AP("ponto-cego")], desc: "Realiza selos de mão rapidamente ou com uma única mão." },
   { id: "mira-apurada", name: "Mira Apurada", cat: "combate", source: "Básico", reqText: "Destreza 12; Tiro Longo", req: [A("DES", 12), AP("tiro-longo")], desc: "Aumenta a precisão com armas de disparo." },
   { id: "mobilidade", name: "Mobilidade", cat: "combate", free: true, source: "Básico", reqText: "Agilidade 3; Reflexos", req: [A("AGI", 3), AP("reflexos")], desc: "Melhora a esquiva contra ataques oportunos." },
-  { id: "oportunista", name: "Oportunista", cat: "combate", free: true, maxLevel: 2, source: "Básico", desc: "Realiza mais ataques oportunos por rodada. Nível 2 (Guia): Destreza 13 e Especialista à distância." },
+  { id: "oportunista", name: "Oportunista", cat: "combate", free: true, source: "Básico", desc: "Realiza mais ataques oportunos por rodada.", levels: [L("Destreza 13; Especialista (disparo ou arremesso) (Guia)", [A("DES", 13), AP("especialista")], "Ataques oportunos à distância contra quem se move a até 10m.")] },
   { id: "ponto-cego", name: "Ponto Cego", cat: "combate", source: "Básico", reqText: "Agilidade 6 ou Prestidigitação 6", req: [ANY(A("AGI", 6), S("prestidigitacao", 6))], desc: "Finta com uma ação de movimento." },
   { id: "punho-ferro", name: "Punho de Ferro", cat: "combate", free: true, source: "Básico", reqText: "Força 2", req: [A("FOR", 2)], desc: "Aumenta o dano de arma dos ataques desarmados." },
   { id: "reflexos", name: "Reflexos", cat: "combate", free: true, source: "Básico", desc: "+1 de precisão em Esquiva." },
@@ -43,8 +45,8 @@ const COMUNS: Aptidao[] = [
   { id: "rolamento", name: "Rolamento", cat: "combate", free: true, source: "Básico", reqText: "Acrobacia 2; De Pé", req: [S("acrobacia", 2), AP("de-pe")], desc: "Reduz mais o dano de queda." },
   { id: "saque-rapido", name: "Saque Rápido", cat: "combate", free: true, source: "Básico", desc: "Saca e guarda armas com uma ação livre." },
   { id: "tiro-longo", name: "Tiro Longo", cat: "combate", source: "Guia Avançado", reqText: "Destreza 11", req: [A("DES", 11)], desc: "Dobra o alcance de armas de disparo." },
-  { id: "tiro-preciso", name: "Tiro Preciso", cat: "combate", maxLevel: 2, source: "Básico", reqText: "Destreza 9", req: [A("DES", 9)], desc: "Disparos ignoram cobertura e camuflagem parciais. Nível 2 (Guia): Destreza 13." },
-  { id: "trespassar", name: "Trespassar", cat: "combate", free: true, source: "Básico", reqText: "Combate Corporal 7", req: [C("CC", 7)], desc: "Ataque corporal extra ao derrotar um inimigo." },
+  { id: "tiro-preciso", name: "Tiro Preciso", cat: "combate", source: "Básico", reqText: "Destreza 9", req: [A("DES", 9)], desc: "Disparos ignoram cobertura e camuflagem parciais.", levels: [L("Destreza 13 (Guia)", [A("DES", 13)], "Disparos ignoram camuflagem total.")] },
+  { id: "trespassar", name: "Trespassar", cat: "combate", free: true, source: "Básico", reqText: "Combate Corporal 7", req: [C("CC", 7)], desc: "Ataque corporal extra ao derrotar um inimigo.", levels: [L("Combate Corporal 9", [C("CC", 9)], "Trespassar quantas vezes quiser na rodada.")] },
   { id: "usar-arma", name: "Usar Arma", cat: "combate", free: true, generic: true, source: "Básico", desc: "Usa a arma marcial ou especial escolhida sem penalidade." },
   { id: "usar-armaduras-pesadas", name: "Usar Armaduras Pesadas", cat: "combate", source: "Básico", reqText: "Força 10 ou Vigor 15", req: [ANY(A("FOR", 10), A("VIG", 15))], desc: "Usa armaduras pesadas." },
   { id: "usar-polvora", name: "Usar Pólvora", cat: "combate", source: "Guia Avançado", reqText: "Mecanismos 2; Destreza 2", req: [S("mecanismos", 2), A("DES", 2)], desc: "Sabe usar armas de fogo." },
@@ -67,9 +69,9 @@ const COMUNS: Aptidao[] = [
   { id: "contragolpe", name: "Contragolpe", cat: "manobra", source: "Básico", reqText: "Combate Corporal 12", req: [C("CC", 12)], desc: "Ataque oportuno ao bloquear um inimigo." },
   { id: "derrubar-agressivo", name: "Derrubar Agressivo", cat: "manobra", free: true, source: "Básico", reqText: "Lutador ou Guerreiro", req: [ANY(AP("lutador"), AP("guerreiro"))], desc: "Causa dano e derruba o inimigo." },
   { id: "desarme-agressivo", name: "Desarme Agressivo", cat: "manobra", free: true, source: "Básico", reqText: "Lutador ou Guerreiro", req: [ANY(AP("lutador"), AP("guerreiro"))], desc: "Causa dano e desarma o inimigo." },
-  { id: "desarme-distancia", name: "Desarme à Distância", cat: "manobra", source: "Guia Avançado", reqText: "Combate à Distância 11; Inteligência 3", req: [C("CD", 11), A("INT", 3)], desc: "Desarma com projéteis." },
-  { id: "zui-quan", name: "Estilo Zui Quan (Punhos Bêbados)", cat: "manobra", maxLevel: 2, source: "Guia Avançado", reqText: "Ponto Cego; Punho de Ferro; Vigor 8", req: [AP("ponto-cego"), AP("punho-ferro"), A("VIG", 8)], desc: "Estilo imprevisível do punho bêbado. Nível 2 (Força 15, Vigor 12, Resistência Maior: Vigor): entra com ação livre, sem bebida nem confusão, e fica contínuo." },
-  { id: "flechada-joelho", name: "Flechada no Joelho", cat: "manobra", source: "Guia Avançado", reqText: "Combate à Distância 11; Inteligência 3", req: [C("CD", 11), A("INT", 3)], desc: "Disparo que reduz a mobilidade do alvo." },
+  { id: "desarme-distancia", name: "Desarme à Distância", cat: "manobra", source: "Guia Avançado", reqText: "Combate à Distância 11; Inteligência 3", req: [C("CD", 11), A("INT", 3)], desc: "Desarma com projéteis.", levels: [L("Combate à Distância 17; Inteligência 7", [C("CD", 17), A("INT", 7)], "Causa dano ao desarmar à distância.")] },
+  { id: "zui-quan", name: "Estilo Zui Quan (Punhos Bêbados)", cat: "manobra", source: "Guia Avançado", reqText: "Ponto Cego; Punho de Ferro; Vigor 8", req: [AP("ponto-cego"), AP("punho-ferro"), A("VIG", 8)], desc: "Estilo imprevisível do punho bêbado.", levels: [L("Força 15; Vigor 12; Resistência Maior (Vigor)", [A("FOR", 15), A("VIG", 12), AP("resistencia-maior")], "Entra com ação livre, sem bebida nem confusão, e fica contínuo.")] },
+  { id: "flechada-joelho", name: "Flechada no Joelho", cat: "manobra", source: "Guia Avançado", reqText: "Combate à Distância 11; Inteligência 3", req: [C("CD", 11), A("INT", 3)], desc: "Disparo que reduz a mobilidade do alvo.", levels: [L("Combate à Distância 17; Inteligência 7", [C("CD", 17), A("INT", 7)], "Causa dano ao derrubar à distância.")] },
   { id: "golpe-atemi", name: "Golpe Atemi", cat: "manobra", source: "Básico", reqText: "Ataque Poderoso; Crítico Aprimorado", req: [AP("ataque-poderoso"), AP("critico-aprimorado")], desc: "Mira um ponto vital, causando mais dano." },
   { id: "golpe-carate", name: "Golpe Caratê", cat: "manobra", source: "Básico", reqText: "Combate Corporal 15; Especialista (Ataque Desarmado)", req: [C("CC", 15), AP("especialista")], desc: "Golpe forte que ignora durezas." },
   { id: "imobilizacao", name: "Imobilização", cat: "manobra", source: "Guia Avançado", reqText: "Agarrar Agressivo; Força 13", req: [AP("agarrar-agressivo"), A("FOR", 13)], desc: "Imobiliza completamente o alvo agarrado." },
@@ -120,31 +122,32 @@ const COMUNS: Aptidao[] = [
   { id: "resistencia-maior", name: "Resistência Maior", cat: "geral", free: true, generic: true, source: "Básico", desc: "Refaz um teste de resistência do atributo escolhido." },
 
   // Shinobi
-  { id: "clone", name: "Clone", cat: "shinobi", maxLevel: 2, source: "Básico", reqText: "Espírito 6", req: [A("ESP", 6)], desc: "Cria cópias materiais temporárias de si mesmo (Kage, Mizu, Tsuchi Bunshin…)." },
+  { id: "clone", name: "Clone", cat: "shinobi", generic: true, source: "Básico", reqText: "Espírito 6", req: [A("ESP", 6)], desc: "Cria cópias materiais temporárias de si mesmo (Kage, Mizu, Iwa Bunshin…). Compre de novo para outro tipo de clone.", levels: [L("Espírito 8", [A("ESP", 8)], "Cria e controla até 6 clones, mas eles falham em testes de Habilidade de Combate.")] },
   { id: "clone-verdadeiro", name: "Clone Verdadeiro", cat: "shinobi", source: "Básico", reqText: "Espírito 10; Clone (Kage ou Moku Bunshin)", req: [A("ESP", 10), AP("clone")], desc: "Os clones podem usar técnicas e poderes." },
   { id: "clone-perfeito", name: "Clone Perfeito", cat: "shinobi", source: "Básico", reqText: "Espírito 16; Clone nível 2; Clone Verdadeiro; somente PdM", req: [A("ESP", 16), AP("clone", 2), AP("clone-verdadeiro")], desc: "Cópias perfeitas com todas as habilidades (somente PdM)." },
-  { id: "encantar", name: "Encantar", cat: "shinobi", source: "Guia Avançado", reqText: "Inteligência 5", req: [A("INT", 5)], desc: "Técnica de encanto sobre um alvo próximo." },
+  { id: "encantar", name: "Encantar", cat: "shinobi", source: "Guia Avançado", reqText: "Inteligência 5", req: [A("INT", 5)], desc: "Técnica de encanto sobre um alvo próximo.", levels: [L("Inteligência 12; Ilusão Profunda", [A("INT", 12), AP("ilusao-profunda")], "Muda a atitude do alvo em até 2 estágios numa falha comum.")] },
   { id: "fascinar", name: "Fascinar", cat: "shinobi", free: true, source: "Básico", reqText: "Inteligência 4", req: [A("INT", 4)], desc: "Cria uma ilusão na mente do inimigo." },
-  { id: "kyoudo-kyouka", name: "Kyoudo Kyouka", cat: "shinobi", source: "Básico", reqText: "Espírito 6; Iryou Ninjutsu 2", req: [A("ESP", 6), P("iryou", 2)], desc: "Ataque desarmado poderoso usando chakra (força sobre-humana)." },
+  { id: "kyoudo-kyouka", name: "Kyoudo Kyouka", cat: "shinobi", source: "Básico", reqText: "Espírito 6; Iryou Ninjutsu 2", req: [A("ESP", 6), P("iryou", 2)], desc: "Ataque desarmado poderoso usando chakra (força sobre-humana).", levels: [L("Espírito 10", [A("ESP", 10)], "Prepara com ação de movimento e o dano sobe para Espírito + Iryou Ninjutsu; libera Oukashou e Tsuutenkyaku.")] },
   { id: "miragem", name: "Miragem", cat: "shinobi", free: true, source: "Básico", reqText: "Inteligência 2", req: [A("INT", 2)], desc: "Cria uma ilusão sobre um objeto ou lugar." },
   { id: "oiroke", name: "Oiroke no Jutsu", cat: "shinobi", source: "Guia Avançado", reqText: "Disfarces 4", req: [S("disfarces", 4)], desc: "Jutsu Sexy." },
   { id: "haremu", name: "Haremu no Jutsu", cat: "shinobi", source: "Guia Avançado", reqText: "Disfarces 10; Clone nível 2; Oiroke no Jutsu", req: [S("disfarces", 10), AP("clone", 2), AP("oiroke")], desc: "Jutsu Harém." },
   { id: "raigou", name: "Raigou – Senjusatsu", cat: "shinobi", source: "Guia Avançado", reqText: "Espírito 13; Concentração 10", req: [A("ESP", 13), S("concentracao", 10)], desc: "Mil braços assassinos." },
   { id: "raiton-kage-bunshin", name: "Raiton: Kage Bunshin", cat: "shinobi", source: "Guia Avançado", reqText: "Clone (Kage Bunshin); Raiton", req: [AP("clone"), P("raiton", 1)], desc: "Clone das sombras de raio." },
-  { id: "replica-enganadora", name: "Réplica Enganadora", cat: "shinobi", source: "Básico", reqText: "Suiton ou Doton 4, ou Clone; Prestidigitação 10", req: [ANY(P("suiton", 4), P("doton", 4), AP("clone")), S("prestidigitacao", 10)], desc: "Escapa de um ataque deixando um clone no lugar." },
+  { id: "replica-enganadora", name: "Réplica Enganadora", cat: "shinobi", source: "Básico", reqText: "Suiton ou Doton 4, ou Clone; Prestidigitação 10", req: [ANY(P("suiton", 4), P("doton", 4), AP("clone")), S("prestidigitacao", 10)], desc: "Escapa de um ataque deixando um clone no lugar.", levels: [L("Prestidigitação 12", [S("prestidigitacao", 12)], "Até 2 vezes por cena; ao fugir, pode se esconder com Furtividade.")] },
   { id: "sensor", name: "Sensor", cat: "shinobi", source: "Básico", reqText: "Rastrear 10", req: [S("rastrear", 10)], desc: "Rastreia criaturas pelo chakra." },
-  { id: "shunjutsu", name: "Shunjutsu", cat: "shinobi", source: "Básico", reqText: "Destreza ou Inteligência 10; Diligente; Velocista", req: [ANY(A("DES", 10), A("INT", 10)), AP("diligente"), AP("velocista")], desc: "Usa o Shunshin no Jutsu em combate." },
+  { id: "shunjutsu", name: "Shunjutsu", cat: "shinobi", source: "Básico", reqText: "Destreza ou Inteligência 10; Diligente; Velocista", req: [ANY(A("DES", 10), A("INT", 10)), AP("diligente"), AP("velocista")], desc: "Usa o Shunshin no Jutsu em combate.", levels: [L("Destreza ou Inteligência 12", [ANY(A("DES", 12), A("INT", 12))], "Finta com Destreza ou Inteligência no lugar da Agilidade."), L("Destreza ou Inteligência 16", [ANY(A("DES", 16), A("INT", 16))], "Fica acelerado ao se mover com shunjutsu; na defesa, anula a finta acelerada do oponente.")] },
   { id: "shuriken-kage-bunshin", name: "Shuriken Kage Bunshin", cat: "shinobi", source: "Guia Avançado", reqText: "Clone; Prestidigitação 6", req: [AP("clone"), S("prestidigitacao", 6)], desc: "Multiplica projéteis arremessados." },
+  { id: "rashoumon", name: "Kuchiyose: Rashoumon", cat: "shinobi", source: "Hijutsus 2", reqText: "Espírito ou Inteligência 8", req: [ANY(A("ESP", 8), A("INT", 8))], desc: "Invoca os portões Rashoumon como parede defensiva (dureza igual ao Espírito ou Inteligência).", levels: [L("Espírito ou Inteligência 12", [ANY(A("ESP", 12), A("INT", 12))], "+2 de dureza e até 3 portões."), L("Espírito ou Inteligência 18", [ANY(A("ESP", 18), A("INT", 18))], "+3 de dureza, até 5 portões, a dureza não cai com dano.")] },
   { id: "trabalho-duro", name: "Trabalho Duro", cat: "shinobi", free: true, source: "Básico", reqText: "Não possuir Clã ou Hijutsu", req: [{ t: "noOrigin" }], desc: "Bônus genéricos durante o combate para quem treina todos os dias." },
 ];
 
 /* Aptidões restritas de clãs e hijutsus */
 const r = (id: string, name: string, source: Aptidao["source"], desc: string, reqText?: string, req?: Req[], extra: Partial<Aptidao> = {}): Aptidao => ({ id, name, cat: "restrita", source, desc, reqText, req, ...extra });
-const e = (id: string, name: string, source: Aptidao["source"], desc: string, reqText?: string, req?: Req[]): Aptidao => ({ id, name, cat: "especial", source, desc, reqText, req });
+const e = (id: string, name: string, source: Aptidao["source"], desc: string, reqText?: string, req?: Req[], extra: Partial<Aptidao> = {}): Aptidao => ({ id, name, cat: "especial", source, desc, reqText, req, ...extra });
 
 const RESTRITAS: Aptidao[] = [
   // Aburame
-  r("kikaichuu", "Kikaichuu", "Básico", "Insetos sugadores de chakra vivem em seu corpo.", "Lidar com Animais 1 (nível 2: 10)", [S("animais", 1)], { maxLevel: 2 }),
+  r("kikaichuu", "Kikaichuu", "Básico", "Insetos sugadores de chakra vivem em seu corpo.", "Lidar com Animais 1", [S("animais", 1)], { levels: [L("Lidar com Animais 10", [S("animais", 10)], "Mais controle sobre os insetos (notar genjutsu e outras habilidades).")] }),
   r("shokaichuu", "Shōkaichuu", "Básico", "Insetos que rastreiam criaturas com chakra.", "Lidar com Animais 6; Kikaichuu", [S("animais", 6), AP("kikaichuu")]),
   r("kidaichuu", "Kidaichuu", "Básico", "Insetos gigantes que drenam chakra violentamente.", "Lidar com Animais 12; Kikaichuu", [S("animais", 12), AP("kikaichuu")]),
   r("rinkaichuu", "Rinkaichuu", "Básico", "Insetos microscópicos extremamente venenosos.", "Lidar com Animais 12; Kikaichuu", [S("animais", 12), AP("kikaichuu")]),
@@ -186,13 +189,13 @@ const RESTRITAS: Aptidao[] = [
   // Magen
   r("ilusao-fluida", "Ilusão Fluida", "Básico", "Adapta a ilusão para ajustar a resistência.", "Inteligência 12; Magen 6", [A("INT", 12), P("magen", 6)]),
   // Tensai
-  r("aprendizagem-rapida", "Aprendizagem Rápida", "Básico", "Compra Versatilidade uma segunda vez.", "Versatilidade 5", [P("versatilidade", 5)]),
+  r("aprendizagem-rapida", "Aprendizagem Rápida", "Básico", "Compra Versatilidade outra vez, com dois novos poderes versáteis. Pode ser comprada mais de uma vez.", "Versatilidade 5", [P("versatilidade", 5)], { generic: true }),
   r("talento-natural", "Talento Natural", "Básico", "Ganha um efeito extra (e suas evoluções) num poder versátil ou Hibon Ninpou.", "Inteligência ou Espírito 6", [ANY(A("INT", 6), A("ESP", 6))]),
-  r("tecnica-avancada", "Técnica Avançada", "Básico", "Técnicas do gênio (Tensai)."),
-  e("capacidade", "Capacidade", "Básico", "Chakra especialmente poderoso. Nível 2 com Espírito 12.", "Espírito 8", [A("ESP", 8)]),
-  e("controle-perfeito", "Controle Perfeito", "Básico", "Extrai o máximo das técnicas. Nível 2 com Inteligência 12.", "Inteligência 8", [A("INT", 8)]),
-  e("instinto-batalha", "Instinto de Batalha", "Básico", "Instintos afiados em combate.", "Destreza ou Agilidade 8", [ANY(A("DES", 8), A("AGI", 8))]),
-  e("deus-trovao", "Deus do Trovão", "Básico", "Hiraishin: técnica do Deus do Trovão Voador. Nível 2 com Inteligência 18.", "Fuuinjutsu 8; Inteligência 14", [P("fuuinjutsu", 8), A("INT", 14)]),
+  r("tecnica-avancada", "Técnica Avançada", "Básico", "Recebe duas aptidões de técnica à sua escolha, sem pagar por elas.", "Cumprir os pré-requisitos das aptidões recebidas", undefined, { grants: { cat: "tecnica", n: 2 } }),
+  e("capacidade", "Capacidade", "Básico", "+1 de dano base nos efeitos de Ninpou e elementos (inclusive Versatilidade e Hibon).", "Espírito 8", [A("ESP", 8)], { levels: [L("Espírito 12", [A("ESP", 12)], "Usa meta-aptidões como ação parcial.")] }),
+  e("controle-perfeito", "Controle Perfeito", "Básico", "Usa Inteligência no lugar de Espírito em todos os parâmetros das técnicas.", "Inteligência 8", [A("INT", 8)], { levels: [L("Inteligência 12", [A("INT", 12)], "Soma a Inteligência ao chakra total.")] }),
+  e("instinto-batalha", "Instinto de Batalha", "Básico", "+1 no valor base de uma Habilidade de Combate (não passa de 5).", "Destreza ou Agilidade 8", [ANY(A("DES", 8), A("AGI", 8))], { levels: [L("Destreza ou Agilidade 12", [ANY(A("DES", 12), A("AGI", 12))], "A penalidade de precisão máxima num teste cai para -2.")] }),
+  e("deus-trovao", "Deus do Trovão", "Básico", "Hiraishin: técnica do Deus do Trovão Voador.", "Fuuinjutsu 8; Inteligência 14", [P("fuuinjutsu", 8), A("INT", 14)], { levels: [L("Inteligência 18", [A("INT", 18)], "Libera o Hiraishin: Dōrai (Trovão Guiado).")] }),
   // Hoshigaki / Hozuki / Yuki / Kaguya
   r("predador-aquatico", "Predador Aquático", "Hijutsus 1", "Pele de escamas, guelras e dentes; respira e nada em dobro na água."),
   r("elemento-natural-suiton", "Elemento Natural: Suiton", "Hijutsus 1", "Suiton natural do clã Hoshigaki: +2 de dano base em todo efeito Suiton.", "Predador Aquático; Suiton 1", [AP("predador-aquatico"), P("suiton", 1)]),
@@ -209,7 +212,7 @@ const RESTRITAS: Aptidao[] = [
   r("juuinka-ichi", "Juuinka – Ichi", "Hijutsus 1", "Primeiro estágio do Selo Amaldiçoado.", "Espírito ou Vigor 8; sobreviver ao Juuin Jutsu", [ANY(A("ESP", 8), A("VIG", 8))]),
   r("juuinka-ni", "Juuinka – Ni", "Hijutsus 1", "Segundo estágio do Selo Amaldiçoado.", "Juuinka – Ichi; Espírito ou Vigor 10; Ritual da Névoa Negra", [AP("juuinka-ichi"), ANY(A("ESP", 10), A("VIG", 10))]),
   // Kamijutsu
-  r("shikigami-no-mai", "Shikigami no Mai", "Hijutsus 1", "Dança dos espíritos de papel.", "Kami Ninpou 4; Arte ou Espírito 9", [P("kami-ninpou", 4), ANY(S("arte", 9), A("ESP", 9))], { maxLevel: 2 }),
+  r("shikigami-no-mai", "Shikigami no Mai", "Hijutsus 1", "Dança dos espíritos de papel.", "Kami Ninpou 4; Arte ou Espírito 9", [P("kami-ninpou", 4), ANY(S("arte", 9), A("ESP", 9))], { levels: [L("Kami Ninpou 6", [P("kami-ninpou", 6)], "Sem desvantagem contra Katon, papéis sensores e Imunidade do Anjo.")] }),
   // Rinnegan
   r("rinnegan", "Rinnegan", "Hijutsus 1", "O olho dos Seis Caminhos."),
   r("shurado", "Shuradō (Caminho Asura)", "Hijutsus 1", "Armas mecânicas no corpo.", "Rinnegan; Ocultismo 12; Mecanismos 12", [AP("rinnegan"), S("ocultismo", 12), S("mecanismos", 12)]),
@@ -219,7 +222,7 @@ const RESTRITAS: Aptidao[] = [
   r("chikushodo", "Chikushōdō (Caminho Animal)", "Hijutsus 1", "Invocações do Rinnegan.", "Rinnegan; Ocultismo 16; Rinne Ninpou 7", [AP("rinnegan"), S("ocultismo", 16), P("rinne-ninpou", 7)]),
   r("tendo", "Tendō (Caminho Deva)", "Hijutsus 1", "Forças atrativas e repulsivas.", "Rinnegan; Ocultismo 16; Rinne Ninpou 8", [AP("rinnegan"), S("ocultismo", 16), P("rinne-ninpou", 8)]),
   r("gedo", "Gedō (Caminho Externo)", "Hijutsus 1", "Vida e morte.", "Rinnegan; Ocultismo 18; Espírito 18", [AP("rinnegan"), S("ocultismo", 18), A("ESP", 18)]),
-  r("rinbo-hengoku", "Rinbo: Hengoku", "Hijutsus 2", "Limbo: sombras invisíveis do Rinnegan.", "Rinnegan; Gedō; Clone Verdadeiro; Espírito 20; Ocultismo 20", [AP("rinnegan"), AP("gedo"), AP("clone-verdadeiro"), A("ESP", 20), S("ocultismo", 20)]),
+  r("rinbo-hengoku", "Rinbo: Hengoku", "Hijutsus 2", "Limbo: sombras invisíveis do Rinnegan.", "Rinnegan; Gedō; Clone Verdadeiro; Espírito 20; Ocultismo 20", [AP("rinnegan"), AP("gedo"), AP("clone-verdadeiro"), A("ESP", 20), S("ocultismo", 20)], { levels: [L("Sem requisito extra", undefined, "Até 4 sombras, que se afastam até 5m.")] }),
   // Samurai
   r("armadura-samurai", "Armadura Samurai", "Hijutsus 1", "Armadura tradicional do País do Ferro.", "Força 10 ou Vigor 12", [ANY(A("FOR", 10), A("VIG", 12))]),
   r("sabre-samurai", "Sabre Samurai", "Hijutsus 1", "Chakra canalizado na lâmina.", "Combate Corporal 12", [C("CC", 12)]),
@@ -230,7 +233,7 @@ const RESTRITAS: Aptidao[] = [
   r("issen", "Issen", "Hijutsus 1", "Corte de um só traço.", "Destreza 12; Espírito 12; Sabre Samurai; Ambidestria", [A("DES", 12), A("ESP", 12), AP("sabre-samurai"), AP("ambidestria")]),
   r("yojinbo", "Yojinbo", "Hijutsus 1", "Guarda-costas implacável.", "Destreza 10; Espadachim; Saque Rápido; Iaido; Ataque em Movimento", [A("DES", 10), AP("iaido"), AP("ataque-em-movimento")]),
   // Senninka / Nintaijutsu
-  r("armadura-raios", "Armadura de Raios", "Hijutsus 1", "Nintaijutsu: manto de raios que acelera o corpo. Nível 1: 4 chakra, dureza 1, +5m, acelerado. Nível 2 (Nintaijutsu 6, Espírito 9): 6 chakra, dureza 2, +10m. Nível 3 (Nintaijutsu 8, Espírito 14): 8 chakra, dureza 3, +15m.", "Nintaijutsu 5; Espírito 6", [P("nintaijutsu", 5), A("ESP", 6)], { maxLevel: 3 }),
+  r("armadura-raios", "Armadura de Raios", "Hijutsus 1", "Nintaijutsu: manto de raios que acelera o corpo. 4 chakra, dureza 1, +5m, acelerado.", "Nintaijutsu 5; Espírito 6", [P("nintaijutsu", 5), A("ESP", 6)], { levels: [L("Nintaijutsu 6; Espírito 9", [P("nintaijutsu", 6), A("ESP", 9)], "6 chakra, dureza 2, +10m, +1 de dano no Nintaijutsu, duração contínua."), L("Nintaijutsu 8; Espírito 14", [P("nintaijutsu", 8), A("ESP", 14)], "8 chakra, dureza 3, +15m, +2 de dano no Nintaijutsu, Defesa Ativa como ação livre.")] }),
   // Vol 2
   r("elemento-natural-fuuton", "Elemento Natural: Fuuton", "Hijutsus 2", "Fuuton natural do clã Shimura.", "Espírito 1; Fuuton 1", [A("ESP", 1), P("fuuton", 1)]),
   r("kujaku-cura", "Kujaku Myoho: Cura", "Hijutsus 2", "Cura com a arte do pavão.", "Ninja Médico; Kujaku Myoho 5", [AP("ninja-medico"), P("kujaku", 5)]),
@@ -249,8 +252,8 @@ const RESTRITAS: Aptidao[] = [
   r("seis-bracos", "Seis Braços", "Hijutsus 2", "Quatro braços extras.", "Destreza 4", [A("DES", 4)]),
   r("olho-aranha", "Olho de Aranha", "Hijutsus 2", "Terceiro olho para mira precisa.", "Percepção 12; Espírito 8", [A("PER", 12), A("ESP", 8)]),
   r("ouro-pegajoso", "Ouro Pegajoso", "Hijutsus 2", "Teia endurecida como metal.", "Espírito 8; Kumo Ninpou 4", [A("ESP", 8), P("kumo-ninpou", 4)]),
-  r("possessao-serpente", "Possessão da Serpente Branca", "Hijutsus 2", "Corpo modificado por serpentes: +1 compartimento no estômago e Kawarimi como ação parcial. Nível 2 (Ocultismo 10, Medicina 10): Corpo Esguio e +1 Kawarimi.", "Ocultismo 2; Espírito 2", [S("ocultismo", 2), A("ESP", 2)], { maxLevel: 2 }),
-  r("yamata", "Yamata no Jutsu", "Hijutsus 2", "Vira a serpente Yamata-no-Orochi (tamanho Enorme): Força, Destreza e Vigor +3, só técnicas do Hebi Ninpou, sem selos. Movimento, 5 chakra. Nível 2 (Ocultismo 15, Hebi Ninpou 7, Possessão 2): Imenso, +5, 7 chakra.", "Ocultismo 11; Possessão da Serpente Branca; Hebi Ninpou 5", [S("ocultismo", 11), AP("possessao-serpente"), P("hebi-ninpou", 5)], { maxLevel: 2 }),
+  r("possessao-serpente", "Possessão da Serpente Branca", "Hijutsus 2", "Corpo modificado por serpentes: +1 compartimento no estômago e Kawarimi como ação parcial.", "Ocultismo 2; Espírito 2", [S("ocultismo", 2), A("ESP", 2)], { levels: [L("Ocultismo 10; Medicina 10", [S("ocultismo", 10), S("medicina", 10)], "Corpo Esguio e +1 Kawarimi.")] }),
+  r("yamata", "Yamata no Jutsu", "Hijutsus 2", "Vira a serpente Yamata-no-Orochi (tamanho Enorme): Força, Destreza e Vigor +3, só técnicas do Hebi Ninpou, sem selos. Movimento, 5 chakra.", "Ocultismo 11; Possessão da Serpente Branca; Hebi Ninpou 5", [S("ocultismo", 11), AP("possessao-serpente"), P("hebi-ninpou", 5)], { levels: [L("Ocultismo 15; Hebi Ninpou 7; Possessão da Serpente Branca nível 2", [S("ocultismo", 15), P("hebi-ninpou", 7), AP("possessao-serpente", 2)], "Tamanho Imenso, bônus +5, 7 chakra.")] }),
   r("usar-armas-jashin", "Usar Armas de Jashin", "Hijutsus 2", "Foice tripla e armas rituais.", "Ocultismo 4; Força 4", [S("ocultismo", 4), A("FOR", 4)]),
   r("ritual-conexao", "Ritual de Conexão", "Hijutsus 2", "Liga o próprio corpo ao da vítima.", "Ocultismo 8", [S("ocultismo", 8)]),
   r("imortalidade", "Imortalidade", "Hijutsus 2", "Bênção de Jashin.", "Regeneração; Duro de Matar; Vigor 10", [AP("regeneracao"), AP("duro-de-matar"), A("VIG", 10)]),
@@ -260,18 +263,18 @@ const RESTRITAS: Aptidao[] = [
   r("tubos-ar", "Tubos de Ar", "Hijutsus 2", "Tubos nos braços que disparam ar.", "Destreza 6", [A("DES", 6)]),
   r("kyoumei-supika", "Kyoumei Supika", "Hijutsus 2", "Alto-falante ressoante de eco.", "Acuidade e Destreza 6, ou Força 6", [ANY(A("DES", 6), A("FOR", 6))]),
   r("reverberacao", "Reverberação", "Hijutsus 2", "Som que se propaga pelo corpo.", "Ototon 5", [P("ototon", 5)]),
-  r("corpo-fios", "Corpo de Fios", "Hijutsus 2", "Jiongu: corpo costurado por fios.", "Ocultismo 2", [S("ocultismo", 2)], { maxLevel: 2 }),
+  r("corpo-fios", "Corpo de Fios", "Hijutsus 2", "Jiongu: corpo costurado por fios.", "Ocultismo 2", [S("ocultismo", 2)], { levels: [L("Ocultismo 10", [S("ocultismo", 10)], "Libera as técnicas avançadas do Jiongu.")] }),
   r("chakra-expandido-jiongu", "Chakra Expandido Jiongu", "Hijutsus 2", "Corações roubados aumentam o chakra.", "Jiongu 1; Ocultismo 2", [P("jiongu", 1), S("ocultismo", 2)]),
   r("peso-ouro", "Peso do Ouro", "Hijutsus 2", "Jiton II (Sakin).", "Sakin 5", [P("jiton", 5)]),
   r("marca-ferro", "Marca de Ferro", "Hijutsus 2", "Jiton II (Satetsu).", "Satetsu 5", [P("jiton", 5)]),
-  r("kakuran-taijutsu", "Kakuran Taijutsu", "Hijutsus 2", "Taijutsu da agitação.", "Força ou Destreza 12; Acrobacia 12; Ponto Cego", [ANY(A("FOR", 12), A("DES", 12)), S("acrobacia", 12), AP("ponto-cego")]),
+  e("kakuran-taijutsu", "Kakuran Taijutsu", "Hijutsus 2", "Aptidão Especial: finta como ação livre usando Acrobacia; anula a Visão Acelerada do Sharingan; Usar Arma: Espadas Super-Vibrantes.", "Força ou Destreza 12; Acrobacia 12; Ponto Cego", [ANY(A("FOR", 12), A("DES", 12)), S("acrobacia", 12), AP("ponto-cego")], { levels: [L("Acrobacia 14", [S("acrobacia", 14)], "Anula a Visão Acelerada Maior do Sharingan e libera o Akurobatto.")] }),
   r("elemento-natural-terra", "Elemento Natural: Terra", "Hijutsus 2", "Doton natural para Jinton.", "Doton 1", [P("doton", 1)]),
   r("fissao", "Fissão", "Hijutsus 2", "Desintegração aprimorada.", "Espírito 16; Vigor 12", [A("ESP", 16), A("VIG", 12)]),
   r("apagar-presenca", "Apagar Presença", "Hijutsus 2", "Oculta o próprio chakra.", "Sensor; Rastrear 10", [AP("sensor"), S("rastrear", 10)]),
   r("boca-moldagem", "Boca de Moldagem", "Hijutsus 2", "Bocas nas mãos que moldam argila.", "Arte 12; Kibaku Nendo 6", [S("arte", 12), P("kibaku-nendo", 6)]),
-  r("kugutsu", "Kugutsu (Marionetes)", "Hijutsus 2", "Controla marionetes com fios de chakra.", "Mecanismos 4; Engenheiro", [S("mecanismos", 4), AP("engenheiro")], { maxLevel: 3 }),
+  r("kugutsu", "Kugutsu (Marionetes)", "Hijutsus 2", "Controla marionetes com fios de chakra.", "Mecanismos 4; Engenheiro", [S("mecanismos", 4), AP("engenheiro")]),
   r("estrangular", "Estrangular", "Hijutsus 2", "Marionete que estrangula.", "Mecanismos 12", [S("mecanismos", 12)]),
-  r("kurohigi", "Kurohigi", "Hijutsus 2", "Técnica secreta negra.", "Kugutsu; Prestidigitação 6; Mecanismos 6", [AP("kugutsu"), S("prestidigitacao", 6), S("mecanismos", 6)]),
+  r("kurohigi", "Kurohigi", "Hijutsus 2", "Estilo secreto negro: marionetes Médias. Compra uma vez só; os níveis chegam ao cumprir o pré-requisito.", "Kugutsu; Prestidigitação 6; Mecanismos 6", [AP("kugutsu"), S("prestidigitacao", 6), S("mecanismos", 6)], { levelsFree: true, levels: [L("Prestidigitação 10", [S("prestidigitacao", 10)], "Controla 2 marionetes; dispositivos +1 de dano de arma."), L("Prestidigitação 12; Mecanismos 12", [S("prestidigitacao", 12), S("mecanismos", 12)], "Controla 3 marionetes, age com 2 por rodada."), L("Prestidigitação 14", [S("prestidigitacao", 14)], "Controla 4 marionetes, age com 3 por rodada.")] }),
   r("shirohigi", "Shirohigi", "Hijutsus 2", "Técnica secreta branca.", "Kurohigi; Mecanismos 16; Prestidigitação 16; Ocultismo 16", [AP("kurohigi"), S("mecanismos", 16), S("prestidigitacao", 16), S("ocultismo", 16)]),
   r("akahigi", "Akahigi", "Hijutsus 2", "Estilo secreto vermelho: invoca 100 marionetes de uma vez.", "Shirohigi; Mecanismos 18; Prestidigitação 18; Ocultismo 18", [AP("shirohigi"), S("mecanismos", 18), S("prestidigitacao", 18), S("ocultismo", 18)]),
   r("hitokugutsu", "Hitokugutsu", "Hijutsus 2", "O próprio corpo como marionete. Parte Completa (automática): Fuuinjutsu 9; Mecanismos, Medicina e Ocultismo 18.", "Parcial: Kugutsu; Ninja Médico; Mecanismos 16; Medicina 16; Ocultismo 16", [AP("kugutsu"), AP("ninja-medico"), S("mecanismos", 16), S("medicina", 16), S("ocultismo", 16)]),
@@ -280,8 +283,9 @@ const RESTRITAS: Aptidao[] = [
   r("futton-sufocante", "Futton Sufocante", "Hijutsus 2", "Vapor sufocante.", "Futton 5", [P("futton", 5)]),
   r("youton-corrosivo", "Youton Corrosivo", "Hijutsus 2", "Lava corrosiva.", "Youton 5", [P("youton", 5)]),
   r("dupla-linhagem", "Dupla Linhagem", "Hijutsus 2", "Futton e Youton juntos.", "Espírito 10; Futton ou Youton 5", [A("ESP", 10), ANY(P("futton", 5), P("youton", 5))]),
-  r("extracao-energetica", "Extração Energética", "Hijutsus 2", "Nan no Kaizou: extrai energia.", "Espírito 6", [A("ESP", 6)]),
-  r("efeito-estroboscopio", "Efeito Estroboscópio", "Hijutsus 2", "Ranton cegante.", "Ranton 6", [P("ranton", 6)]),
+  e("extracao-energetica", "Extração Energética", "Hijutsus 2", "Nan no Kaizou (Aptidão Especial): absorve chakra de um alvo indefeso.", "Espírito 6", [A("ESP", 6)], { levels: [L("Lutador; Combate Corporal 15", [AP("lutador"), C("CC", 15)], "Agarrar e Sugar: extrai chakra ao agarrar ou tocar um alvo imobilizado.")] }),
+  e("manipulacao-fisica", "Manipulação Física", "Hijutsus 2", "Nan no Kaizou (Aptidão Especial): Corpo Esguio e Agarramento Contorcionista.", "Lutador; Vigor 4", [AP("lutador"), A("VIG", 4)], { levels: [L("Combate Corporal 15", [C("CC", 15)], "Imobilização gratuita, +2 de dano no Agarrar Agressivo e chaves de braço/perna.")] }),
+  r("efeito-estroboscopio", "Efeito Estroboscópio", "Hijutsus 2", "Ranton cegante.", "Ranton 6", [P("ranton", 6)], { levels: [L("Ranton 10", [P("ranton", 10)], "A penalidade de visão vira Camuflagem Total.")] }),
   r("mumificar", "Mumificar", "Hijutsus 2", "Shakuton que seca o alvo.", "Shakuton 5", [P("shakuton", 5)]),
   r("cristal-guiado", "Cristal Guiado", "Hijutsus 2", "Projéteis de cristal teleguiados.", "Shouton 5", [P("shouton", 5)]),
   r("barreira-regenerativa", "Barreira Regenerativa", "Hijutsus 2", "Barreiras de cristal que se refazem.", "Shouton 5", [P("shouton", 5)]),
@@ -289,12 +293,17 @@ const RESTRITAS: Aptidao[] = [
   r("mestre-leques", "Mestre dos Leques", "Hijutsus 2", "Domínio do Leque Gigante.", "Destreza 6; Fuuton 3", [A("DES", 6), P("fuuton", 3)]),
   r("brisa-navalha", "Brisa de Navalha", "Hijutsus 2", "Ventos cortantes com o leque.", "Espírito 10; Fuuton 5", [A("ESP", 10), P("fuuton", 5)]),
   r("capacidade-ventos", "Capacidade dos Ventos", "Hijutsus 2", "Técnicas de vento ampliadas pelo leque.", "Espírito ou Inteligência 12", [ANY(A("ESP", 12), A("INT", 12))]),
-  r("regeneracao-gemea", "Regeneração Gêmea", "Hijutsus 2", "Souma: regeneração dos demônios gêmeos.", "Vigor 4; Souma no Kou 1", [A("VIG", 4), P("souma", 1)]),
-  r("anatomia-zetsu", "Anatomia Zetsu", "Hijutsus 2", "Corpo vegetal do Zetsu (níveis 1 a 3).", undefined, undefined, { maxLevel: 3 }),
+  r("souma-no-kou", "Souma no Kou", "Hijutsus 2", "Ataque dos demônios gêmeos: divide o corpo com um irmão gêmeo (só na criação da ficha).", "Vigor 2", [A("VIG", 2)], { levels: [L("Vigor 8", [A("VIG", 8)], "Vida Partilhada, Poder Partilhado e Membros Escondidos com os gêmeos fundidos."), L("Vigor 12", [A("VIG", 12)], "Ataque Oculto e Destruição Parasita.")] }),
+  r("regeneracao-gemea", "Regeneração Gêmea", "Hijutsus 2", "Souma: regeneração dos demônios gêmeos.", "Vigor 4; Souma no Kou 1", [A("VIG", 4), AP("souma-no-kou")]),
+  r("anatomia-zetsu", "Anatomia Zetsu", "Hijutsus 2", "Corpo vegetal do Zetsu: imune a sangramento, não come nem dorme.", undefined, undefined, { levels: [L("Vigor 8", [A("VIG", 8)], "Devora corpos por chakra e cura Vitalidade com chakra."), L("Vigor 12", [A("VIG", 12)], "Transmite chakra por toque.")] }),
   r("clone-zetsu", "Clone Zetsu", "Hijutsus 2", "Clones de Zetsu.", "Clone", [AP("clone")]),
   r("elementos-irrestritos", "Elementos Irrestritos", "Hijutsus 2", "Acesso livre a elementos.", "Espírito 10; Mokuton 5", [A("ESP", 10), P("mokuton", 5)]),
+  // Senjutsu (Guia 10 anos: virou linha de aptidões restritas)
+  r("senjutsu", "Senjutsu (Técnica Eremita)", "Guia Avançado", "Modo Eremita: absorve energia natural e ganha pontos de Chakra Senjutsu (½ do Vigor ou Espírito).", "Vigor e Espírito 10; Kuchiyose 7 (restrito) ou Mokuton 7 + Regeneração", [A("VIG", 10), A("ESP", 10), ANY(P("kuchiyose", 7), P("mokuton", 7))], { levels: [L("Kuchiyose 8 ou Mokuton 8", [ANY(P("kuchiyose", 8), P("mokuton", 8))], "Modo contínuo entre cenas, Chakra +20 e Vitalidade +30 (1×/cena), sensor ampliado."), L("Kuchiyose 9 ou Mokuton 9", [ANY(P("kuchiyose", 9), P("mokuton", 9))], "Surto de Chakra Natural e Sensor Maximizado.")] }),
+  // Kuroi Kaminari (Aptidão Especial Tensai)
+  e("relampago-negro", "Relâmpago Negro", "Hijutsus 2", "Kuroi Kaminari: com efeitos Raiton, o Domínio do Raio dá crítico com 2 pontos a menos.", "Raiton 5; Domínio do Raio", [P("raiton", 5), AP("dominio-raio")]),
   // Saika Ikki (Guia)
-  r("disparos-sujos", "Disparos Sujos", "Guia Avançado", "Saika Ikki: ganha Desarme à Distância e Flechada no Joelho com armas de fogo. Nível 2 com CD 17 e INT 7.", "Especialista: Armas de Fogo; Combate à Distância 11; Inteligência 3", [AP("especialista"), C("CD", 11), A("INT", 3)], { maxLevel: 2 }),
+  r("disparos-sujos", "Disparos Sujos", "Guia Avançado", "Saika Ikki: ganha Desarme à Distância e Flechada no Joelho com armas de fogo.", "Especialista: Armas de Fogo; Combate à Distância 11; Inteligência 3", [AP("especialista"), C("CD", 11), A("INT", 3)], { levels: [L("Combate à Distância 17; Inteligência 7", [C("CD", 17), A("INT", 7)], "Recebe o nível 2 de Desarme à Distância e Flechada no Joelho.")] }),
   r("recarga-precisa", "Recarga Precisa", "Guia Avançado", "Saika Ikki: simula 1 dado na Recarga Rápida de Pólvora.", "Destreza 9; Usar Pólvora; Saque Rápido", [A("DES", 9), AP("usar-polvora"), AP("saque-rapido")]),
   r("gun-fu", "Gun Fu", "Guia Avançado", "Saika Ikki: bloqueia e golpeia corpo-a-corpo usando CD com armas de fogo.", "Destreza 11; Especialista: Armas de Fogo; Guerreiro", [A("DES", 11), AP("especialista"), AP("guerreiro")]),
   r("mira-vital", "Mira Vital", "Guia Avançado", "Saika Ikki: com Mira Apurada, o disparo recebe +0,5 grau de dano.", "Destreza 12; Mira Apurada", [A("DES", 12), AP("mira-apurada")]),
@@ -303,7 +312,7 @@ const RESTRITAS: Aptidao[] = [
   r("atirador-agil", "Atirador Ágil", "Guia Avançado", "Saika Ikki: Retirada Rápida só com a ação de movimento enquanto empunha arma de fogo.", "Agilidade 12; Retirada Rápida", [A("AGI", 12), AP("retirada-rapida")]),
 ];
 
-export const APTIDOES: Aptidao[] = [...COMUNS, ...RESTRITAS];
+export const APTIDOES: Aptidao[] = [...COMUNS, ...RESTRITAS].map((a) => (a.levels ? { ...a, maxLevel: a.levels.length + 1 } : a));
 export const APT_BY_ID: Record<string, Aptidao> = Object.fromEntries(APTIDOES.map((a) => [a.id, a]));
 
 export const APT_CATEGORIES: { key: Aptidao["cat"]; label: string }[] = [

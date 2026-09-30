@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { APTIDOES, APT_BY_ID, APT_CATEGORIES, BANNED_APTS } from "@/lib/data/aptidoes";
 import { JUUINKA_BONUS, JUUINKA_ICHI_PICKS, JUUINKA_NI_DEFAULT, JUUINKA_SELOS, niChoices } from "@/lib/data/juuinka";
-import { APT_COST, FREE_APTS, allowedRestricted, budgetFor, isFreeEligible, ownersText, reqsMet, spent, uid } from "@/lib/rules";
-import type { AptCategory, AptEntry, Aptidao } from "@/lib/types";
+import { APT_COST, FREE_APTS, allowedRestricted, aptCost, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, uid } from "@/lib/rules";
+import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, Stepper, StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
 
@@ -20,13 +20,14 @@ export function StepAptidoes({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
   const s = spent(c);
   const allowed = useMemo(() => allowedRestricted(c), [c]);
+  const granted = useMemo(() => grantedApts(c), [c]);
   const powerLeft = b.power - s.power;
 
   const status = (a: Aptidao) => {
     const banned = c.optionals.aptidoesBanidas && BANNED_APTS.includes(a.id);
     const restricted = (a.cat === "restrita" || a.cat === "especial") && !allowed.apts.has(a.id);
     const met = reqsMet(c, a.req);
-    const owned = c.aptidoes.some((e) => e.id === a.id);
+    const owned = c.aptidoes.some((e) => e.id === a.id) || granted.includes(a.id);
     return { banned, restricted, met, owned, available: !banned && !restricted && met };
   };
 
@@ -57,7 +58,7 @@ export function StepAptidoes({ c, set }: StepProps) {
   return (
     <div className="flex flex-col gap-8">
       <StepHeader kicker="Etapa 5" title="Aptidões">
-        Você tem {FREE_APTS} aptidões gratuitas (das opções marcadas como gratuitas, ou restritas alcançáveis por um Genin). Cada aptidão adicional custa {APT_COST} pontos de poder. Qualquer aptidão pode ser adicionada; o que não seria possível pelas regras normais ganha uma observação.
+        Você tem {FREE_APTS} aptidões gratuitas (das opções marcadas como gratuitas, ou restritas alcançáveis por um Genin). Cada aptidão adicional custa {APT_COST} pontos de poder, e cada nível a mais de uma aptidão evolutiva é uma nova compra de {APT_COST} pontos, mesmo numa gratuita. Qualquer aptidão pode ser adicionada; o que não seria possível pelas regras normais ganha uma observação.
       </StepHeader>
 
       <section className="flex flex-col gap-3">
@@ -107,6 +108,8 @@ export function StepAptidoes({ c, set }: StepProps) {
                           aria-label={`Categoria de ${a.name}`}
                         />
                       )}
+                      {a?.levels && <LevelList c={c} a={a} level={e.level} />}
+                      {a?.grants && <GrantChoices c={c} a={a} e={e} set={set} />}
                       {a && (a.id === "juuinka-ichi" || a.id === "juuinka-ni") && <JuuinkaChoices e={e} set={set} />}
                       {!a && (
                         <textarea
@@ -134,10 +137,10 @@ export function StepAptidoes({ c, set }: StepProps) {
                       >
                         {e.free ? (
                           <>
-                            <IconCheck className="size-4" /> Gratuita
+                            <IconCheck className="size-4" /> Gratuita{aptCost(e) > 0 && ` + ${aptCost(e)} pts`}
                           </>
                         ) : (
-                          `${APT_COST * e.level} pts`
+                          `${aptCost(e)} pts`
                         )}
                       </button>
                       <button type="button" onClick={() => set((d) => void (d.aptidoes = d.aptidoes.filter((x) => x.uid !== e.uid)))} className="btn-ghost size-10 min-h-10 px-0" aria-label={`Remover ${a?.name ?? e.customName}`}>
@@ -199,6 +202,7 @@ export function StepAptidoes({ c, set }: StepProps) {
                     {isFreeEligible(a) && <Badge tone="ok">gratuita</Badge>}
                     {a.generic && <Badge>genérica</Badge>}
                     {a.maxLevel && a.maxLevel > 1 && <Badge>até nv {a.maxLevel}</Badge>}
+                    {granted.includes(a.id) && <Badge tone="ok">pela Técnica Avançada</Badge>}
                     <span className="text-[11px] text-faint">{a.source}</span>
                   </div>
                   <span className="text-sm leading-snug text-muted">{a.desc}</span>
@@ -207,6 +211,7 @@ export function StepAptidoes({ c, set }: StepProps) {
                       {st.met ? "✓" : "✗"} {a.reqText}
                     </span>
                   )}
+                  {a.levels && <LevelList c={c} a={a} level={0} />}
                   {st.banned && <span className="text-xs text-bad">Banida pela regra opcional.</span>}
                   {st.restricted && <span className="text-xs text-bad">Restrita a: {ownersText("aptidoes", a.id)}. Pode pegar, mas fica como observação.</span>}
                 </div>
@@ -226,6 +231,56 @@ export function StepAptidoes({ c, set }: StepProps) {
         </ul>
         {catalog.length === 0 && <p className="text-center text-muted">Nenhuma aptidão com esses filtros.</p>}
       </section>
+    </div>
+  );
+}
+
+/** Níveis 2, 3… de uma aptidão evolutiva, com pré-requisito e custo. `level` = nível já comprado (0 no catálogo). */
+function LevelList({ c, a, level }: { c: Character; a: Aptidao; level: number }) {
+  return (
+    <ul className="mt-0.5 flex flex-col gap-0.5 text-xs leading-snug">
+      {a.levels!.map((l, i) => {
+        const n = i + 2;
+        const met = reqsMet(c, l.req);
+        const tone = level >= n ? (met ? "text-ok" : "text-bad") : "text-faint";
+        return (
+          <li key={n} className={tone}>
+            <strong>Nv {n}</strong> ({l.reqText}; {a.levelsFree ? "sem custo" : `+${APT_COST} pts`}): {l.desc}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Aptidões recebidas de graça por outra, como as 2 de técnica da Técnica Avançada (Livro Básico, pág. 243). */
+function GrantChoices({ c, a, e, set }: { c: Character; a: Aptidao; e: AptEntry; set: StepProps["set"] }) {
+  const { cat, n } = a.grants!;
+  const options = APTIDOES.filter((x) => x.cat === cat);
+  const picks = e.choices ?? [];
+  const pick = (i: number, id: string) =>
+    set((d) => {
+      const x = d.aptidoes.find((y) => y.uid === e.uid)!;
+      const cur = Array.from({ length: n }, (_, k) => x.choices?.[k] ?? "");
+      cur[i] = id;
+      x.choices = cur;
+    });
+  return (
+    <div className="mt-1 grid gap-2 sm:grid-cols-2">
+      {Array.from({ length: n }, (_, i) => (
+        <label key={i} className="flex flex-col gap-1 text-xs text-muted">
+          Aptidão {APT_CATEGORIES.find((x) => x.key === cat)?.label.toLowerCase()} {i + 1} (gratuita)
+          <select className="field py-1.5 text-sm" value={picks[i] ?? ""} onChange={(ev) => pick(i, ev.target.value)}>
+            <option value="">Escolher…</option>
+            {options.map((o) => (
+              <option key={o.id} value={o.id} disabled={picks.includes(o.id) && picks[i] !== o.id}>
+                {o.name}
+                {reqsMet(c, o.req) ? "" : ` (pede ${o.reqText})`}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
     </div>
   );
 }

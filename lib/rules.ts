@@ -2,7 +2,7 @@ import { APT_BY_ID, BANNED_APTS } from "./data/aptidoes";
 import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
 import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
 import { EFEITO_BY_ID, PODER_BY_ID } from "./data/poderes";
-import type { Aptidao, AttrKey, Character, CombatKey, Optionals, Req, SkillKey } from "./types";
+import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, Optionals, Req, SkillKey } from "./types";
 
 /** Nível máximo de campanha da mesa (o livro vai até 20). */
 export const NC_MIN = 4;
@@ -65,10 +65,25 @@ export function rankLabel(nc: number) {
 
 /* ---------------- consultas ---------------- */
 
+/** Aptidões recebidas de graça por outra (ex.: as 2 de técnica da Técnica Avançada). */
+export function grantedApts(c: Character): string[] {
+  return c.aptidoes.flatMap((e) => (APT_BY_ID[e.id]?.grants ? (e.choices ?? []).filter(Boolean) : []));
+}
+
 export function aptLevel(c: Character, id: string): number {
-  return c.aptidoes.filter((a) => a.id === id).reduce((m, a) => Math.max(m, a.level), 0);
+  const lvl = c.aptidoes.filter((a) => a.id === id).reduce((m, a) => Math.max(m, a.level), 0);
+  return lvl || (grantedApts(c).includes(id) ? 1 : 0);
 }
 export const hasApt = (c: Character, id: string, level = 1) => aptLevel(c, id) >= level;
+
+/**
+ * Pontos de poder gastos numa aptidão. Cada nível de uma aptidão evolutiva é uma nova compra (Livro Básico, pág. 57),
+ * inclusive numa aptidão gratuita: a gratuidade cobre só o nível 1. Aptidões com `levelsFree` (Kurohigi) são compradas uma vez.
+ */
+export function aptCost(e: AptEntry): number {
+  const buys = APT_BY_ID[e.id]?.levelsFree ? 1 : Math.max(1, e.level);
+  return (buys - (e.free ? 1 : 0)) * APT_COST;
+}
 
 export function powerLevel(c: Character, id: string): number {
   return c.poderes.filter((p) => p.id === id).reduce((m, p) => Math.max(m, p.level), 0);
@@ -226,6 +241,7 @@ export function derived(c: Character) {
   vit += c.bonus.vit || 0;
   let chakra = 10 + 3 * c.attrs.ESP;
   if (hasApt(c, "chakra-expandido")) chakra = Math.ceil(chakra * 1.5);
+  if (hasApt(c, "controle-perfeito", 2)) chakra += c.attrs.INT;
   chakra += c.bonus.chakra || 0;
   const prontidao = skillTotal(c, "prontidao") ?? 0;
   let ini = prontidao + c.attrs.AGI + (c.bonus.ini || 0);
@@ -250,7 +266,7 @@ export function spent(c: Character) {
   const skill = SKILLS.reduce((t, s) => t + (c.skills[s.key] || 0), 0) + c.customSkills.reduce((t, s) => t + (s.pts || 0), 0);
   // Comprar o mesmo poder de novo: o nível 1 da nova compra é gratuito (Livro Básico, pág. 95).
   const powerLevels = c.poderes.reduce((t, p, i) => t + p.level - (isRepurchase(c, i) ? 1 : 0), 0);
-  const paidApts = c.aptidoes.filter((a) => !a.free).reduce((t, a) => t + a.level * APT_COST, 0);
+  const paidApts = c.aptidoes.reduce((t, a) => t + aptCost(a), 0);
   const freeUsed = c.aptidoes.filter((a) => a.free).length;
   const social = c.social.car + c.social.man;
   const ryos = c.items.reduce((t, i) => t + i.price * i.qty, 0);
@@ -328,8 +344,24 @@ export function validate(c: Character): Issue[] {
     if ((a.cat === "restrita" || a.cat === "especial") && !allowed.apts.has(a.id)) push("erro", "aptidoes", `${a.name} é restrita a: ${ownersText("aptidoes", a.id)}.`);
     if (!reqsMet(c, a.req)) push("erro", "aptidoes", `${a.name}: pré-requisito não atendido (${a.reqText}).`);
     if (e.free && !isFreeEligible(a)) push("erro", "aptidoes", `${a.name} normalmente não pode ser uma das gratuitas.`);
-    if (a.maxLevel && e.level > a.maxLevel) push("erro", "aptidoes", `${a.name} vai até o nível ${a.maxLevel}.`);
+    if (e.level > (a.maxLevel ?? 1)) push("erro", "aptidoes", a.maxLevel ? `${a.name} vai até o nível ${a.maxLevel}.` : `${a.name} não tem níveis.`);
+    a.levels?.slice(0, e.level - 1).forEach((l, i) => {
+      if (!reqsMet(c, l.req)) push("erro", "aptidoes", `${a.name} nível ${i + 2}: pré-requisito não atendido (${l.reqText}).`);
+    });
     if (c.originId === "samurai" && a.cat === "shinobi") push("erro", "aptidoes", `Samurais não compram aptidões shinobi (${a.name}).`);
+    if (a.grants) {
+      const picks = (e.choices ?? []).filter(Boolean);
+      const catLabel = a.grants.cat === "tecnica" ? "de técnica" : a.grants.cat;
+      if (picks.length < a.grants.n) push("aviso", "aptidoes", `${a.name}: escolha ${a.grants.n - picks.length} aptidão(ões) ${catLabel} gratuita(s).`);
+      if (new Set(picks).size < picks.length) push("erro", "aptidoes", `${a.name}: a mesma aptidão foi escolhida duas vezes.`);
+      for (const id of new Set(picks)) {
+        const g = APT_BY_ID[id];
+        if (!g) continue;
+        if (g.cat !== a.grants.cat) push("erro", "aptidoes", `${a.name}: ${g.name} não é uma aptidão ${catLabel}.`);
+        if (!reqsMet(c, g.req)) push("erro", "aptidoes", `${a.name}: ${g.name} pede ${g.reqText}.`);
+        if (c.aptidoes.some((x) => x.id === id)) push("aviso", "aptidoes", `${g.name} já está comprada; pela ${a.name} escolha outra e economize os pontos.`);
+      }
+    }
   }
   const dupes = new Map<string, number>();
   c.aptidoes.forEach((e) => {
@@ -447,9 +479,30 @@ export function newCharacter(nc = 4): Character {
   };
 }
 
+/** Itens que eram poderes em versões antigas e, pelos livros, são aptidões (Senjutsu virou linha de aptidões no Guia de 10 anos). */
+const POWER_TO_APT: Record<string, string> = { senjutsu: "senjutsu", souma: "souma-no-kou", "kuroi-kaminari": "relampago-negro" };
+/** Poderes que não existem nos livros (Kakuran e Nan no Kaizou são só Aptidões Especiais do Tensai). */
+const REMOVED_POWERS = ["kakuran", "nan-no-kaizou"];
+
+function migrateApts(raw: Partial<Character>): Pick<Character, "aptidoes" | "poderes"> {
+  const poderes = (raw.poderes ?? []).filter((p) => !POWER_TO_APT[p.id] && !REMOVED_POWERS.includes(p.id));
+  const aptidoes = (raw.aptidoes ?? []).map((e) => {
+    const a = APT_BY_ID[e.id];
+    // Aptidões sem níveis (ex.: Kugutsu, que antes aceitava 3) voltam ao nível 1; os níveis de marionete são do Kurohigi.
+    return a && e.level > (a.maxLevel ?? 1) ? { ...e, level: a.maxLevel ?? 1 } : e;
+  });
+  for (const p of raw.poderes ?? []) {
+    const id = POWER_TO_APT[p.id];
+    if (!id || aptidoes.some((e) => e.id === id)) continue;
+    aptidoes.push({ uid: uid(), id, level: Math.min(Math.max(1, p.level), APT_BY_ID[id]?.maxLevel ?? 1), free: false });
+  }
+  return { aptidoes, poderes };
+}
+
 /** Completa campos faltantes (fichas importadas de versões antigas). */
 export function normalize(raw: Partial<Character>): Character {
   const base = newCharacter(raw.nc ?? 4);
+  const { aptidoes, poderes } = migrateApts(raw);
   return {
     ...base,
     ...raw,
@@ -461,8 +514,8 @@ export function normalize(raw: Partial<Character>): Character {
     skills: { ...base.skills, ...(raw.skills ?? {}) },
     skillBonus: { ...base.skillBonus, ...(raw.skillBonus ?? {}) },
     bonus: { ...base.bonus, ...(raw.bonus ?? {}) },
-    aptidoes: raw.aptidoes ?? [],
-    poderes: raw.poderes ?? [],
+    aptidoes,
+    poderes,
     items: raw.items ?? [],
     extraOrigins: raw.extraOrigins ?? [],
     customOrigin: { ...base.customOrigin, ...(raw.customOrigin ?? {}) },

@@ -122,6 +122,7 @@ export function FichaSheet({ c }: { c: Character }) {
                       {name}
                       {e.detail ? `: ${e.detail}` : ""}
                       {e.level > 1 ? ` (nv ${e.level})` : ""}
+                      {a?.grants && e.choices?.some(Boolean) ? `: ${e.choices.filter(Boolean).map((id) => APT_BY_ID[id]?.name ?? id).join(", ")}` : ""}
                       {e.id === "juuinka-ni" ? ` · ${niChoices(e.choices).map(juuinkaChoiceLabel).join(", ")}${e.variant ? ` · ${JUUINKA_SELOS.find((x) => x.k === e.variant)?.label}` : ""}` : ""}
                     </li>
                   );
