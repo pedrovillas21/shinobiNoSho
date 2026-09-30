@@ -18,8 +18,8 @@ const sans = Zen_Kaku_Gothic_New({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Shinobi no Sho · Criador de Ficha", template: "%s · Shinobi no Sho" },
-  description: "Criador de fichas interativo para o RPG Naruto: Shinobi no Sho 4.1b, com NC até 30.",
+  title: { default: "Shinobi no Sho · Fichas & Mesa", template: "%s · Shinobi no Sho" },
+  description: "Fichas e mesa em grupo para o RPG Naruto: Shinobi no Sho 4.1b, com salas por código e NC até 30.",
   applicationName: "Shinobi no Sho",
 };
 

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NC_MAX, NC_MIN, POWER_BONUS, POWER_BONUS_NCS, budgetFor, derived, rankLabel, spent, validate } from "@/lib/rules";
-import { downloadJSON, useChars, useHydrated } from "@/lib/store";
+import { downloadJSON, useChars, useCharsStatus, useHydrated } from "@/lib/store";
 import type { Character } from "@/lib/types";
 import { AnimatedNumber, IconAlert, IconDownload, IconLeft, IconList, IconRight, Logo, Sheet } from "../ui";
 import { STEPS, type StepKey } from "./shared";
@@ -20,6 +20,7 @@ import { StepPoderes } from "./steps/StepPoderes";
 
 export function Builder({ id }: { id: string }) {
   const hydrated = useHydrated();
+  const status = useCharsStatus();
   const c = useChars((s) => s.chars[id]);
   const update = useChars((s) => s.update);
   const [step, setStep] = useState(0);
@@ -41,12 +42,13 @@ export function Builder({ id }: { id: string }) {
     document.title = `${c.name || "Nova ficha"} · Shinobi no Sho`;
   }, [c?.name, c]);
 
+  if (status === "error") return <div className="grid min-h-dvh place-items-center px-6 text-center text-muted">Não foi possível carregar suas fichas. Recarregue a página.</div>;
   if (!hydrated) return <div className="grid min-h-dvh place-items-center text-muted">Abrindo pergaminho…</div>;
   if (!c)
     return (
       <div className="grid min-h-dvh place-items-center px-6 text-center">
         <div className="flex flex-col items-center gap-4">
-          <p className="font-display text-2xl font-extrabold text-paper">Ficha não encontrada neste navegador.</p>
+          <p className="font-display text-2xl font-extrabold text-paper">Ficha não encontrada na sua conta.</p>
           <Link href="/" className="btn-primary">
             Voltar ao início
           </Link>
@@ -105,7 +107,9 @@ function BuilderView({
           <Logo className="hidden size-8 sm:block" />
           <div className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate font-display text-lg font-extrabold text-paper sm:text-xl">{c.name || "Novo shinobi"}</span>
-            <span className="truncate text-xs text-muted">{rankLabel(c.nc)}</span>
+            <span className="truncate text-xs text-muted">
+              {rankLabel(c.nc)} · <SaveStatus />
+            </span>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-line-2 bg-ink-2 p-1">
             <button type="button" className="grid size-9 place-items-center rounded-lg text-lg font-bold hover:bg-panel-2 disabled:opacity-30" onClick={() => setNc(c.nc - 1)} disabled={c.nc <= NC_MIN} aria-label="Diminuir NC">
@@ -124,9 +128,6 @@ function BuilderView({
           <button type="button" className="btn-ghost hidden sm:inline-flex" onClick={() => go(STEPS.length - 1)}>
             Ver ficha
           </button>
-          <Link href={`/ficha/${c.id}/mesa`} className="btn-primary">
-            Mesa <IconRight className="size-4" />
-          </Link>
         </div>
 
         {/* Orçamento */}
@@ -205,8 +206,8 @@ function BuilderView({
                 {STEPS[step + 1].label} <IconRight className="size-4" />
               </button>
             ) : (
-              <Link href={`/ficha/${c.id}/mesa`} className="btn-primary">
-                Ir para a Mesa <IconRight className="size-4" />
+              <Link href="/" className="btn-primary">
+                Concluir <IconRight className="size-4" />
               </Link>
             )}
           </div>
@@ -234,8 +235,8 @@ function BuilderView({
               {STEPS[step + 1].label} <IconRight className="size-4" />
             </button>
           ) : (
-            <Link href={`/ficha/${c.id}/mesa`} className="btn-primary h-12 flex-1">
-              Mesa <IconRight className="size-4" />
+            <Link href="/" className="btn-primary h-12 flex-1">
+              Concluir <IconRight className="size-4" />
             </Link>
           )}
         </div>
@@ -326,4 +327,12 @@ function Summary({ c, issues, goTo }: { c: Character; issues: ReturnType<typeof 
       )}
     </>
   );
+}
+
+/** Se a ficha já chegou ao banco. */
+function SaveStatus() {
+  const pending = useChars((s) => s.pending);
+  const saveError = useChars((s) => s.saveError);
+  if (saveError) return <span className="text-bad">erro ao salvar, tentando de novo na próxima edição</span>;
+  return <span>{pending > 0 ? "salvando…" : "salva na conta"}</span>;
 }
