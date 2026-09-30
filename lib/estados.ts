@@ -1,5 +1,5 @@
 import { BIJUUS } from "./data/poderes";
-import { aptLevel, hasApt, powerLevel, skillTotal, uid } from "./rules";
+import { aptLevel, custoVisao, hasApt, hasMangekyouTec, powerLevel, skillTotal, uid } from "./rules";
 import type { Character, ModTarget, PlayCounter, PlayEffect, PlayMod } from "./types";
 
 /* Catálogo dos poderes e aptidões ativáveis dos livros que viram estados na Mesa.
@@ -149,7 +149,7 @@ export const ESTADOS: EstadoDef[] = [
       e.hint = text(
         "Ação parcial (pode ativar na defesa), dura a cena. Visão de chakra, mede o poder e distingue assinaturas.",
         "Esquiva Perceptiva: pode se defender com Ler Movimento no lugar da Esquiva (Dif 9 + LM); bônus de Esquiva valem, bônus de LM não.",
-        nidan && `Nidan: Intuição${intuicao ? " (você já tem, não acumula)" : " (LM +1)"}, Prontidão +2 contra finta, não pode ser flanqueado, Olhar Hipnótico a 9m e +2 para resistir a genjutsu ocular.`,
+        nidan && `Nidan: Intuição${intuicao ? " (você já tem, não acumula)" : " (LM +1)"}, Prontidão +2 contra finta, não pode ser flanqueado, Olhar Hipnótico a 9m (Fascinar com +1 de Dif), +2 para resistir a genjutsu ocular e Mímica Sharingan.`,
         sandan && "Sandan: imune à finta acelerada, ataque oportuno contra acelerados, manobras de previsão mesmo desprevenido, Superar Técnica sem penalidade e Reverter Ilusão.",
       );
     },
@@ -157,8 +157,8 @@ export const ESTADOS: EstadoDef[] = [
   {
     id: "susanoo",
     name: "Susanoo",
-    has: (c) => hasApt(c, "mangekyou"),
-    sig: (c) => `${c.attrs.ESP}|${c.attrs.INT}|${c.attrs.FOR}|${c.attrs.DES}|${c.acuidade}`,
+    has: (c) => hasMangekyouTec(c, "susanoo"),
+    sig: (c) => `${c.attrs.ESP}|${c.attrs.INT}|${c.attrs.FOR}|${c.attrs.DES}|${c.acuidade}|${custoVisao(c, 1)}`,
     stages: (c) => [{ label: "Incompleto" }, { label: "Completo" }, { label: "Perfeito", faint: Math.max(c.attrs.INT, c.attrs.ESP) < 18 }],
     switchCost: () => NO_COST,
     build(e, c) {
@@ -167,9 +167,11 @@ export const ESTADOS: EstadoDef[] = [
       const esp = c.attrs.ESP;
       e.src = `Mangekyou · ${["incompleto", "completo", "forma perfeita"][s]}`;
       e.costChk = 10;
+      e.costVis = custoVisao(c, 2);
+      e.perVis = custoVisao(c, 1);
       e.mods = sizeMods(c, size, { vig: false });
       e.hint = text(
-        `Sustentado; custo de visão 2 + 1 por turno adicional. Evoluir de forma é ação parcial, regredir é livre.`,
+        custoVisao(c, 1) ? "Sustentado; 2 pontos de visão ao ativar e 1 por turno (a mesa desconta). Evoluir de forma é ação parcial, regredir é livre." : "Sustentado; Mangekyou Eterno: sem custo de visão. Evoluir de forma é ação parcial, regredir é livre.",
         `Barreira de dureza 0 e absorção ${(s === 0 ? 2 : 3) * esp} (${s === 0 ? "2" : "3"}× Espírito); com 10 ou menos, restaura tudo com ação de movimento.`,
         s === 0 ? "Incompleto: usa técnicas à distância normalmente." : `Armas de chakra pesadas: dano base ${esp} (Espírito), 1 ataque por ação padrão; só técnicas que não partem de você.`,
         s === 2 && "Forma Perfeita: pernas e asas, Voo 18.",
@@ -181,14 +183,15 @@ export const ESTADOS: EstadoDef[] = [
     id: "kamui",
     name: "Kamui",
     auto: false,
-    has: (c) => hasApt(c, "mangekyou"),
+    has: (c) => hasMangekyouTec(c, "kamui"),
     sig: () => "",
     build(e) {
       e.src = "Mangekyou · ativação";
       e.costChk = 10;
       e.hint = text(
         "Ação livre com selos, contínua; depois as técnicas não pedem selos.",
-        "Teletransporte: movimento, 1 chakra, 1 visão. Intangibilidade: ação padrão, 5 chakra, 2 visão; na defesa é sucesso automático (menos contra crítico), até 5 minutos seguidos; desativar é ação parcial.",
+        "Ativar não gasta visão; cada técnica do Kamui (em Técnicas e ataques) desconta a própria visão ao usar.",
+        "Intangibilidade: na defesa é sucesso automático (menos contra crítico), até 5 minutos seguidos; desativar é ação parcial e não gasta visão.",
       );
     },
   },
@@ -603,6 +606,8 @@ export function refreshEstado(e: PlayEffect, def: EstadoDef, c: Character) {
   e.gainChk = 0;
   e.perVit = 0;
   e.perChk = 0;
+  e.costVis = 0;
+  e.perVis = 0;
   e.turns = 0;
   e.pick = undefined;
   def.build(e, c);
@@ -633,4 +638,6 @@ export const CONTADORES: { id: string; n: string; has: (c: Character) => boolean
   { id: "senjutsu", n: "Chakra Senjutsu", has: (c) => aptLevel(c, "senjutsu") >= 1, max: senjutsuPoints, reset: "cena" },
   { id: "suika", n: "Pontos Suika", has: (c) => hasApt(c, "suika"), max: (c) => 3 * c.attrs.VIG, reset: "descanso" },
   { id: "shikigami", n: "Pontos Kami", has: (c) => hasApt(c, "shikigami-no-mai"), max: (c) => 3 * c.attrs.ESP, reset: "descanso" },
+  // Izanagi (Livro de Hijutsus vol. 2): usos por cena iguais à metade do Espírito ou da Inteligência.
+  { id: "izanagi", n: "Izanagi", has: (c) => hasApt(c, "izanagi"), max: (c) => Math.ceil(Math.max(c.attrs.ESP, c.attrs.INT) / 2), reset: "cena" },
 ];

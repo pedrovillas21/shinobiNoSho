@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { GRAU_2D8, ataques, graus, outrosPoderes, partsText, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
-import { checkChakra, sg } from "@/lib/play";
+import { checkChakra, olhoPendente, payChakra, sg, sharinganTravado, spendVisao } from "@/lib/play";
 import { hasApt, uid } from "@/lib/rules";
 import { AnimatedNumber, IconMinus, IconPlus, IconTrash } from "../ui";
 import { SectionTitle, type MesaProps } from "./shared";
@@ -39,9 +39,20 @@ export function Ataques(props: MesaProps) {
     const withMeta = row.meta && r.cost > 0;
     const metas = [withMeta && pot && `Potencializar (${POT_LABEL[pot]})`, withMeta && tp && "Técnica Poderosa"].filter(Boolean);
     commit((pl, log) => {
-      pl.chk -= r.cost;
+      const trava = r.vis || r.sharingan ? sharinganTravado(pl) : "";
+      if (trava) return log(`${row.name}: ${trava}`, "bad");
+      const k = r.contador ? pl.counters.find((x) => x.n === r.contador) : undefined;
+      if (k && k.cur <= 0) return log(`${row.name}: sem usos nesta cena`, "bad");
+      if (!payChakra(pl, r.cost, row.name, log)) return;
       const dmg = r.info ? (r.info.v !== undefined ? `${r.info.label} ${r.info.v}` : "") : r.fixed ? `${r.fixed.v} fixo` : `base ${r.base}`;
       log(`${row.name} · Nv ${lvl}${dmg ? ` · ${dmg}` : ""}${metas.length ? ` · ${metas.join(" + ")}` : ""}${r.cost ? ` · −${r.cost} chakra` : ""}`, "chk");
+      if (r.vis) spendVisao(pl, r.vis, log);
+      if (k) {
+        k.cur -= 1;
+        // Izanagi: acabou o último uso, a técnica termina e cobra o olho.
+        if (k.cur === 0) olhoPendente(pl, k.n, log);
+      }
+      if (r.olho) olhoPendente(pl, r.olho, log);
       checkChakra(pl, log);
     });
     if (withMeta) {
@@ -148,6 +159,7 @@ export function Ataques(props: MesaProps) {
                       sub={row.sub}
                       note={row.note}
                       r={r}
+                      short={r.cost > p.chk}
                       halfGrade={!!half}
                       minGrau={row.minGrau}
                       level={
@@ -182,7 +194,7 @@ export function Ataques(props: MesaProps) {
             <div key={o.id} className="flex flex-col gap-2">
               <div className="border-b border-line-2 pb-2">
                 <h3 className="font-display text-lg font-extrabold text-paper">
-                  {o.title} <span className="text-sm font-bold text-chakra">Nv {o.level}</span>
+                  {o.title} {o.level > 0 && <span className="text-sm font-bold text-chakra">Nv {o.level}</span>}
                 </h3>
               </div>
               {o.items.length > 0 ? (
@@ -215,6 +227,7 @@ export function Ataques(props: MesaProps) {
                       sub="Anotado na mesa"
                       note={a.note}
                       r={r}
+                      short={a.cost > p.chk}
                       halfGrade={false}
                       noDif
                       level={
@@ -229,7 +242,7 @@ export function Ataques(props: MesaProps) {
                       }
                       onUse={() =>
                         commit((pl, log) => {
-                          pl.chk -= a.cost;
+                          if (!payChakra(pl, a.cost, a.name, log)) return;
                           log(`${a.name} · base ${r.base}${a.cost ? ` · −${a.cost} chakra` : ""}`, a.cost ? "chk" : "n");
                           checkChakra(pl, log);
                         })
@@ -259,6 +272,7 @@ function AttackRow({
   level,
   extra,
   onUse,
+  short,
 }: {
   name: string;
   sub: string;
@@ -270,6 +284,8 @@ function AttackRow({
   level: React.ReactNode;
   extra?: React.ReactNode;
   onUse: () => void;
+  /** Chakra insuficiente para usar. */
+  short?: boolean;
 }) {
   const cells = graus(r.base, halfGrade, minGrau);
   return (
@@ -283,7 +299,7 @@ function AttackRow({
             </span>
             {sub && <span className="truncate text-xs text-muted">{sub}</span>}
           </div>
-          <UseButton cost={r.cost} onUse={onUse} className="@2xl:hidden" />
+          <UseButton cost={r.cost} vis={r.vis} short={short} onUse={onUse} className="@2xl:hidden" />
         </div>
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
           {!r.fixed && !r.info && (
@@ -353,7 +369,7 @@ function AttackRow({
         </>
       )}
 
-      <UseButton cost={r.cost} onUse={onUse} className={`hidden @2xl:inline-flex ${r.fixed || r.info ? "@2xl:col-start-6 @2xl:row-start-1" : ""}`} />
+      <UseButton cost={r.cost} vis={r.vis} short={short} onUse={onUse} className={`hidden @2xl:inline-flex ${r.fixed || r.info ? "@2xl:col-start-6 @2xl:row-start-1" : ""}`} />
     </li>
   );
 }
@@ -375,11 +391,18 @@ function IconArea() {
   );
 }
 
-function UseButton({ cost, onUse, className = "" }: { cost: number; onUse: () => void; className?: string }) {
+function UseButton({ cost, vis, short, onUse, className = "" }: { cost: number; vis?: number; short?: boolean; onUse: () => void; className?: string }) {
   return (
-    <button type="button" className={`btn min-h-10 shrink-0 gap-1.5 bg-[#1f4e73] px-3 text-white hover:bg-[#1a4262] ${className}`} onClick={onUse}>
+    <button
+      type="button"
+      disabled={short}
+      title={short ? "Chakra insuficiente" : undefined}
+      className={`btn min-h-10 shrink-0 gap-1.5 bg-[#1f4e73] px-3 text-white hover:bg-[#1a4262] ${className}`}
+      onClick={onUse}
+    >
       Usar
       {cost > 0 && <span className="rounded-md bg-[#0e1821]/60 px-1.5 py-0.5 text-xs tabular-nums text-chk">{cost} chk</span>}
+      {!!vis && <span className="rounded-md bg-[#3a0f0c]/70 px-1.5 py-0.5 text-xs tabular-nums text-vit">{vis} visão</span>}
     </button>
   );
 }

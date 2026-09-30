@@ -19,4 +19,7 @@ export const STEPS = [
   { key: "ficha", label: "Ficha" },
 ] as const;
 
+/** Texto sem acentos e em minúsculas, para buscas. */
+export const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
 export type StepKey = (typeof STEPS)[number]["key"];

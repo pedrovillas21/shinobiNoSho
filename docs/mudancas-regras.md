@@ -22,11 +22,41 @@ Conferido com a planilha do Ashihira: Vitalidade 134, Chakra 90, Iniciativa 36, 
   - 3 níveis seguidos no mesmo poder;
   - efeito acima do nível ou fora da lista do poder;
   - evolução antes do nível;
-  - poder versátil repetido (na mesma compra ou em outra);
+  - poder versátil repetido (na mesma compra ou em outra; a 4ª compra pode repetir os de outras compras);
   - compra extra de Versatilidade sem Aprendizagem Rápida.
 - **Ataques na mesa.** Cada poder versátil vira um grupo com alcance, tamanho e bônus do próprio elemento. Ex.: o Raiton Versátil com Espírito/Inteligência 20 tem alcance 75m, tamanho 10m e +1 de dano. Os parâmetros usam o nível de Versatilidade mais alto entre as compras.
 - **Fuuinjutsu Versátil.** Lista na mesa as técnicas escolhidas nos níveis dele.
+- **4ª Versatilidade (regra da casa).** A 4ª compra traz 3 poderes versáteis em vez de 2 e pode repetir os de outras compras (mas não dentro dela mesma). O nível 1 vale para os três; do 2º em diante, cada nível é de um deles, com no máximo 2 seguidos no mesmo. Na mesa, um poder que aparece em mais de uma compra vira um grupo só, com os efeitos somados.
 - **Fichas antigas.** O app tenta ler os poderes versáteis do nome digitado ("Katon Versátil + Suiton Versátil"). Os níveis de cada poder precisam ser escolhidos de novo; até lá, a ficha mostra um aviso.
+
+## Clã Uchiha (Livro Básico, pág. 180–187)
+
+- **Exigência de elemento.** A ficha acusa erro se o Uchiha não tiver o poder Katon nem a aptidão Elemento Natural: Katon.
+- **Elemento Natural: Katon.** Na mesa aparece o Sopro Destrutivo 4 com dano base Espírito +2 e custo ½ Espírito. Com o poder Katon no nível 4, o Sopro entra de graça no grupo do Katon e evolui sozinho no 7 e no 10. Escolher o Sopro no Katon gera um aviso (é escolha desperdiçada).
+  - Leitura adotada: nem a aptidão nem o poder Katon de quem tem a aptidão contam no limite de afinidade elemental.
+- **Nidan Sharingan.** A Mímica Sharingan dá o Novo Elemento: +1 no limite de afinidade elemental. Na mesa, a Mímica aparece com Anular, Copiar (1 técnica a cada 4 de Inteligência, máx. 5), Memorizar e Novo Elemento.
+- **Hipnose Sharingan.** Com Sandan Sharingan, Fascinar e Ilusão Profunda, vira técnica na mesa: Dif 8 + Inteligência, 5 de chakra.
+- **Mangekyou Sharingan.**
+  - Escolhe-se o par de técnicas dos olhos: Tsukuyomi e Amaterasu, Kagutsuchi e Amaterasu, ou Kamui.
+  - Cada técnica desperta ao cumprir os pré-requisitos (Katon 8; Fascinar, Ilusão Profunda e Inteligência 16; nível 8 num poder de ninjutsu). O Susanoo vem ao dominar o par. O que falta aparece como aviso.
+  - Na mesa, as técnicas despertas viram ataques com custo de chakra e de visão. O Susanoo desconta 2 de visão ao ativar e 1 por turno.
+- **Pontos de visão.** 10 no total, que não se recuperam: nem na noite de descanso, nem em “Restaurar tudo”.
+  - A cada 3 perdidos: ofuscado permanente (com 7, 4 e 1 ponto), que soma no ataque fora do limite de −3.
+  - 1º zero: atordoado e desprevenido por 1 turno, e o Sharingan desliga. Nada do Sharingan liga (nem técnicas) até o Descanso do Sharingan, que devolve até 5 pontos e mantém o ofuscado 3.
+  - 2º zero: cego, permanente.
+- **Mangekyou Eterno** (somente PdM): aptidão nova do clã. As técnicas não custam visão, e ela cura o ofuscado e a cegueira.
+- **Izanagi e Izanami** (Livro de Hijutsus vol. 2, somente PdM).
+  - **Izanagi:** na mesa, conta os usos da cena (metade do Espírito ou da Inteligência) e cobra 10 de chakra só no primeiro.
+  - **Izanami:** tem as duas ações (gravar, com Dif 11 + Inteligência, e selar).
+  - **Fim da técnica:** acaba quando os usos do Izanagi terminam, quando a cena termina ou quando o Izanami é selado. A mesa então pede o olho perdido: ofuscado −1 permanente e, com o Mangekyou, a técnica desse olho (no Kamui, o curto ou o longo alcance) e o Susanoo. O segundo olho deixa cego.
+  - **Cura:** só com transplante ocular ou com o Mangekyou Eterno.
+- **Controlar Bijuu** (somente PdM, com o Mangekyou): aparece na Hipnose Sharingan.
+
+## Chakra
+
+- **Não fica negativo.** Técnica, estado ou troca de forma sem chakra suficiente não sai, e nada é gasto. O botão fica desabilitado.
+- **Custo por turno.** Se não houver chakra para pagar, o estado desliga.
+- **Gasto manual e “Definir”.** Param no 0. Em 0, a pessoa fica exausta (Livro Básico, Chakra: Gasto e Recuperação).
 
 ## Talento Natural
 
@@ -114,7 +144,6 @@ Segue a Tabela de Evolução do Livro Básico (muda o nome do nível e os ryos i
   - Resiliência tira 3 da Agilidade (o livro dá −3 só na Esquiva e em testes, mais −5m de deslocamento).
   - Corpulência soma +2 no Vigor (o livro dá +2 só nos testes de Vigor).
   - Byakugou no In tira 15% do chakra (o livro tira 15 pontos).
-  - A 4ª Versatilidade tem 3 elementos e repete elementos de outras compras.
 
 ## Arquivos alterados
 

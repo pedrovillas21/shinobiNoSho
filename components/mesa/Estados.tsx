@@ -124,6 +124,8 @@ function costLine(e: PlayEffect) {
   if (e.gainVit) parts.push(`+${e.gainVit} Vit ao ativar`);
   if (e.perVit) parts.push(`−${e.perVit} Vit por turno`);
   if (e.perChk) parts.push(`−${e.perChk} Chakra por turno`);
+  if (e.costVis) parts.push(`${e.costVis} visão ao ativar`);
+  if (e.perVis) parts.push(`−${e.perVis} visão por turno`);
   if (e.gainChk) parts.push(`+${e.gainChk} Chakra 1×/cena${e.usedScene ? " (usado)" : ""}`);
   parts.push(e.turns ? `dura ${e.turns} turnos` : "contínuo");
   if (e.after) {
@@ -139,6 +141,7 @@ function EffectCard({
   onToggleEdit,
   hachiLevel,
   c,
+  p,
   commit,
   patch,
 }: MesaProps & { e: PlayEffect; edit: boolean; onToggleEdit: () => void; hachiLevel: number }) {
@@ -168,8 +171,10 @@ function EffectCard({
           role="switch"
           aria-checked={e.active}
           aria-label={`Ativar ${e.name}`}
+          disabled={!e.active && e.costChk > p.chk}
+          title={!e.active && e.costChk > p.chk ? `Chakra insuficiente (precisa ${e.costChk})` : undefined}
           onClick={() => commit((pl, log, cd) => toggleEffect(pl, e.id, log, cd))}
-          className={`relative mt-1 inline-flex h-8 w-14 shrink-0 rounded-full transition sm:mt-0 ${e.active ? "bg-chakra" : "bg-line-2"}`}
+          className={`relative mt-1 inline-flex h-8 w-14 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 sm:mt-0 ${e.active ? "bg-chakra" : "bg-line-2"}`}
         >
           <motion.span layout className={`absolute top-1 size-6 rounded-full bg-white ${e.active ? "right-1" : "left-1"}`} />
         </button>

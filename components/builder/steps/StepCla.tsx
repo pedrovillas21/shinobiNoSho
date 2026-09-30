@@ -1,14 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { APTIDOES, APT_BY_ID } from "@/lib/data/aptidoes";
 import { ORIGENS, ORIGIN_BY_ID } from "@/lib/data/origens";
 import { BIJUUS, PODERES, PODER_BY_ID } from "@/lib/data/poderes";
 import { CUSTOM_ORIGIN } from "@/lib/rules";
 import type { Origin, Source } from "@/lib/types";
-import { Badge, IconCheck, IconPlus, IconSearch, StepHeader } from "../../ui";
-import type { Setter, StepProps } from "../shared";
+import { Badge, IconCheck, IconDice, IconPlus, IconSearch, StepHeader } from "../../ui";
+import { norm, type Setter, type StepProps } from "../shared";
 
 const TABS = [
   { key: "all", label: "Todos" },
@@ -16,8 +16,6 @@ const TABS = [
   { key: "hijutsu", label: "Hijutsus" },
 ] as const;
 const SOURCES: ("Todos" | Source)[] = ["Todos", "Básico", "Hijutsus 1", "Hijutsus 2", "Guia Avançado"];
-
-const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
 export function StepCla({ c, set }: StepProps) {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("all");
@@ -39,13 +37,27 @@ export function StepCla({ c, set }: StepProps) {
       d.extraOrigins = d.extraOrigins.filter((x) => x !== o.id);
     });
 
+  // Sorteia entre os clãs e hijutsus que os filtros mostram (sem repetir o atual) e, se houver, um dos caminhos.
+  const top = useRef<HTMLDivElement>(null);
+  const pool = list.filter((o) => o.id !== c.originId);
+  const randomize = () => {
+    if (!pool.length) return;
+    const o = pool[Math.floor(Math.random() * pool.length)];
+    set((d) => {
+      d.originId = o.id;
+      d.originOption = Math.floor(Math.random() * o.options.length);
+      d.extraOrigins = d.extraOrigins.filter((x) => x !== o.id);
+    });
+    top.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const toggleExtra = (o: Origin) =>
     set((d) => {
       d.extraOrigins = d.extraOrigins.includes(o.id) ? d.extraOrigins.filter((x) => x !== o.id) : [...d.extraOrigins, o.id];
     });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={top} className="flex scroll-mt-24 flex-col gap-6">
       <StepHeader kicker="Etapa 2" title="Clã ou Hijutsu">
         Escolher não custa pontos: libera a compra das aptidões e poderes restritos. Por regra, apenas um clã ou um hijutsu (Hachimon Tonkou pode ser somado); origens extras sem a regra opcional ficam como observação.
       </StepHeader>
@@ -130,6 +142,15 @@ export function StepCla({ c, set }: StepProps) {
           <span className="sr-only">Buscar clã ou hijutsu</span>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar clã ou hijutsu" className="flex-1 bg-transparent outline-none placeholder:text-faint" />
         </label>
+        <button
+          type="button"
+          onClick={randomize}
+          disabled={!pool.length}
+          title={tab === "cla" ? "Sortear um clã" : tab === "hijutsu" ? "Sortear um hijutsu" : "Sortear um clã ou hijutsu"}
+          className="btn-ghost h-12 shrink-0 disabled:opacity-40"
+        >
+          <IconDice className="size-5" /> Aleatório
+        </button>
         <div className="flex gap-1 rounded-xl border border-line-2 p-1">
           {TABS.map((t) => (
             <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`relative h-10 flex-1 rounded-lg px-4 text-sm font-bold transition ${tab === t.key ? "text-paper-ink" : "text-muted"}`}>

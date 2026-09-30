@@ -137,9 +137,9 @@ export interface PowerEntry {
   /** Nome livre da técnica criada em cada nível. */
   techniques: string[];
   note?: string;
-  /** Versatilidade: os dois poderes versáteis escolhidos (ids do catálogo). */
+  /** Versatilidade: os poderes versáteis escolhidos (ids do catálogo). Dois por compra; três na 4ª compra (regra da casa). */
   versatile?: string[];
-  /** Versatilidade: de qual poder versátil (0 ou 1) é cada nível. O nível 1 vale para os dois. */
+  /** Versatilidade: de qual poder versátil (índice em `versatile`) é cada nível. O nível 1 vale para todos. */
   owner?: (number | null)[];
 }
 
@@ -282,6 +282,9 @@ export interface PlayEffect {
   usedScene: boolean;
   perVit: number;
   perChk: number;
+  /** Pontos de visão do Mangekyou gastos ao ativar e a cada turno (Susanoo). */
+  costVis?: number;
+  perVis?: number;
   /** Duração em turnos; 0 = contínuo. */
   turns: number;
   left: number;
@@ -363,4 +366,14 @@ export interface PlayState {
   dmgExtra?: Record<string, number>;
   /** Pílulas do Soldado tomadas desde o último descanso (o efeito colateral acumula). */
   pills?: number;
+  /**
+   * Pontos de visão do Mangekyou Sharingan (10, não se recuperam). `zeros` conta quantas vezes zeraram
+   * (1ª: Desativação Forçada e Descanso do Sharingan; 2ª: cego); `lock` = Sharingan indisponível.
+   */
+  visao?: { pts: number; zeros: number; lock?: boolean };
+  /**
+   * Olhos perdidos pelo Izanagi ou Izanami (Livro de Hijutsus vol. 2): 1 = ofuscado −1 permanente, 2 = cego.
+   * `tecs`: técnicas do Mangekyou que foram com o olho; `pendente`: a técnica acabou e falta escolher o olho perdido.
+   */
+  olhos?: { perdidos: number; tecs: string[]; pendente?: string };
 }

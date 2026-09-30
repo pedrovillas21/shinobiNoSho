@@ -1,7 +1,7 @@
 import { ATTRS, COMBAT, SKILLS } from "./data/base";
 import { JUUINKA_BONUS, JUUINKA_BONUS_BY, JUUINKA_ICHI_PICKS, JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "./data/juuinka";
 import { CONTADORES, ESTADOS, ESTADO_BY_ID, blankEffect, ccFromFor, makeEstado, refreshEstado, sg } from "./estados";
-import { aptLevel, combatTotal, derived, esqBonus, hasApt, powerLevel, skillTotal, socialTests, uid } from "./rules";
+import { aptLevel, combatTotal, derived, esqBonus, hasApt, mangekyou, powerLevel, skillTotal, socialTests, uid } from "./rules";
 import type { AptEntry, AttrKey, Character, CombatKey, ModTarget, PlayCond, PlayCounter, PlayEffect, PlayLog, PlayMod, PlayState } from "./types";
 
 /* ---------------- catálogos ---------------- */
@@ -313,6 +313,17 @@ export function syncPlay(c: Character, p: PlayState): boolean {
       changed = true;
     }
   }
+  // Mangekyou: 10 pontos de visão que não se recuperam. O Mangekyou Eterno cura a cegueira e libera o Sharingan.
+  if (hasApt(c, "mangekyou") && !p.visao) {
+    p.visao = { pts: VISAO_MAX, zeros: 0 };
+    changed = true;
+  }
+  if (hasApt(c, "eien-mangekyou") && (p.visao?.lock || p.olhos || p.conds.some((x) => x.note === VISAO_PERM || x.note === OLHO_PERM))) {
+    if (p.visao) p.visao.lock = false;
+    p.olhos = undefined;
+    p.conds = p.conds.filter((x) => x.note !== VISAO_PERM && x.note !== OLHO_PERM);
+    changed = true;
+  }
   for (const k of CONTADORES) {
     if (!k.has(c)) continue;
     const key = `contador:${k.id}`;
@@ -424,7 +435,9 @@ export function playView(c: Character, p: PlayState) {
     def += (cd.def ?? 0) * mult;
     iniPen += cd.ini ?? 0;
   }
-  atk = Math.max(-3, atk);
+  // Perda de visão do Mangekyou: ofuscado permanente, fora do limite de penalidade e somado a outro ofuscado.
+  const visaoPen = visaoOfuscado(c, p);
+  atk = Math.max(-3, atk) - visaoPen;
   def = Math.max(-3, def);
 
   // Corpulência: estados que deixam acelerado não dão os benefícios da condição (Livro Básico, clã Akimichi).
@@ -466,6 +479,7 @@ export function playView(c: Character, p: PlayState) {
     atk,
     def,
     iniPen,
+    visaoPen,
     precAtk: g("precAtk") + atk,
     precDef: g("precDef") + def,
     dano: g("dano"),
@@ -519,6 +533,8 @@ export function addCond(p: PlayState, k: string, o: { note?: string; turns?: num
 const NO_CHAKRA = "sem chakra";
 
 export function checkChakra(p: PlayState, log: Logger) {
+  // Chakra não fica negativo: em 0 a pessoa fica exausta (Livro Básico, Chakra: Gasto e Recuperação).
+  if (p.chk < 0) p.chk = 0;
   const flag = p.conds.find((c) => c.note === NO_CHAKRA);
   if (p.chk <= 0 && !hasCond(p, "exausto")) addCond(p, "exausto", { note: NO_CHAKRA }, log);
   if (p.chk > 0 && flag) {
@@ -559,6 +575,10 @@ export function toggleEffect(p: PlayState, id: string, log: Logger, c?: Characte
     }
     return;
   }
+  const trava = sharinganTravado(p);
+  if (e.auto && ESTADOS_SHARINGAN.includes(e.auto) && trava) return log(`${e.name}: ${trava}`, "bad");
+  if (e.auto === "susanoo" && p.olhos?.perdidos) return log("Susanoo: perdido junto com o olho (Izanagi/Izanami)", "bad");
+  if (e.costChk > p.chk) return log(`${e.name}: chakra insuficiente (tem ${Math.max(0, p.chk)}, precisa ${e.costChk})`, "bad");
   // O 2º estágio exige o 1º liberado antes.
   const ichi = isNi ? findJuuinka(p, "juuinka-ichi") : undefined;
   if (ichi && !ichi.active) toggleEffect(p, ichi.id, log, c);
@@ -586,6 +606,7 @@ export function toggleEffect(p: PlayState, id: string, log: Logger, c?: Characte
   }
   if (e.pick) parts.push(onLabels(e) || "nenhum bônus escolhido");
   log(`${e.name} ativado${parts.length ? `: ${parts.join(", ")}` : ""}`, "ok");
+  if (e.costVis) spendVisao(p, e.costVis, log);
   checkChakra(p, log);
   checkGates(p, log);
 }
@@ -624,6 +645,11 @@ export function setEstadoStage(p: PlayState, id: string, stage: number, c: Chara
   refreshEstado(e, def, c);
   if (!e.active) return;
   const cost = def.switchCost ? def.switchCost(e, from, stage, c) : { vit: e.costVit, chk: e.costChk, gain: e.gainChk };
+  if (cost.chk > p.chk + (cost.gain ?? 0)) {
+    e.stage = from;
+    refreshEstado(e, def, c);
+    return log(`${e.name}: chakra insuficiente para a nova forma (tem ${Math.max(0, p.chk)}, precisa ${cost.chk})`, "bad");
+  }
   const parts: string[] = [];
   if (cost.vit) {
     p.vit -= cost.vit;
@@ -674,10 +700,15 @@ export function nextTurn(p: PlayState, log: Logger) {
       log(`${e.name}: −${e.perVit} Vit`, "bad");
     }
     if (e.perChk) {
+      if (e.perChk > p.chk) {
+        deactivate(p, e, log, `chakra insuficiente para manter (tem ${Math.max(0, p.chk)}, precisa ${e.perChk})`);
+        continue;
+      }
       p.chk -= e.perChk;
       log(`${e.name}: −${e.perChk} Chakra`, "chk");
     }
-    if (e.turns) {
+    if (e.perVis) spendVisao(p, e.perVis, log);
+    if (e.turns && e.active) {
       e.left -= 1;
       if (e.left <= 0) deactivate(p, e, log, "fim da duração");
     }
@@ -743,10 +774,22 @@ export function setVit(p: PlayState, n: number, log: Logger) {
   checkGates(p, log);
 }
 
+/** Gasto manual: para no 0 (não existe chakra negativo). */
 export function spend(p: PlayState, n: number, log: Logger) {
-  p.chk -= n;
-  log(`Chakra gasto: −${n}`, "chk");
+  const pago = Math.min(n, Math.max(0, p.chk));
+  p.chk -= pago;
+  log(pago < n ? `Chakra gasto: −${pago} (só havia ${pago} de ${n})` : `Chakra gasto: −${n}`, "chk");
   checkChakra(p, log);
+}
+
+/** Paga o custo de uma técnica. Sem chakra suficiente, a técnica não sai e nada é gasto. */
+export function payChakra(p: PlayState, n: number, what: string, log: Logger): boolean {
+  if (n > p.chk) {
+    log(`${what}: chakra insuficiente (tem ${Math.max(0, p.chk)}, precisa ${n})`, "bad");
+    return false;
+  }
+  p.chk -= n;
+  return true;
 }
 
 export function recover(p: PlayState, max: number, n: number, log: Logger) {
@@ -757,8 +800,8 @@ export function recover(p: PlayState, max: number, n: number, log: Logger) {
 }
 
 export function setChk(p: PlayState, n: number, log: Logger) {
-  p.chk = n;
-  log(`Chakra definido em ${n}`, "chk");
+  p.chk = Math.max(0, n);
+  log(`Chakra definido em ${p.chk}`, "chk");
   checkChakra(p, log);
 }
 
@@ -822,6 +865,136 @@ function takePill(p: PlayState, name: string, gain: number, log: Logger) {
   checkChakra(p, log);
 }
 
+/* ---------------- Mangekyou Sharingan: pontos de visão (Livro Básico, pág. 183–184) ---------------- */
+
+export const VISAO_MAX = 10;
+/** Estados que dependem do Sharingan: desligam quando a visão zera e não ligam até o descanso. */
+const ESTADOS_SHARINGAN = ["sharingan", "susanoo", "kamui"];
+/** Nota das condições que a perda de visão deixa para sempre (a mesa não as apaga). */
+export const VISAO_PERM = "permanente · Mangekyou";
+
+/** Por que o Sharingan não pode ser usado agora (ou "" se pode): cego, ou desligado até o Descanso do Sharingan. */
+export function sharinganTravado(p: PlayState): string {
+  if ((p.olhos?.perdidos ?? 0) >= 2) return "cego pelos olhos perdidos, o Sharingan não pode mais ser usado";
+  if (!p.visao?.lock) return "";
+  return p.visao.zeros >= 2 ? "cego, o Sharingan não pode mais ser usado" : "Sharingan indisponível até o Descanso do Sharingan";
+}
+
+/** Ofuscado pelos pontos perdidos: 1 a cada 3 (7, 4 e 1 ponto); depois do 1º zero fica em 3 mesmo com o descanso. */
+const ofuscadoDe = (vz: NonNullable<PlayState["visao"]>) => (vz.zeros ? 3 : Math.min(3, Math.floor((VISAO_MAX - vz.pts) / 3)));
+
+/** Ofuscado permanente pela perda de visão e pelo olho perdido no Izanagi/Izanami (o Mangekyou Eterno não sofre). */
+export function visaoOfuscado(c: Character, p: PlayState): number {
+  if (hasApt(c, "eien-mangekyou")) return 0;
+  return (p.visao ? ofuscadoDe(p.visao) : 0) + (p.olhos?.perdidos === 1 ? 1 : 0);
+}
+
+/**
+ * Gasta pontos de visão. Não há como recuperá-los, só o Descanso do Sharingan depois do 1º zero.
+ * 1º zero: Desativação Forçada (atordoado e desprevenido por 1 turno, Sharingan desligado até o descanso).
+ * 2º zero: cego e sem os benefícios do Sharingan.
+ */
+export function spendVisao(p: PlayState, n: number, log: Logger) {
+  const vz = p.visao;
+  if (!vz || n <= 0) return;
+  // Com o Sharingan travado não há técnica a usar: nada é gasto (senão um 2º zero cegaria sem uso nenhum).
+  if (vz.lock) return log(`Pontos de visão: ${sharinganTravado(p)}`, "bad");
+  const before = ofuscadoDe(vz);
+  vz.pts = Math.max(0, vz.pts - n);
+  log(`Pontos de visão −${n}: ${vz.pts}/${VISAO_MAX}`, "bad");
+  if (vz.pts > 0) {
+    const after = ofuscadoDe(vz);
+    if (after > before) log(`Visão: ofuscado ${after} permanente (ataque −${after})`, "bad");
+    return;
+  }
+  vz.zeros += 1;
+  vz.lock = true;
+  p.effects.forEach((e) => e.active && e.auto && ESTADOS_SHARINGAN.includes(e.auto) && deactivate(p, e, log, "pontos de visão zerados"));
+  if (vz.zeros === 1) {
+    log("Desativação Forçada: dor nos olhos, Sharingan desligado até o Descanso do Sharingan", "bad");
+    addCond(p, "atordoado", { turns: 1, note: "Desativação Forçada" }, log);
+    addCond(p, "desprevenido", { turns: 1, note: "Desativação Forçada" }, log);
+  } else {
+    log("Pontos de visão zerados pela 2ª vez: cego, sem os benefícios do Sharingan", "bad");
+    addCond(p, "cego", { note: VISAO_PERM }, log);
+  }
+}
+
+/** Descanso do Sharingan: depois do 1º zero, 24 horas sem usar o Sharingan devolvem a visão até 5. O ofuscado 3 fica. */
+export function restSharingan(p: PlayState, log: Logger) {
+  const vz = p.visao;
+  if (!vz || vz.zeros !== 1) return;
+  vz.lock = false;
+  vz.pts = Math.max(vz.pts, 5);
+  log(`Descanso do Sharingan (24h sem usar): visão ${vz.pts}/${VISAO_MAX}, ofuscado 3 mantido`, "ok");
+}
+
+/* ---------------- Izanagi e Izanami: olhos perdidos (Livro de Hijutsus vol. 2, somente PdM) ---------------- */
+
+export const OLHO_PERM = "permanente · olhos perdidos";
+export const IZANAGI = "Izanagi";
+
+/** Técnicas do Mangekyou que ficam num olho só. */
+const TEC_OLHO: Record<string, string> = {
+  amaterasu: "Amaterasu",
+  tsukuyomi: "Tsukuyomi",
+  kagutsuchi: "Kagutsuchi",
+  "kamui-curto": "Kamui de curto alcance",
+  "kamui-longo": "Kamui de longo alcance",
+};
+
+/** Marca que um kinjutsu acabou: falta escolher o olho perdido. */
+export function olhoPendente(p: PlayState, tec: string, log: Logger) {
+  if ((p.olhos?.perdidos ?? 0) >= 2) return;
+  p.olhos = { perdidos: p.olhos?.perdidos ?? 0, tecs: p.olhos?.tecs ?? [], pendente: tec };
+  log(`${tec} terminou: perde a visão de um olho (escolha no painel Olhos)`, "bad");
+}
+
+/** O Izanagi termina com o fim dos usos ou da cena: se foi usado e ainda sobra uso, a cena fecha a técnica. */
+function fimIzanagi(p: PlayState, log: Logger) {
+  const k = p.counters.find((x) => x.n === IZANAGI);
+  if (k && k.cur > 0 && k.cur < k.max && !p.olhos?.pendente) olhoPendente(p, IZANAGI, log);
+}
+
+/**
+ * Técnicas do Mangekyou que podem ir com o olho perdido (a escolha é do jogador). No Kamui, o Teletransporte
+ * e a dimensão são dos dois olhos; curto e longo alcance ficam um em cada.
+ */
+export function olhoTecOpcoes(c: Character, p: PlayState): { id: string; name: string }[] {
+  const par = mangekyou(c)?.par;
+  if (!par) return [];
+  const ids: string[] = par.k === "kamui" ? ["kamui-curto", "kamui-longo"] : [...par.tecs];
+  return ids.filter((id) => !p.olhos?.tecs.includes(id)).map((id) => ({ id, name: TEC_OLHO[id] }));
+}
+
+/**
+ * Perde a visão de um olho: ofuscado −1 permanente; com o Mangekyou, a técnica desse olho (`tec`) e o Susanoo.
+ * Sem o outro olho, fica cego e perde todas as técnicas do Sharingan.
+ */
+export function perderOlho(p: PlayState, tec: string | null, log: Logger) {
+  const o = { perdidos: p.olhos?.perdidos ?? 0, tecs: [...(p.olhos?.tecs ?? [])] };
+  if (o.perdidos >= 2) return;
+  o.perdidos += 1;
+  if (tec) o.tecs.push(tec);
+  p.olhos = o;
+  if (o.perdidos === 1) {
+    log(`Perdeu a visão de um olho: ofuscado 1 permanente${tec ? `; perdeu ${TEC_OLHO[tec] ?? tec} e o Susanoo` : ""}`, "bad");
+    p.effects.forEach((e) => e.active && e.auto === "susanoo" && deactivate(p, e, log, "olho perdido"));
+    return;
+  }
+  log("Perdeu a visão do outro olho: cego, sem as técnicas do Sharingan", "bad");
+  p.effects.forEach((e) => e.active && e.auto && ESTADOS_SHARINGAN.includes(e.auto) && deactivate(p, e, log, "cego"));
+  addCond(p, "cego", { note: OLHO_PERM }, log);
+}
+
+/** Transplante ocular (ou células de Hashirama, com aprovação do mestre): cura os olhos perdidos no Izanagi/Izanami. */
+export function curarOlhos(p: PlayState, log: Logger) {
+  if (!p.olhos) return;
+  p.olhos = undefined;
+  p.conds = p.conds.filter((x) => x.note !== OLHO_PERM);
+  log("Transplante ocular: olhos perdidos no Izanagi/Izanami curados", "ok");
+}
+
 export function restNight(p: PlayState, c: Character, v: PlayView, log: Logger) {
   const gv = 10 + 2 * c.attrs.VIG;
   const gc = 5 + 2 * c.attrs.ESP;
@@ -832,11 +1005,13 @@ export function restNight(p: PlayState, c: Character, v: PlayView, log: Logger) 
   p.chk = nc;
   p.conds = p.conds.filter((x) => x.k !== "fatigado" && x.k !== "exausto");
   p.pills = 0;
+  fimIzanagi(p, log);
   p.counters.forEach((k) => k.reset !== "nunca" && (k.cur = k.max));
   p.effects.forEach((e) => (e.usedScene = false));
 }
 
 export function endScene(p: PlayState, log: Logger) {
+  fimIzanagi(p, log);
   p.conds = p.conds.filter((x) => !SCENE_CONDS.includes(x.k));
   p.counters.forEach((k) => k.reset === "cena" && (k.cur = k.max));
   p.effects.forEach((e) => (e.usedScene = false));
@@ -849,7 +1024,8 @@ export function restoreAll(p: PlayState, c: Character, log: Logger) {
     e.left = 0;
     e.usedScene = false;
   });
-  p.conds = [];
+  // A perda de visão do Mangekyou e os olhos perdidos são permanentes: “restaurar tudo” não os desfaz.
+  p.conds = p.conds.filter((x) => x.note === VISAO_PERM || x.note === OLHO_PERM);
   p.pills = 0;
   const d = derived(c);
   p.vit = d.vit;

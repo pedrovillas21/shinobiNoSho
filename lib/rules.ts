@@ -116,6 +116,19 @@ export function versatileLevel(c: Character, id: string): number {
   return c.poderes.filter((p) => p.id === "versatilidade" && p.versatile?.includes(id)).reduce((m, p) => Math.max(m, p.level), 0);
 }
 
+/**
+ * Quantos poderes versáteis a compra de Versatilidade na posição `idx` de `c.poderes` traz. Regra da casa: a 4ª compra
+ * traz 3 poderes e pode repetir os de outras compras; as demais seguem o livro (2 poderes novos).
+ */
+export function versatileSlots(c: Character, idx: number): number {
+  return isFourthVersatile(c, idx) ? 3 : 2;
+}
+
+/** A compra na posição `idx` é a 4ª Versatilidade da ficha. */
+export function isFourthVersatile(c: Character, idx: number): boolean {
+  return c.poderes[idx]?.id === "versatilidade" && c.poderes.slice(0, idx).filter((p) => p.id === "versatilidade").length === 3;
+}
+
 /** Escolha de um nível de poder de técnicas prontas usado como versátil (Fuuinjutsu): índice da técnica. */
 export const tecId = (i: number) => `tec:${i}`;
 export const tecIndex = (id: string | null | undefined) => (id?.startsWith("tec:") ? Number(id.slice(4)) : -1);
@@ -132,8 +145,8 @@ export interface VersatilePick {
 }
 
 /**
- * O que um poder versátil (0 ou 1) ganhou em cada nível. O nível 1 dá o efeito de nível 1 aos dois (Canhão, ou a técnica
- * de nível 1 num poder de técnicas); do 2º em diante, cada nível é de um dos dois.
+ * O que um poder versátil (índice `k`) ganhou em cada nível. O nível 1 dá o efeito de nível 1 a todos (Canhão, ou a técnica
+ * de nível 1 num poder de técnicas); do 2º em diante, cada nível é de um deles.
  */
 export function versatilePicks(p: PowerEntry, k: number): VersatilePick[] {
   const id = p.versatile?.[k];
@@ -165,6 +178,79 @@ export function talentoTargets(c: Character): string[] {
 
 /** Efeitos que o Talento Natural pode dar a um poder: os do poder que não são exclusivos de elemento. */
 export const talentoEffects = (target: string) => (PODER_BY_ID[target]?.effects ?? NINPOU_BASE).filter((id) => !EXCLUSIVOS.includes(id));
+
+/* ---------------- Clã Uchiha (Livro Básico, pág. 180–187) ---------------- */
+
+/** Pares de técnicas do Mangekyou Sharingan, uma em cada olho. O Susanoo vem ao dominar as duas. */
+export const MANGEKYOU_PARES = [
+  { k: "tsukuyomi", label: "Tsukuyomi e Amaterasu", tecs: ["tsukuyomi", "amaterasu"] },
+  { k: "kagutsuchi", label: "Kagutsuchi e Amaterasu", tecs: ["amaterasu", "kagutsuchi"] },
+  { k: "kamui", label: "Kamui (curto e longo alcance)", tecs: ["kamui"] },
+] as const;
+
+const MANGEKYOU_NOME: Record<string, string> = { amaterasu: "Amaterasu", tsukuyomi: "Tsukuyomi", kagutsuchi: "Kagutsuchi", kamui: "Kamui", susanoo: "Susanoo" };
+
+/** Poderes que não são de ninjutsu (o Kamui pede nível 8 num poder de ninjutsu). */
+const NAO_NINJUTSU = ["hachimon", "juuken", "shikakyu", "magen", "jinchuuriki", "senninka"];
+
+/** Maior nível entre os poderes de ninjutsu da ficha. */
+export function ninjutsuLevel(c: Character): number {
+  return c.poderes.filter((p) => PODER_BY_ID[p.id] && !NAO_NINJUTSU.includes(p.id)).reduce((m, p) => Math.max(m, p.level), 0);
+}
+
+/** Nível de Katon para as técnicas do Uchiha (o Katon Versátil conta). */
+export const katonLevel = (c: Character) => Math.max(powerLevel(c, "katon"), versatileLevel(c, "katon"));
+
+export interface MangekyouTec {
+  id: string;
+  name: string;
+  /** Já despertou: cumpre os pré-requisitos da técnica. */
+  ok: boolean;
+  falta: string[];
+}
+
+function mangekyouTec(c: Character, id: string): MangekyouTec {
+  const falta: string[] = [];
+  if ((id === "amaterasu" || id === "kagutsuchi") && katonLevel(c) < 8) falta.push("Katon 8");
+  if (id === "tsukuyomi") {
+    if (!hasApt(c, "fascinar")) falta.push("Fascinar");
+    if (!hasApt(c, "ilusao-profunda")) falta.push("Ilusão Profunda");
+    if (c.attrs.INT < 16) falta.push("Inteligência 16");
+  }
+  if (id === "kamui" && ninjutsuLevel(c) < 8) falta.push("nível 8 num poder de ninjutsu");
+  return { id, name: MANGEKYOU_NOME[id], ok: !falta.length, falta };
+}
+
+/**
+ * Mangekyou Sharingan da ficha: o par de técnicas escolhido (na variante da aptidão) e o Susanoo, cada um liberado
+ * ou com o que falta. As técnicas são aprendidas ao cumprir os pré-requisitos; o Susanoo, ao dominar as duas.
+ */
+export function mangekyou(c: Character) {
+  const e = c.aptidoes.find((a) => a.id === "mangekyou");
+  if (!e) return null;
+  const par = MANGEKYOU_PARES.find((x) => x.k === e.variant);
+  const tecs = (par?.tecs ?? []).map((id) => mangekyouTec(c, id));
+  const dominou = !!par && tecs.every((t) => t.ok);
+  const susanoo: MangekyouTec = { id: "susanoo", name: "Susanoo", ok: dominou, falta: dominou ? [] : [par ? "dominar o par de técnicas" : "escolher o par de técnicas"] };
+  return { par, tecs, susanoo, eterno: hasApt(c, "eien-mangekyou") };
+}
+
+/** A técnica do Mangekyou (ou o Susanoo) já despertou. */
+export function hasMangekyouTec(c: Character, id: string): boolean {
+  const m = mangekyou(c);
+  return !!m && [...m.tecs, m.susanoo].some((t) => t.id === id && t.ok);
+}
+
+/** Custo em pontos de visão: o Mangekyou Eterno não paga (Livro Básico, pág. 184). */
+export const custoVisao = (c: Character, n: number) => (hasApt(c, "eien-mangekyou") ? 0 : n);
+
+/** Hipnose Sharingan: Sandan Sharingan, Fascinar e Ilusão Profunda. */
+export const hasHipnose = (c: Character) => hasApt(c, "sandan-sharingan") && hasApt(c, "fascinar") && hasApt(c, "ilusao-profunda");
+
+/** Mímica Sharingan: 1 técnica copiada para cada 4 pontos completos de Inteligência (máximo 5). */
+export const mimicaCopias = (c: Character) => Math.min(5, Math.floor(c.attrs.INT / 4));
+
+export const isUchiha = (c: Character) => c.originId === "uchiha" || c.extraOrigins.includes("uchiha");
 
 /* ---------------- totais ---------------- */
 
@@ -415,11 +501,15 @@ function validateVersatilidade(c: Character, push: (sev: Severity, step: string,
   const seen = new Set<string>();
   vs.forEach((p, n) => {
     const tag = vs.length > 1 ? `Versatilidade (${n + 1}ª compra)` : "Versatilidade";
-    const vv = (p.versatile ?? []).filter(Boolean);
-    if (vv.length < 2) push("aviso", "poderes", `${tag}: escolha os dois poderes versáteis.`);
-    if (new Set(vv).size < vv.length) push("erro", "poderes", `${tag}: os dois poderes versáteis precisam ser diferentes.`);
+    // Regra da casa: a 4ª compra traz 3 poderes versáteis e pode repetir os de outras compras.
+    const fourth = n === 3;
+    const slots = fourth ? 3 : 2;
+    const vv = (p.versatile ?? []).slice(0, slots).filter(Boolean);
+    if (vv.length < slots) push("aviso", "poderes", `${tag}: escolha os ${slots === 3 ? "três" : "dois"} poderes versáteis.`);
+    if (new Set(vv).size < vv.length) push("erro", "poderes", `${tag}: os poderes versáteis da mesma compra precisam ser diferentes.`);
     for (const id of new Set(vv)) {
       if (!VERSATEIS.includes(id)) push("erro", "poderes", `${tag}: ${PODER_BY_ID[id]?.name ?? id} não pode ser versátil.`);
+      if (fourth) continue;
       if (seen.has(id)) push("erro", "poderes", `${tag}: ${versatileName(id)} já é versátil em outra compra (cada compra traz dois poderes novos).`);
       seen.add(id);
     }
@@ -429,7 +519,7 @@ function validateVersatilidade(c: Character, push: (sev: Severity, step: string,
     for (let i = 1; i < p.level; i++) {
       const k = p.owner?.[i];
       const lvl = i + 1;
-      if (k !== 0 && k !== 1) {
+      if (typeof k !== "number" || k < 0 || k >= slots) {
         missing++;
         run = 0;
         last = null;
@@ -439,7 +529,7 @@ function validateVersatilidade(c: Character, push: (sev: Severity, step: string,
       last = k;
       const id = p.versatile?.[k];
       if (!id) continue;
-      if (run > 2) push("erro", "poderes", `${tag}: o nível ${lvl} é o 3º seguido de ${versatileName(id)}; depois de 2 seguidos, o próximo é do outro poder.`);
+      if (run > 2) push("erro", "poderes", `${tag}: o nível ${lvl} é o 3º seguido de ${versatileName(id)}; depois de 2 seguidos, o próximo é de outro poder.`);
       const eff = p.effects[i];
       if (!eff) {
         missing++;
@@ -477,6 +567,20 @@ function validateVersatilidade(c: Character, push: (sev: Severity, step: string,
       if (!talentoEffects(tn.target).includes(tn.eff)) push("erro", "aptidoes", `Talento Natural: ${EFEITO_BY_ID[tn.eff]?.name ?? tn.eff} não serve (efeito exclusivo ou de outro poder).`);
     }
   }
+}
+
+/** Exigência de elemento do clã, Elemento Natural: Katon e o par de técnicas do Mangekyou. */
+function validateUchiha(c: Character, push: (sev: Severity, step: string, text: string) => void) {
+  const natural = hasApt(c, "elemento-natural-katon");
+  if (isUchiha(c) && !natural && katonLevel(c) === 0)
+    push("erro", "aptidoes", "Clã Uchiha: é obrigatório ter o poder Katon ou a aptidão Elemento Natural: Katon desde a criação.");
+  if (natural && c.poderes.some((p) => p.id === "katon" && p.effects.slice(0, p.level).includes("sopro")))
+    push("aviso", "poderes", "Katon: o Elemento Natural: Katon já dá o Sopro Destrutivo no nível 4 (e evolui sozinho no 7 e no 10). Troque essa escolha por outro efeito.");
+  const m = mangekyou(c);
+  if (!m) return;
+  if (!m.par) return push("aviso", "aptidoes", "Mangekyou Sharingan: escolha o par de técnicas dos olhos.");
+  const pend = [...m.tecs, m.susanoo].filter((t) => !t.ok);
+  if (pend.length) push("aviso", "aptidoes", `Mangekyou Sharingan: ainda não despertou ${pend.map((t) => `${t.name} (falta ${t.falta.join(", ")})`).join("; ")}.`);
 }
 
 export function validate(c: Character): Issue[] {
@@ -563,9 +667,15 @@ export function validate(c: Character): Issue[] {
   else if (s.power < b.power) push("aviso", "poderes", `Pontos de poder: faltam ${b.power - s.power} para gastar.`);
   const naturals = new Set(Object.entries(NATURAL).filter(([apt]) => hasApt(c, apt)).map(([, el]) => el));
   const elems = c.poderes.filter((p) => ELEMENTS.includes(p.id) && !naturals.has(p.id));
-  const elemLimit = c.attrs.ESP >= 10 ? 2 : 1;
+  // Mímica Sharingan (Nidan Sharingan): Novo Elemento dá uma afinidade elemental a mais.
+  const novoElemento = hasApt(c, "nidan-sharingan");
+  const elemLimit = (c.attrs.ESP >= 10 ? 2 : 1) + (novoElemento ? 1 : 0);
   if (elems.length > elemLimit)
-    push("erro", "poderes", `Afinidade elemental: ${elems.length} elementos; o limite é ${elemLimit}${elemLimit === 1 ? " (2 com Espírito 10)" : ""}.`);
+    push(
+      "erro",
+      "poderes",
+      `Afinidade elemental: ${elems.length} elementos; o limite é ${elemLimit}${c.attrs.ESP < 10 ? " (+1 com Espírito 10)" : ""}${novoElemento ? ", já com o Novo Elemento do Nidan Sharingan" : ""}.`,
+    );
   for (const p of c.poderes) {
     const def = PODER_BY_ID[p.id];
     const name = def?.name ?? p.customName ?? "Poder";
@@ -596,6 +706,7 @@ export function validate(c: Character): Issue[] {
   }
 
   validateVersatilidade(c, push);
+  validateUchiha(c, push);
 
   // Aptidões que a ficha soma sozinha: avisa se o bônus também foi digitado em "Outros".
   if (hasApt(c, "reflexos") && (c.combatBonus.ESQ || 0) >= 1)

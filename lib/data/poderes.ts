@@ -51,6 +51,9 @@ export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.m
 /** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
 export const EXCLUSIVOS = ["bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"];
 
+/** Símbolo de cada poder elemental (e dos que costumam virar versáteis), usado nos seletores. */
+export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木" };
+
 /** Poderes que podem ser escolhidos como versáteis na Versatilidade (Livro Básico, pág. 243). */
 export const VERSATEIS = ["ninpou", "suiton", "katon", "doton", "fuuton", "raiton", "fuuinjutsu"];
 

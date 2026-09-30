@@ -1,6 +1,6 @@
 import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { evolutionIndex, hasApt, hasChakraExpandido, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks } from "./rules";
+import { custoVisao, evolutionIndex, hasApt, hasChakraExpandido, hasHipnose, katonLevel, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -245,6 +245,14 @@ export interface Calc {
   fixed?: { v: number; txt: string };
   /** Ataque sem teste de resistência (ex.: arma criada). */
   noDif?: boolean;
+  /** Pontos de visão gastos ao usar (técnicas do Mangekyou). */
+  vis?: number;
+  /** Técnica do Sharingan: não sai com o Sharingan travado (visão zerada ou cego). */
+  sharingan?: boolean;
+  /** Contador da mesa gasto a cada uso (ex.: Izanagi); sem usos, a técnica não sai. */
+  contador?: string;
+  /** Kinjutsu que, ao terminar com este uso, custa um olho (Izanagi, Izanami). */
+  olho?: string;
   /** Efeito sem dano: número principal (dureza ou Dif) e o que ele faz. */
   info?: { v?: number; label?: string; txt: string };
   /** Alcance e área de efeito. */
@@ -323,6 +331,8 @@ interface EffPick {
   ev: number;
   /** Ganho pelo Talento Natural. */
   talento?: boolean;
+  /** De onde veio o efeito, quando não foi escolhido no poder (ex.: Elemento Natural). */
+  tag?: string;
 }
 
 /** Junta a mesma escolha feita em compras diferentes, guardando a evolução mais alta. */
@@ -332,6 +342,7 @@ function addPick(picks: EffPick[], x: EffPick) {
   else {
     cur.ev = Math.max(cur.ev, x.ev);
     if (!cur.tech) cur.tech = x.tech;
+    if (!cur.tag) cur.tag = x.tag;
   }
 }
 
@@ -366,25 +377,33 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
     });
     byId.set(pe.id, g);
   }
+  // Elemento Natural: Katon (clã Uchiha): com o Katon no nível 4, o Sopro Destrutivo vem de graça e evolui sozinho no 7 e no 10.
+  const natural = hasApt(c, "elemento-natural-katon");
+  const katonG = byId.get("katon");
+  if (natural && katonG && katonG.level >= 4) addPick(katonG.picks, { eff: "sopro", tech: "", ev: katonG.level >= 10 ? 2 : katonG.level >= 7 ? 1 : 0, tag: "Elemento Natural" });
   for (const [id, g] of byId) {
     if (id === "hibon" && tn?.target === "hibon") addTalento(g, tn.eff);
     if (g.picks.length) groups.push(effectGroup(c, v, p, { key: id, powerId: id, title: PODER_BY_ID[id].name, level: g.level, picks: g.picks }));
   }
+  if (natural && !(katonG && katonG.level >= 4)) groups.push(katonNatural(v, p));
 
   // Versatilidade: cada poder versátil vira um grupo com alcance, tamanho e bônus do próprio elemento.
   // Os parâmetros usam o nível de Versatilidade mais alto entre as compras (como no Ninpou comprado 2×).
+  // O mesmo poder versátil em mais de uma compra (4ª Versatilidade, regra da casa) junta os efeitos num grupo só.
   const vLevel = powerLevel(c, "versatilidade");
-  const seen = new Set<string>();
+  const vGroups = new Map<string, { level: number; picks: EffPick[] }>();
   for (const pe of c.poderes) {
     if (pe.id !== "versatilidade") continue;
     (pe.versatile ?? []).forEach((id, k) => {
-      if (!id || seen.has(id) || PODER_BY_ID[id]?.mode !== "efeitos") return;
-      seen.add(id);
-      const g = { level: vLevel, picks: [] as EffPick[] };
+      if (!id || PODER_BY_ID[id]?.mode !== "efeitos") return;
+      const g = vGroups.get(id) ?? { level: vLevel, picks: [] as EffPick[] };
+      vGroups.set(id, g);
       for (const x of versatilePicks(pe, k)) if (x.eff && EFEITO_BY_ID[x.eff]) addPick(g.picks, { eff: x.eff, tech: x.tech.trim(), ev: x.ev });
-      if (tn?.target === id) addTalento(g, tn.eff);
-      if (g.picks.length) groups.push(effectGroup(c, v, p, { key: `versatilidade:${id}`, powerId: id, title: versatileName(id), level: vLevel, picks: g.picks }));
     });
+  }
+  for (const [id, g] of vGroups) {
+    if (tn?.target === id) addTalento(g, tn.eff);
+    if (g.picks.length) groups.push(effectGroup(c, v, p, { key: `versatilidade:${id}`, powerId: id, title: versatileName(id), level: vLevel, picks: g.picks }));
   }
 
   // Rasengan (Livro Básico pág. 121–122)
@@ -457,7 +476,202 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
     groups.push({ id: "rasengan", title: "Rasengan", level: ras, keyLabel: k.label, keyVal: k.val, bonus: [], extra, rows });
   }
 
+  const sharingan = sharinganGroup(c, v, p);
+  if (sharingan) groups.push(sharingan);
+  const ms = mangekyouGroup(c, v, p);
+  if (ms) groups.push(ms);
+
   return groups;
+}
+
+/** Elemento Natural: Katon sem o poder no nível 4: Sopro Destrutivo 4, dano base Espírito +2 e custo ½ Espírito (Livro Básico, pág. 180). */
+function katonNatural(v: PlayView, p: PlayState): AtkGroup {
+  const esp = v.attrs.ESP;
+  const at = alcanceTamanho("katon", esp);
+  const extra = p.dmgExtra?.["elemento-natural-katon"] ?? 0;
+  const row: AtkRow = {
+    key: "elemento-natural-katon:sopro",
+    name: "Sopro Destrutivo",
+    sub: "Elemento Natural: Katon",
+    note: DANO_EFEITO.sopro.note,
+    min: 4,
+    max: 4,
+    meta: false,
+    free: false,
+    calc: () => {
+      const parts = [`Esp ${esp}`, "Katon 2"];
+      if (extra) parts.push(`extra ${extra}`);
+      if (v.dano) parts.push(`estado ${v.dano}`);
+      return { base: Math.max(0, esp + 2 + extra + v.dano), cost: half(esp), dif: 13 + half(esp) + v.dif, parts, geo: geo("sopro", { A: at.alcance, T: at.tamanho, lvl: 4, ev: 0, key: esp }) };
+    },
+  };
+  return { id: "elemento-natural-katon", title: "Elemento Natural: Katon", level: 4, keyLabel: "Esp", keyVal: esp, alcance: at.alcance, tamanho: at.tamanho, bonus: [], extra, rows: [row] };
+}
+
+/** Linha de técnica sem nível variável (Sharingan e Mangekyou: nível de poder 10 para a dificuldade). */
+const tecRow = (key: string, name: string, sub: string, note: string, calc: () => Calc, util = false): AtkRow => ({ key, name, sub, note, min: 10, max: 10, meta: false, free: false, util, calc });
+
+/**
+ * Técnicas do Sharingan: Hipnose Sharingan (Sandan, Fascinar e Ilusão Profunda; Livro Básico pág. 186) e os kinjutsus
+ * Izanagi e Izanami (Livro de Hijutsus vol. 2, somente PdM), que no fim custam a visão de um olho.
+ */
+function sharinganGroup(c: Character, v: PlayView, p: PlayState): AtkGroup | null {
+  const int = v.attrs.INT;
+  const rows: AtkRow[] = [];
+  if (hasHipnose(c))
+    rows.push(
+      tecRow(
+        "sharingan:hipnose",
+        "Hipnose Sharingan",
+        "Genjutsu · olhar, sem selos",
+        `Regras do Magen. Informação e Alterar Atitude (1 rodada), Nocautear e Controlar Mente (capangas)${int >= 10 ? ", Paralisar" : ", Paralisar (pede Int 10)"}, Roubar Técnica (ação completa), Falsa Morte (1×/cena, sem teste) e Sobrepor Genjutsu.${
+          mangekyou(c) ? " Com o Mangekyou (somente PdM): Controlar Bijuu, permanente; a Bijuu vira sua invocação (regras do Kuchiyose Comum)." : ""
+        }`,
+        () => ({ base: 0, cost: 5, dif: 0, parts: [], noDif: true, sharingan: true, info: { v: 8 + int + v.dif, label: "Dif · Inteligência", txt: "O alvo resiste com Inteligência." }, geo: { alcance: "9m", area: "1 criatura" } }),
+        true,
+      ),
+    );
+  if (hasApt(c, "izanagi")) {
+    const k = p.counters.find((x) => x.n === "Izanagi");
+    const max = k?.max ?? Math.ceil(Math.max(c.attrs.ESP, c.attrs.INT) / 2);
+    const cur = k?.cur ?? max;
+    rows.push(
+      tecRow(
+        "sharingan:izanagi",
+        "Izanagi",
+        `Kinjutsu · ${cur}/${max} usos na cena`,
+        "Somente PdM. Os usos não se misturam com a Falsa Morte da Hipnose. Feito em olhos transplantados noutra parte do corpo (Medicina Dif 30), não causa ofuscado nem cegueira.",
+        () => ({
+          base: 0,
+          cost: cur === max ? 10 : 0,
+          dif: 0,
+          parts: [],
+          noDif: true,
+          sharingan: true,
+          contador: "Izanagi",
+          info: { txt: "Como a Falsa Morte: ao ser alvo de ataque ou poder, o inimigo crê que você morreu (sem teste) e você se move pelo deslocamento. 10 de chakra só no 1º uso. Ao acabar os usos ou a cena, perde a visão de um olho." },
+        }),
+        true,
+      ),
+    );
+  }
+  if (hasApt(c, "izanami"))
+    rows.push(
+      tecRow(
+        "sharingan:izanami",
+        "Izanami · gravar",
+        "Kinjutsu · 1ª ação padrão",
+        "Somente PdM. Falhou: começa a gravar a ilusão. Use “Izanami · selar” no turno seguinte.",
+        () => ({ base: 0, cost: 10, dif: 0, parts: [], noDif: true, sharingan: true, info: { v: 11 + int + v.dif, label: "Dif · Inteligência", txt: "O alvo resiste com Inteligência." }, geo: { alcance: "olhar", area: "1 criatura" } }),
+        true,
+      ),
+      tecRow(
+        "sharingan:izanami-selar",
+        "Izanami · selar",
+        "Kinjutsu · 2ª ação padrão, turno seguinte",
+        "Somente PdM.",
+        () => ({
+          base: 0,
+          cost: 0,
+          dif: 0,
+          parts: [],
+          noDif: true,
+          sharingan: true,
+          olho: "Izanami",
+          info: { txt: "O que aconteceu entre as duas ações se repete sem fim na mente do alvo: fica paralisado, e um ataque contra a vida dele cancela. A cada 24h, novo teste de Inteligência com a Dif 1 nível menor. Ao selar, você perde a visão de um olho." },
+        }),
+        true,
+      ),
+    );
+  if (!rows.length) return null;
+  return { id: "sharingan", title: "Sharingan", level: 10, keyLabel: "Int", keyVal: int, bonus: [], extra: 0, rows };
+}
+
+/**
+ * Técnicas do Mangekyou Sharingan que já despertaram (Livro Básico, pág. 183–187). Cada uso desconta os pontos de
+ * visão; o Susanoo e a ativação do Kamui ficam em Estados.
+ */
+function mangekyouGroup(c: Character, v: PlayView, p: PlayState): AtkGroup | null {
+  const m = mangekyou(c);
+  if (!m) return null;
+  // Uma técnica vai embora com o olho perdido no Izanagi/Izanami; cego, não sobra nenhuma.
+  const perdidas = p.olhos?.tecs ?? [];
+  const ok = (id: string) => (p.olhos?.perdidos ?? 0) < 2 && !perdidas.includes(id) && m.tecs.some((t) => t.id === id && t.ok);
+  const curto = !perdidas.includes("kamui-curto");
+  const longo = !perdidas.includes("kamui-longo");
+  const vis = (n: number) => custoVisao(c, n);
+  const esp = v.attrs.ESP;
+  const kat = katonLevel(c);
+  const alvo = { alcance: "9m", area: "1 criatura" };
+  const util = (key: string, name: string, sub: string, cost: number, visao: number, txt: string, note = "") =>
+    tecRow(`mangekyou:${key}`, name, sub, note, () => ({ base: 0, cost, vis: vis(visao), dif: 0, parts: [], noDif: true, sharingan: true, info: { txt } }), true);
+  const rows: AtkRow[] = [];
+
+  if (ok("amaterasu")) {
+    rows.push(
+      tecRow(
+        "mangekyou:amaterasu",
+        "Amaterasu",
+        "Ação padrão · teste de LM · sem selos",
+        "Só se defende com Esquiva (alvo acelerado ou com Agilidade maior que sua Percepção), Evadir para trás de cobertura ou o Hiraishin. Vantagem contra todos os elementos; as chamas ficam até consumir o alvo. Sem meta-aptidões.",
+        () => ({ base: 0, cost: 10, vis: vis(2), dif: 0, noDif: true, sharingan: true, parts: [`2 × Katon ${kat}`], fixed: { v: 2 * kat, txt: "imediato; depois 4 fixo por turno (acumula a cada uso), ignora dureza" }, geo: { alcance: "9m, no campo de visão", area: "1 criatura" } }),
+      ),
+      util("amaterasu-manter", "Amaterasu · manter", "Concentração · turno seguinte", 0, 1, "Cada turno a mais custa 1 de visão e pede novo teste de acerto. Você fica desprevenido e para se for atacado."),
+    );
+  }
+  if (ok("kagutsuchi"))
+    rows.push(
+      util(
+        "kagutsuchi",
+        "Kagutsuchi · Enton",
+        "Molda as chamas do Amaterasu",
+        0,
+        1,
+        `Transforma chamas do Amaterasu já em cena num efeito do seu Katon (menos exclusivos). Use o efeito no grupo Katon para dano e chakra; o alvo também sofre o dano contínuo do Amaterasu. Opcional: dano base 2 × Katon (${2 * kat}) sem bônus. Também extingue chamas (ação padrão, 2m), dá Criar Arma ao Susanoo e Barreira Nv 3.`,
+      ),
+    );
+  if (ok("tsukuyomi")) {
+    rows.push(
+      tecRow(
+        "mangekyou:tsukuyomi",
+        "Tsukuyomi · Torturador",
+        "Ação padrão · olhar, sem selos",
+        "Falhou: exausto até ser curado. Passou: fatigado até o fim da cena, depois exausto. Sempre −4 de Inteligência (0 = coma); só Iryou Ninjutsu 9 cura. Alvo com Sandan: Dif 2 níveis menor; com Mangekyou: 4. Repetível na cena.",
+        () => ({ base: 0, cost: 10, vis: vis(2), dif: 0, parts: [], noDif: true, sharingan: true, info: { v: 11 + v.attrs.INT + v.dif, label: "Dif · Inteligência", txt: "O alvo resiste com Inteligência." }, geo: alvo }),
+      ),
+      util("tsukuyomi-mensageiro", "Tsukuyomi · Mensageiro", "Ação padrão · olhar", 10, 1, "Conversa por dias num instante, com qualquer imagem ou sensação. Sem penalidades ao alvo."),
+    );
+  }
+  if (ok("kamui")) {
+    const need = "Precisa do Kamui ativado (Estados, 10 de chakra).";
+    if (curto)
+      rows.push(
+        tecRow(
+        "mangekyou:expelir",
+        "Kamui · Expelir Objetos",
+        "Curto alcance · ação padrão",
+        `1 alvo por compartimento expelido (1 chakra cada). Sem armas, metade do dano. ${need}`,
+        () => ({ base: Math.max(0, esp + v.dano), cost: 1, vis: vis(1), dif: 0, noDif: true, sharingan: true, parts: v.dano ? [`Esp ${esp}`, `estado ${v.dano}`] : [`Esp ${esp}`], geo: { alcance: "18m", area: "1 alvo por compartimento" } }),
+        ),
+        util("abducao-objetos", "Kamui · Abdução de Objetos", "Curto alcance · defesa, sem teste", 1, 1, "Guarda na dimensão um objeto grande ou menor jogado contra você (1 chakra por compartimento, até 10).", need),
+        util("intangibilidade", "Kamui · Intangibilidade", "Curto alcance · ação padrão ou defesa", 5, 2, "Na defesa é sucesso automático (menos contra crítico). Atravessa obstáculos, mas não interage com o mundo nem usa o Teletransporte. Até 5 minutos seguidos.", need),
+      );
+    if (longo)
+      rows.push(
+        tecRow(
+        "mangekyou:abducao-ofensiva",
+        "Kamui · Abdução Ofensiva",
+        "Longo alcance · concentração",
+        `Teste de LM no fim de cada turno; acerta com 3 acertos (ou um crítico) enquanto o alvo estiver a 18m e à vista. ${need}`,
+        () => ({ base: 0, cost: 10, vis: vis(2), dif: 0, noDif: true, sharingan: true, parts: [`Esp ${esp}`], fixed: { v: esp, txt: "e amputa um braço; sangrando ×5" }, geo: { alcance: "18m", area: "1 criatura" } }),
+        ),
+        util("abducao-defensiva", "Kamui · Abdução Defensiva", "Longo alcance · defesa, sem teste", 5, 2, "Engole um ataque à distância contra você ou um aliado no alcance.", need),
+      );
+    // Teletransporte e dimensão são dos dois olhos.
+    rows.push(util("teletransporte", "Kamui · Teletransporte", "Ação de movimento", 1, 1, "Entra ou sai da dimensão do Kamui e reaparece num lugar conhecido. Levar alguém indefeso ou voluntário: ação completa e chakra dobrado.", need));
+  }
+  if (!rows.length) return null;
+  return { id: "mangekyou", title: m.eterno ? "Mangekyou Sharingan Eterno" : "Mangekyou Sharingan", level: 10, keyLabel: m.eterno ? "Visão" : "Pontos de visão", keyVal: m.eterno ? 10 : (p.visao?.pts ?? 10), bonus: [], extra: 0, rows };
 }
 
 /**
@@ -479,10 +693,10 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
 
   const rows: AtkRow[] = o.picks
-    .map(({ eff, tech, ev, talento }): AtkRow => {
+    .map(({ eff, tech, ev, talento, tag: from }): AtkRow => {
       const e = EFEITO_BY_ID[eff];
       const spec = DANO_EFEITO[eff];
-      const tag = talento ? "Talento Natural" : "";
+      const tag = talento ? "Talento Natural" : (from ?? "");
       if (!spec) return utilRow(key, id, eff, tech, ev, level, k, v, tag);
       const effName = e.name.replace(/ \(.*\)$/, "");
       const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
@@ -628,6 +842,22 @@ export function outrosPoderes(c: Character): OutroPoder[] {
       out.push({ id: `versatilidade:${id}:${i}`, title: versatileName(id), level: pe.level, items: [...new Set(items)], note: "" });
     });
   });
+  // Mímica Sharingan (Nidan Sharingan, Livro Básico pág. 185): técnicas sem custo de chakra, exceto Anular.
+  if (hasApt(c, "nidan-sharingan")) {
+    const n = mimicaCopias(c);
+    out.push({
+      id: "mimica-sharingan",
+      title: "Mímica Sharingan",
+      level: 0,
+      items: ["Anular Técnica", `Copiar Técnica · até ${n}`, "Memorizar Técnica · 1", "Novo Elemento"],
+      note: [
+        "Anular Técnica: manobra de previsão mesmo sem contra-técnica, copiando a do adversário e pagando o mesmo chakra.",
+        `Copiar Técnica: analisar é ação completa (anuncie quando a técnica for usada); usa a cópia por 1 semana. Limite ${n} (1 a cada 4 de Inteligência, máx. 5). Só efeitos de poder, aptidões shinobi e de manobra, e o nível 1 de poderes comuns; nada de clã ou hijutsu, e dentro do seu limite de poder e pré-requisitos.`,
+        "Memorizar Técnica: 1 cópia sem prazo. Aprender de vez custa 2 pontos de poder (anote como aptidão).",
+        "Novo Elemento: uma afinidade elemental a mais.",
+      ].join("\n"),
+    });
+  }
   return out;
 }
 

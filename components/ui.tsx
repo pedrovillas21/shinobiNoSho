@@ -31,6 +31,7 @@ export const IconAlert = svg(<><path d="M12 3l10 18H2L12 3z" /><path d="M12 10v4
 export const IconInfo = svg(<><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-9v.5" /></>);
 export const IconScroll = svg(<><path d="M6 4h11a2 2 0 012 2v12a2 2 0 01-2 2H7" /><path d="M6 4a2 2 0 00-2 2v1h4V6a2 2 0 00-2-2zM8 7v11a2 2 0 11-4 0" /><path d="M11 9h5M11 13h5" /></>);
 export const IconList = svg(<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />);
+export const IconDice = svg(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" /></>);
 export const IconLock = svg(<><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 118 0v3" /></>);
 
 export function Logo({ className = "size-9" }: IconProps) {

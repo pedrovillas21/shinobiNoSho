@@ -6,7 +6,7 @@ import { APTIDOES, APT_BY_ID, APT_CATEGORIES, BANNED_APTS } from "@/lib/data/apt
 import { JUUINKA_BONUS, JUUINKA_ICHI_PICKS, JUUINKA_NI_DEFAULT, JUUINKA_SELOS, niChoices } from "@/lib/data/juuinka";
 import { EFEITO_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
-import { APT_COST, FREE_APTS, allowedRestricted, aptCost, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
+import { APT_COST, FREE_APTS, MANGEKYOU_PARES, allowedRestricted, aptCost, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, Stepper, StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
@@ -115,6 +115,7 @@ export function StepAptidoes({ c, set }: StepProps) {
                       {a && (a.id === "juuinka-ichi" || a.id === "juuinka-ni") && <JuuinkaChoices e={e} set={set} />}
                       {a?.id === "talento-natural" && <TalentoChoices c={c} e={e} set={set} />}
                       {a?.id === "sensor" && <SensorChoice e={e} set={set} />}
+                      {a?.id === "mangekyou" && <MangekyouChoice c={c} e={e} set={set} />}
                       {!a && (
                         <textarea
                           rows={2}
@@ -350,6 +351,45 @@ function SensorChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
         ))}
       </select>
     </label>
+  );
+}
+
+/**
+ * Mangekyou Sharingan (Livro Básico, pág. 183): um par de técnicas nos olhos; o Susanoo vem ao dominar as duas.
+ * Cada técnica desperta quando a ficha cumpre os pré-requisitos dela.
+ */
+function MangekyouChoice({ c, e, set }: { c: Character; e: AptEntry; set: StepProps["set"] }) {
+  const m = mangekyou(c);
+  const tecs = m ? [...m.tecs, m.susanoo] : [];
+  return (
+    <div className="mt-1 flex flex-col gap-2">
+      <label className="flex max-w-sm flex-col gap-1 text-xs text-muted">
+        Par de técnicas dos olhos
+        <select className="field py-1.5 text-sm" value={e.variant ?? ""} onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.variant = ev.target.value))}>
+          <option value="">Escolher…</option>
+          {MANGEKYOU_PARES.map((x) => (
+            <option key={x.k} value={x.k}>
+              {x.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {m?.par && (
+        <ul className="flex flex-wrap gap-1.5">
+          {tecs.map((t) => (
+            <li key={t.id} className={`rounded-full px-2.5 py-1 text-xs ${t.ok ? "bg-ok/15 font-bold text-ok" : "bg-panel-2 text-muted"}`}>
+              {t.ok ? "✓" : "✗"} {t.name}
+              {!t.ok && ` · falta ${t.falta.join(", ")}`}
+            </li>
+          ))}
+        </ul>
+      )}
+      <span className="text-xs leading-relaxed text-muted">
+        {m?.eterno
+          ? "Mangekyou Eterno: as técnicas não custam pontos de visão."
+          : "10 pontos de visão para as técnicas, que não se recuperam (só o Descanso do Sharingan, depois de zerar, devolve até 5). A Mesa desconta e aplica o ofuscado."}
+      </span>
+    </div>
   );
 }
 

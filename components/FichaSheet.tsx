@@ -3,7 +3,7 @@ import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
-import { CUSTOM_ORIGIN, budgetFor, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks } from "@/lib/rules";
+import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 
 function H({ children }: { children: React.ReactNode }) {
@@ -24,6 +24,7 @@ export function FichaSheet({ c }: { c: Character }) {
   const d = derived(c);
   const origin = originName(c);
   const extras = c.extraOrigins.map((x) => originName(c, x)).filter(Boolean);
+  const ms = mangekyou(c);
   const danoExtra = c.optionals.danoExtraAuto && (combatTotal(c, "CC") >= 18 || combatTotal(c, "CD") >= 18) && !hasApt(c, "dano-extra");
 
   return (
@@ -131,6 +132,7 @@ export function FichaSheet({ c }: { c: Character }) {
                       {e.id === "juuinka-ni" ? ` · ${niChoices(e.choices).map(juuinkaChoiceLabel).join(", ")}${e.variant ? ` · ${JUUINKA_SELOS.find((x) => x.k === e.variant)?.label}` : ""}` : ""}
                       {e.id === "talento-natural" && e.choices?.[1] ? `: ${EFEITO_BY_ID[e.choices[1]]?.name} (${e.choices[0] === "hibon" ? "Hibon Ninpou" : versatileName(e.choices[0])})` : ""}
                       {e.id === "sensor" && SENSOR_LIMITES[e.variant ?? ""] ? ` limitado (${SENSOR_LIMITES[e.variant!]})` : ""}
+                      {e.id === "mangekyou" && ms ? `: ${ms.par ? [...ms.tecs, ms.susanoo].map((t) => (t.ok ? t.name : `${t.name} (a despertar)`)).join(", ") : "par de técnicas a escolher"}${ms.eterno ? "" : " · 10 pontos de visão"}` : ""}
                     </li>
                   );
                 })}
