@@ -3,15 +3,19 @@
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { sair } from "@/app/entrar/actions";
 import { NC_MAX, NC_MIN, budgetFor, originKanji, originName, rankLabel } from "@/lib/rules";
-import { readJSONFile, useChars, useHydrated } from "@/lib/store";
-import { IconCopy, IconPlus, IconTrash, IconUpload, Logo } from "./ui";
+import { dismissLegacy, legacyChars, readJSONFile, useChars, useCharsStatus, useHydrated } from "@/lib/store";
+import type { Character } from "@/lib/types";
+import { Salas } from "./Salas";
+import { IconCopy, IconDownload, IconPlus, IconTrash, IconUpload, Logo } from "./ui";
 
 const QUICK_NC = [4, 8, 10, 12, 16, 20, 25, 30];
 
-export function HomeClient() {
+export function HomeClient({ userId, username }: { userId: string; username: string }) {
   const hydrated = useHydrated();
+  const status = useCharsStatus();
   const router = useRouter();
   const chars = useChars((s) => s.chars);
   const create = useChars((s) => s.create);
@@ -21,7 +25,25 @@ export function HomeClient() {
   const [nc, setNc] = useState(4);
   const [error, setError] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const importMany = useChars((s) => s.importMany);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Fichas da versão antiga, que ficavam só no navegador.
+  const [legacy, setLegacy] = useState<Character[]>([]);
+  const [sending, setSending] = useState(false);
+  useEffect(() => setLegacy(legacyChars()), []);
+
+  const sendLegacy = async () => {
+    setSending(true);
+    try {
+      await importMany(legacy);
+      dismissLegacy();
+      setLegacy([]);
+    } catch {
+      setError("Não foi possível enviar as fichas do navegador. Tente de novo.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const list = Object.values(chars).sort((a, b) => b.updatedAt - a.updatedAt);
   const b = budgetFor(nc, { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false });
@@ -44,60 +66,37 @@ export function HomeClient() {
           <Logo />
           <div className="flex flex-col leading-tight">
             <span className="font-display text-lg font-extrabold sm:text-xl">Shinobi no Sho</span>
-            <span className="text-[11px] uppercase tracking-[0.2em] text-muted">Criador de Ficha · 4.1b</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-muted">Fichas &amp; Mesa · 4.1b</span>
           </div>
         </div>
-        <button type="button" className="btn-ghost" onClick={() => fileRef.current?.click()}>
-          <IconUpload className="size-4" /> <span className="hidden sm:inline">Importar ficha</span>
-        </button>
-        <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => onImport(e.target.files?.[0])} />
+        <div className="flex items-center gap-2">
+          <span className="flex h-11 items-center gap-2 rounded-xl border border-line-2 px-3 text-sm font-bold">
+            <span className="size-2 rounded-full bg-ok" aria-hidden="true" />@{username}
+          </span>
+          <form action={sair}>
+            <button type="submit" className="btn-ghost">
+              Sair
+            </button>
+          </form>
+        </div>
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-end">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4">
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-chakra">Naruto RPG · Sistema D8</span>
-          <h1 className="font-display text-4xl font-extrabold leading-[1.05] text-paper sm:text-6xl">
-            Monte a ficha do seu shinobi, passo a passo.
-          </h1>
-          <p className="max-w-xl text-base leading-relaxed text-muted">
-            Pontos, limites e pré-requisitos calculados na hora, com clãs e hijutsus do Livro Básico, dos Livros de Hijutsus 1 e 2 e do Guia Avançado. Nível de Campanha até 30.
-          </p>
-        </motion.div>
+      {legacy.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#4a3218] bg-[#2a1c10] px-4 py-3 text-[#ffd3a8]">
+          <IconDownload className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1 text-sm">
+            Encontramos <b>{legacy.length} ficha(s)</b> salvas neste navegador. Quer enviar para a sua conta?
+          </span>
+          <button type="button" className="btn min-h-9 bg-chakra px-3 text-xs text-paper-ink" disabled={sending} onClick={() => void sendLegacy()}>
+            {sending ? "Enviando…" : "Enviar para a conta"}
+          </button>
+          <button type="button" className="btn min-h-9 border border-[#4a3218] px-3 text-xs" onClick={() => { dismissLegacy(); setLegacy([]); }}>
+            Descartar aviso
+          </button>
+        </div>
+      )}
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="card flex flex-col gap-4 p-5">
-          <div className="flex items-baseline justify-between">
-            <span className="label">Nível de Campanha</span>
-            <span className="text-sm font-bold text-chakra">{rankLabel(nc)}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="w-24 font-display text-5xl font-extrabold text-paper">{nc}</span>
-            <input type="range" min={NC_MIN} max={NC_MAX} value={nc} onChange={(e) => setNc(Number(e.target.value))} aria-label="Nível de Campanha" className="flex-1" />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {QUICK_NC.map((n) => (
-              <button key={n} type="button" onClick={() => setNc(n)} className={`chip ${n === nc ? "border-chakra bg-chakra text-paper-ink" : "text-text hover:border-muted"}`}>
-                NC {n}
-              </button>
-            ))}
-          </div>
-          <dl className="grid grid-cols-4 gap-2 text-center">
-            {[
-              ["Atrib.", b.attr],
-              ["Perícias", b.skill],
-              ["Poderes", b.power],
-              ["Mín.", b.minAttr],
-            ].map(([k, v]) => (
-              <div key={k} className="rounded-xl bg-ink-2 px-1 py-2">
-                <dt className="text-[11px] text-faint">{k}</dt>
-                <dd className="font-display text-xl font-extrabold">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          <motion.button whileTap={{ scale: 0.97 }} type="button" onClick={onNew} className="btn-primary h-12 text-base">
-            <IconPlus className="size-5" /> Criar nova ficha
-          </motion.button>
-        </motion.div>
-      </section>
+      <Salas userId={userId} />
 
       {error && (
         <p role="alert" className="rounded-xl border border-bad/40 bg-bad/10 px-4 py-3 text-sm text-bad">
@@ -108,22 +107,58 @@ export function HomeClient() {
       <section className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-2xl font-extrabold text-paper">Minhas fichas</h2>
-          {hydrated && <span className="text-sm text-faint">{list.length} salva(s) neste navegador</span>}
+          <button type="button" className="btn-ghost min-h-10" onClick={() => fileRef.current?.click()}>
+            <IconUpload className="size-4" /> Importar .json
+          </button>
+          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => onImport(e.target.files?.[0])} />
         </div>
 
-        {!hydrated ? (
+        {status === "error" ? (
+          <p role="alert" className="rounded-xl border border-bad/40 bg-bad/10 px-4 py-3 text-sm text-bad">
+            Não foi possível carregar suas fichas. Confira a conexão e recarregue a página.
+          </p>
+        ) : !hydrated ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="card h-36 animate-pulse" />
             ))}
           </div>
-        ) : list.length === 0 ? (
-          <div className="card flex flex-col items-center gap-2 px-6 py-12 text-center">
-            <span className="font-display text-xl font-extrabold text-paper">Nenhuma ficha ainda</span>
-            <span className="max-w-sm text-sm text-muted">As fichas ficam salvas no seu navegador. Exporte o arquivo .json para levar para outro aparelho.</span>
-          </div>
         ) : (
           <motion.ul layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <li className="card flex flex-col gap-4 p-5">
+              <span className="label">Nova ficha</span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[13px] text-muted">Nível de Campanha</span>
+                <span className="text-sm font-bold text-chakra">{rankLabel(nc)}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="w-16 font-display text-4xl font-extrabold text-paper">{nc}</span>
+                <input type="range" min={NC_MIN} max={NC_MAX} value={nc} onChange={(e) => setNc(Number(e.target.value))} aria-label="Nível de Campanha" className="flex-1" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_NC.map((n) => (
+                  <button key={n} type="button" onClick={() => setNc(n)} className={`chip ${n === nc ? "border-chakra bg-chakra text-paper-ink" : "text-text hover:border-muted"}`}>
+                    NC {n}
+                  </button>
+                ))}
+              </div>
+              <dl className="grid grid-cols-4 gap-2 text-center">
+                {[
+                  ["Atrib.", b.attr],
+                  ["Perícias", b.skill],
+                  ["Poderes", b.power],
+                  ["Mín.", b.minAttr],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-xl bg-ink-2 px-1 py-2">
+                    <dt className="text-[11px] text-faint">{k}</dt>
+                    <dd className="font-display text-xl font-extrabold">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <motion.button whileTap={{ scale: 0.97 }} type="button" onClick={onNew} className="btn-primary h-12 text-base">
+                <IconPlus className="size-5" /> Criar nova ficha
+              </motion.button>
+            </li>
             <AnimatePresence initial={false}>
               {list.map((c) => {
                 return (
@@ -142,9 +177,6 @@ export function HomeClient() {
                       <span>editada {new Date(c.updatedAt).toLocaleDateString("pt-BR")}</span>
                     </div>
                     <div className="relative z-10 flex gap-2">
-                      <Link href={`/ficha/${c.id}/mesa`} className="btn min-h-9 flex-1 bg-seal text-xs text-white hover:bg-seal-dark">
-                        Mesa
-                      </Link>
                       <button type="button" className="btn-ghost min-h-9 flex-1 text-xs" onClick={() => duplicate(c.id)}>
                         <IconCopy className="size-4" /> Duplicar
                       </button>

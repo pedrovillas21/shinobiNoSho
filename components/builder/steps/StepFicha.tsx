@@ -1,11 +1,10 @@
 "use client";
 
 import { motion } from "motion/react";
-import Link from "next/link";
 import { downloadJSON } from "@/lib/store";
 import type { Issue } from "@/lib/rules";
 import { FichaSheet } from "../../FichaSheet";
-import { IconDownload, IconPrint, IconRight, StepHeader } from "../../ui";
+import { IconDownload, IconPrint, StepHeader } from "../../ui";
 import type { StepProps } from "../shared";
 
 export function StepFicha({ c, issues, goTo }: StepProps & { issues: Issue[]; goTo: (step: string) => void }) {
@@ -16,12 +15,9 @@ export function StepFicha({ c, issues, goTo }: StepProps & { issues: Issue[]; go
     <div className="flex flex-col gap-6">
       <div className="no-print flex flex-col gap-4">
         <StepHeader kicker="Etapa 9" title="Ficha">
-          Revise os pontos e pré-requisitos. Nada é travado: o que sair das regras normais aparece aqui como observação para a mesa decidir.
+          Revise os pontos e pré-requisitos. Nada é travado: o que sair das regras normais aparece aqui como observação para a mesa decidir. Para jogar, entre numa sala e escolha esta ficha.
         </StepHeader>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/ficha/${c.id}/mesa`} className="btn-primary">
-            Jogar com a ficha (Mesa) <IconRight className="size-4" />
-          </Link>
           <button type="button" className="btn-ghost" onClick={() => window.print()}>
             <IconPrint className="size-4" /> Imprimir / PDF
           </button>

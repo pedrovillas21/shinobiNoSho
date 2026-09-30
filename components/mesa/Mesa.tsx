@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { endCombat, newPlay, nextTurn, playView, syncPlay, type Logger } from "@/lib/play";
+import { endCombat, nextTurn, playView, type Logger } from "@/lib/play";
 import { originKanji, originName, rankLabel, uid } from "@/lib/rules";
-import { downloadJSON, useChars, useHydrated } from "@/lib/store";
+import { useMesa } from "@/lib/sala";
+import { downloadJSON } from "@/lib/store";
 import type { Character, PlayLog, PlayState } from "@/lib/types";
 import { AnimatedNumber, IconDownload, IconInfo, IconLeft, IconRight } from "../ui";
 import { Ataques } from "./Ataques";
@@ -15,84 +16,75 @@ import { Numeros } from "./Numeros";
 import { Lateral } from "./Lateral";
 import type { MesaProps } from "./shared";
 
-export function Mesa({ id }: { id: string }) {
-  const hydrated = useHydrated();
-  const c = useChars((s) => s.chars[id]);
-  const update = useChars((s) => s.update);
-
-  // Primeira abertura da mesa: vitalidade e chakra cheios, estados sugeridos pela ficha.
-  useEffect(() => {
-    if (!hydrated || !c) return;
-    if (!c.play) update(id, (d) => void (d.play = newPlay(d)));
-    // Aptidões compradas ou escolhas mudadas depois da primeira abertura entram na mesa.
-    else if (syncPlay(c, structuredClone(c.play))) update(id, (d) => void (d.play && syncPlay(d, d.play)));
-  }, [hydrated, c, id, update]);
+/** Mesa de uma ficha dentro de uma sala. O estado de jogo vem de useMesa (salvo por sala). */
+export function Mesa({ c, room, switcher }: { c: Character; room: React.ReactNode; switcher?: React.ReactNode }) {
+  const p = useMesa((s) => s.plays[c.id]);
 
   useEffect(() => {
-    if (c) document.title = `${c.name || "Shinobi"} · Mesa · Shinobi no Sho`;
+    document.title = `${c.name || "Shinobi"} · Mesa · Shinobi no Sho`;
   }, [c]);
 
-  if (!hydrated) return <div className="grid min-h-dvh place-items-center text-muted">Abrindo pergaminho…</div>;
-  if (!c)
-    return (
-      <div className="grid min-h-dvh place-items-center px-6 text-center">
-        <div className="flex flex-col items-center gap-4">
-          <p className="font-display text-2xl font-extrabold text-paper">Ficha não encontrada neste navegador.</p>
-          <Link href="/" className="btn-primary">
-            Voltar ao início
-          </Link>
-        </div>
-      </div>
-    );
-  if (!c.play) return <div className="grid min-h-dvh place-items-center text-muted">Preparando a mesa…</div>;
-
-  return <MesaView c={c} p={c.play} />;
+  if (!p) return <div className="grid min-h-dvh place-items-center text-muted">Preparando a mesa…</div>;
+  return <MesaView key={c.id} c={c} p={p} room={room} switcher={switcher} />;
 }
 
-function MesaView({ c, p }: { c: Character; p: PlayState }) {
-  const update = useChars((s) => s.update);
-  const id = c.id;
-  // Desfazer vale para a sessão aberta (não é salvo no navegador).
-  const [hist, setHist] = useState<PlayState[]>([]);
+// Desfazer por ficha, na sessão aberta: o mestre troca de ficha e volta sem perder o histórico.
+const histCache = new Map<string, PlayState[]>();
+
+function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: React.ReactNode; switcher?: React.ReactNode }) {
+  const setPlay = useMesa((s) => s.setPlay);
+  const [hist, setHistState] = useState<PlayState[]>(() => histCache.get(c.id) ?? []);
+  const setHist = useCallback(
+    (fn: (h: PlayState[]) => PlayState[]) =>
+      setHistState((h) => {
+        const next = fn(h);
+        histCache.set(c.id, next);
+        return next;
+      }),
+    [c.id],
+  );
 
   const commit = useCallback<MesaProps["commit"]>(
     (fn) => {
-      const cur = useChars.getState().chars[id]?.play;
+      const cur = useMesa.getState().plays[c.id];
       if (!cur) return;
       setHist((h) => [structuredClone(cur), ...h].slice(0, 60));
-      update(id, (d) => {
-        const play = d.play;
-        if (!play) return;
-        const out: PlayLog[] = [];
-        const log: Logger = (txt, tone = "n") => out.push({ id: uid(), r: play.round ? `R${play.round}` : "—", txt, tone });
-        fn(play, log, d);
-        play.log = [...out.reverse(), ...play.log].slice(0, 150);
-      });
+      const play = structuredClone(cur);
+      const out: PlayLog[] = [];
+      const log: Logger = (txt, tone = "n") => out.push({ id: uid(), r: play.round ? `R${play.round}` : "—", txt, tone });
+      fn(play, log, structuredClone(c));
+      play.log = [...out.reverse(), ...play.log].slice(0, 150);
+      setPlay(c.id, play);
     },
-    [id, update],
+    [c, setPlay, setHist],
   );
 
   const patch = useCallback<MesaProps["patch"]>(
-    (fn) =>
-      update(id, (d) => {
-        if (d.play) fn(d.play);
-      }),
-    [id, update],
+    (fn) => {
+      const cur = useMesa.getState().plays[c.id];
+      if (!cur) return;
+      const play = structuredClone(cur);
+      fn(play);
+      setPlay(c.id, play);
+    },
+    [c.id, setPlay],
   );
 
   const undo = () => {
     const [prev, ...rest] = hist;
     if (!prev) return;
-    setHist(rest);
-    update(id, (d) => void (d.play = prev));
+    setHist(() => rest);
+    setPlay(c.id, prev);
   };
 
   const v = useMemo(() => playView(c, p), [c, p]);
   const props: MesaProps = { c, p, v, commit, patch };
   const inCombat = p.round > 0;
   // A mesa é dividida em abas. No computador, "Mais" (descanso, usos, histórico) é a coluna fixa da direita.
-  const [tab, setTab] = useState<TabKey>("status");
+  // A aba aberta continua a mesma quando o mestre troca de ficha.
+  const [tab, setTab] = useState<TabKey>(() => lastTab);
   const goTab = (k: TabKey) => {
+    lastTab = k;
     setTab(k);
     window.scrollTo({ top: 0 });
   };
@@ -120,7 +112,7 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
     <div className="min-h-dvh pb-40 lg:pb-12" style={{ "--mesa-top": `${headerH}px` } as React.CSSProperties}>
       <header ref={headerRef} className="sticky top-0 z-30 border-b border-line bg-ink/92 backdrop-blur supports-[backdrop-filter]:bg-ink/80">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-8">
-          <Link href="/" className="btn-ghost size-11 shrink-0 px-0" aria-label="Voltar às fichas">
+          <Link href="/" className="btn-ghost size-11 shrink-0 px-0" aria-label="Voltar ao início">
             <IconLeft />
           </Link>
           <span className="hidden size-11 shrink-0 place-items-center rounded-xl bg-seal font-display text-2xl font-extrabold text-white sm:grid">{originKanji(c)}</span>
@@ -131,14 +123,7 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
               {originName(c) ? ` · ${originName(c)}` : ""}
             </span>
           </div>
-          <nav aria-label="Modo da ficha" className="hidden items-center gap-1 rounded-xl border border-line-2 bg-ink-2 p-1 md:flex">
-            <Link href={`/ficha/${id}`} className="grid h-9 place-items-center rounded-lg px-3 text-sm font-bold text-muted hover:text-text">
-              Criação
-            </Link>
-            <span aria-current="page" className="grid h-9 place-items-center rounded-lg bg-chakra px-3 text-sm font-bold text-paper-ink">
-              Mesa
-            </span>
-          </nav>
+          {room}
           <div className="flex flex-col items-center rounded-xl border border-line bg-panel px-3 py-1 leading-tight">
             <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">Rodada</span>
             <span className="font-display text-xl font-extrabold text-paper">{inCombat ? <AnimatedNumber value={p.round} /> : "—"}</span>
@@ -154,10 +139,12 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
           <button type="button" className="btn-ghost hidden lg:inline-flex" onClick={undo} disabled={hist.length === 0}>
             <IconUndo className="size-4" /> Desfazer
           </button>
-          <button type="button" className="btn-ghost hidden size-11 px-0 xl:inline-flex" onClick={() => downloadJSON(c)} aria-label="Exportar ficha com o estado de jogo">
+          <button type="button" className="btn-ghost hidden size-11 px-0 xl:inline-flex" onClick={() => downloadJSON({ ...c, play: p })} aria-label="Exportar ficha com o estado de jogo">
             <IconDownload className="size-4" />
           </button>
         </div>
+        {/* Troca rápida de ficha (só o mestre) */}
+        {switcher && <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-8">{switcher}</div>}
         {/* Vida e chakra sempre à vista, em qualquer aba */}
         <button type="button" onClick={() => goTab("status")} aria-label="Ver vitalidade e chakra" className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-3 px-4 pb-3 text-left sm:px-8 lg:hidden">
           <MiniPool label="Vit" cur={p.vit} max={v.vitMax} num="text-vit" track="bg-[#3d1f18]" fill="var(--color-bad)" />
@@ -229,7 +216,7 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
       </div>
 
       {/* Barra inferior (celular e tablet): turno e abas da mesa */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink-2/95 backdrop-blur lg:hidden">
+      <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink-2/95 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 pt-2">
           <button type="button" className="btn-ghost size-11 min-h-11 px-0" onClick={undo} disabled={hist.length === 0} aria-label="Desfazer">
             <IconUndo />
@@ -276,6 +263,7 @@ function MesaView({ c, p }: { c: Character; p: PlayState }) {
 const NOTHING_LOCKED = "Nada é travado. O site só faz as contas; bônus, custos e condições podem ser ligados, desligados e editados a qualquer momento. Quem arbitra é a mesa.";
 
 type TabKey = "status" | "ataques" | "estados" | "numeros" | "mais";
+let lastTab: TabKey = "status";
 
 const TABS: { k: TabKey; label: string; icon: React.ReactNode }[] = [
   { k: "status", label: "Status", icon: <path d="M12 21s-7-4.5-9.3-9A5.2 5.2 0 0112 6.3 5.2 5.2 0 0121.3 12C19 16.5 12 21 12 21z" /> },
