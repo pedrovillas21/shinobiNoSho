@@ -9,6 +9,7 @@ import { useMesa, type SalaInfo } from "@/lib/sala";
 import { useChars, useCharsStatus, useHydrated } from "@/lib/store";
 import { roomError, supabase } from "@/lib/supabase/client";
 import type { PlayState } from "@/lib/types";
+import { CombateBotoes, CombateErro, Rodada, useCombate } from "../mesa/Combate";
 import { Mesa } from "../mesa/Mesa";
 import { IconCopy, IconLeft, IconPlus, Logo, Sheet } from "../ui";
 import { EscolherFicha } from "./EscolherFicha";
@@ -381,6 +382,7 @@ function SalaAcoes({ room, isAdm }: { room: SalaInfo; isAdm: boolean }) {
 /** Mestre sem ficha aberta: o código em destaque e as fichas dele para abrir com um toque. */
 function MestreView({ room, switcher, onManage }: { room: SalaInfo; switcher?: React.ReactNode; onManage: () => void }) {
   const hasChars = useMesa((s) => s.order.length > 0);
+  const { round, error } = useCombate();
   useEffect(() => {
     document.title = `${room.name} · Sala · Shinobi no Sho`;
   }, [room.name]);
@@ -396,7 +398,14 @@ function MestreView({ room, switcher, onManage }: { room: SalaInfo; switcher?: R
             <span className="truncate font-display text-lg font-extrabold text-paper sm:text-xl">{room.name}</span>
             <span className="truncate text-xs text-muted">Você é o mestre desta sala</span>
           </div>
+          <Rodada round={round ?? 0} />
+          <CombateBotoes />
         </div>
+        {error && (
+          <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-8">
+            <CombateErro />
+          </div>
+        )}
         {switcher && <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-8">{switcher}</div>}
       </header>
       <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 pt-12 text-center sm:px-8">
@@ -416,7 +425,14 @@ function MestreView({ room, switcher, onManage }: { room: SalaInfo; switcher?: R
             ? "Toque numa ficha na faixa de cima para abrir a mesa dela. A vida e o chakra dos jogadores aparecem ao vivo no balão."
             : "Ponha quantas fichas quiser (NPCs, inimigos, aliados) e troque entre elas com um toque. A vida e o chakra dos jogadores aparecem ao vivo no balão."}
         </p>
+        <p className="max-w-md text-[13px] text-faint">Só você inicia o combate, passa o turno e encerra. A rodada vale para todas as fichas da sala, as suas e as dos jogadores.</p>
       </main>
+      {/* Celular e tablet: combate na barra de baixo, como na mesa */}
+      <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink-2/95 backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+          <CombateBotoes bar />
+        </div>
+      </div>
     </div>
   );
 }

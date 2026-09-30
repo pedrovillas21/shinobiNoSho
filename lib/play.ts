@@ -1,7 +1,7 @@
 import { ATTRS, COMBAT, SKILLS } from "./data/base";
 import { JUUINKA_BONUS, JUUINKA_BONUS_BY, JUUINKA_ICHI_PICKS, JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "./data/juuinka";
 import { CONTADORES, ESTADOS, ESTADO_BY_ID, blankEffect, ccFromFor, makeEstado, refreshEstado, sg } from "./estados";
-import { aptLevel, combatTotal, derived, hasApt, powerLevel, skillTotal, uid } from "./rules";
+import { aptLevel, combatTotal, derived, esqBonus, hasApt, powerLevel, skillTotal, socialTests, uid } from "./rules";
 import type { AptEntry, AttrKey, Character, CombatKey, ModTarget, PlayCond, PlayCounter, PlayEffect, PlayLog, PlayMod, PlayState } from "./types";
 
 /* ---------------- catálogos ---------------- */
@@ -67,6 +67,9 @@ export const CONDS: CondDef[] = [
   { k: "inconsciente", n: "Inconsciente", txt: "Indefeso e sem nenhuma ação." },
 ];
 export const COND_BY: Record<string, CondDef> = Object.fromEntries(CONDS.map((c) => [c.k, c]));
+
+/** Condições em que a pessoa perde os bônus de Esquiva (desprevenida ou sem poder se mover). */
+const ESQ_LOST = ["desprevenido", "impedido", "agarrado", "indefeso", "inconsciente"];
 
 /** Condições que acabam sozinhas no fim da cena. */
 const SCENE_CONDS = ["fintado", "flanqueado", "desprevenido", "caido"];
@@ -424,13 +427,20 @@ export function playView(c: Character, p: PlayState) {
   atk = Math.max(-3, atk);
   def = Math.max(-3, def);
 
-  const acel = g("acel");
+  // Corpulência: estados que deixam acelerado não dão os benefícios da condição (Livro Básico, clã Akimichi).
+  const acelBloqueado = g("acel") > 0 && hasApt(c, "corpulencia");
+  const acel = acelBloqueado ? 0 : g("acel");
   const ini = d.ini + (acel >= 2 ? 4 : acel >= 1 ? 2 : 0) + iniPen;
   let desloc = d.desloc;
-  // Acelerado dobra a Agilidade no deslocamento (Velocista já dobra).
-  if (acel && !hasApt(c, "velocista")) desloc += Math.ceil(attrs.AGI) - Math.ceil(attrs.AGI / 2);
+  // Acelerado dobra a Agilidade no deslocamento; com Velocista (que já dobra), soma +10m no lugar.
+  if (acel) desloc += hasApt(c, "velocista") ? 10 : Math.ceil(attrs.AGI) - Math.ceil(attrs.AGI / 2);
   const lento = hasCond(p, "lento") || hasCond(p, "fatigado") || exausto;
   if (lento) desloc = Math.floor(desloc / 2);
+
+  // Desprevenido ou sem poder se mover: perde todos os bônus de Esquiva (Livro Básico, pág. 251).
+  const semEsquiva = ESQ_LOST.some((k) => hasCond(p, k));
+  const esqEstados = p.effects.filter((e) => e.active).reduce((t, e) => t + e.mods.filter((m) => m.on && m.t === "ESQ" && m.v > 0).reduce((s, m) => s + m.v, 0), 0);
+  const esqPerdida = semEsquiva ? esqBonus(c) + esqEstados : 0;
 
   return {
     add,
@@ -445,9 +455,13 @@ export function playView(c: Character, p: PlayState) {
     baseIni: base.ini,
     desloc,
     skills: SKILLS.map((s) => ({ key: s.key, name: s.name, eff: skillTotal(c2, s.key), base: skillTotal(c, s.key) })),
-    reacao: combatTotal(c2, "ESQ") + 9,
+    social: socialTests(c2),
+    reacao: combatTotal(c2, "ESQ") + 9 - esqPerdida,
     baseReacao: base.reacaoEsquiva,
+    esqPerdida,
     acel,
+    acelBloqueado,
+    velocista: hasApt(c, "velocista"),
     lento,
     atk,
     def,
@@ -456,7 +470,10 @@ export function playView(c: Character, p: PlayState) {
     precDef: g("precDef") + def,
     dano: g("dano"),
     dif: g("dif"),
-    dureza: g("dureza"),
+    // Dureza de corpo da ficha (Resiliência, pelo Vigor sem tamanho) + a dos estados.
+    dureza: base.dureza + g("dureza"),
+    baseDureza: base.dureza,
+    extraComps: base.extraComps,
   };
 }
 export type PlayView = ReturnType<typeof playView>;
@@ -682,6 +699,29 @@ export function endCombat(p: PlayState, log: Logger) {
   log("Combate encerrado", "n");
 }
 
+/**
+ * Leva a ficha à rodada da sala (quem inicia, passa e encerra o combate é o mestre).
+ * Rodadas perdidas (aba fechada) são aplicadas em ordem; quem entra no meio do combate só entra.
+ */
+export function followRound(p: PlayState, round: number, log: Logger) {
+  if (p.round === round) return;
+  if (round === 0) return endCombat(p, log);
+  if (p.round > round) endCombat(p, log); // o combate anterior acabou e outro começou
+  if (p.round === 0) {
+    p.round = round;
+    log(round === 1 ? "Combate iniciado" : `Entrou no combate na rodada ${round}`, "n");
+    return;
+  }
+  while (p.round < round) nextTurn(p, log);
+}
+
+/** Roda fn com um Logger que grava no histórico da ficha (o mais novo primeiro). */
+export function withLog(p: PlayState, fn: (log: Logger) => void) {
+  const out: PlayLog[] = [];
+  fn((txt, tone = "n") => out.push({ id: uid(), r: p.round ? `R${p.round}` : "—", txt, tone }));
+  p.log = [...out.reverse(), ...p.log].slice(0, 150);
+}
+
 export function damage(p: PlayState, n: number, log: Logger) {
   const before = vitStatus(p.vit);
   p.vit -= n;
@@ -758,11 +798,28 @@ export function tickCounter(p: PlayState, id: string, delta: number, log: Logger
   const next = Math.max(0, k.cur + delta);
   if (next === k.cur) return;
   k.cur = next;
-  if (pillGain !== undefined) {
-    p.chk += pillGain;
-    log(`${k.n}: +${pillGain} Chakra (fatigado após 1 hora)`, "chk");
-    checkChakra(p, log);
-  } else log(`${k.n} ${delta < 0 ? "usado" : "reposto"}: ${k.cur}/${k.max}`, "n");
+  if (pillGain !== undefined) takePill(p, k.n, pillGain, log);
+  else log(`${k.n} ${delta < 0 ? "usado" : "reposto"}: ${k.cur}/${k.max}`, "n");
+}
+
+/** Efeito colateral após 1 hora conforme as pílulas tomadas desde o descanso (Livro Básico, Chakra: Gasto e Recuperação). */
+const PILL_AFTER = ["fatigado", "exausto", "inconsciente"];
+
+/**
+ * Pílula do Soldado: ½ Espírito de chakra. O efeito colateral acumula (fatigado, exausto, inconsciente);
+ * a 4ª pílula não dá chakra e intoxica: inconsciente por 1 hora, depois exausto por 20 dias.
+ */
+function takePill(p: PlayState, name: string, gain: number, log: Logger) {
+  const n = (p.pills ?? 0) + 1;
+  p.pills = n;
+  if (n > 3) {
+    log(`${name}: ${n}ª pílula sem descanso, intoxicação (sem chakra)`, "bad");
+    addCond(p, "inconsciente", { note: "intoxicação · 1 hora; depois exausto por 20 dias" }, log);
+    return;
+  }
+  p.chk += gain;
+  log(`${name}: +${gain} Chakra (${n}ª pílula · ${PILL_AFTER[n - 1]} após 1 hora, até descansar)`, "chk");
+  checkChakra(p, log);
 }
 
 export function restNight(p: PlayState, c: Character, v: PlayView, log: Logger) {
@@ -773,14 +830,13 @@ export function restNight(p: PlayState, c: Character, v: PlayView, log: Logger) 
   log(`Noite de descanso: +${nv - p.vit} Vit, +${nc - p.chk} Chakra`, "ok");
   p.vit = nv;
   p.chk = nc;
-  p.round = 0;
   p.conds = p.conds.filter((x) => x.k !== "fatigado" && x.k !== "exausto");
+  p.pills = 0;
   p.counters.forEach((k) => k.reset !== "nunca" && (k.cur = k.max));
   p.effects.forEach((e) => (e.usedScene = false));
 }
 
 export function endScene(p: PlayState, log: Logger) {
-  p.round = 0;
   p.conds = p.conds.filter((x) => !SCENE_CONDS.includes(x.k));
   p.counters.forEach((k) => k.reset === "cena" && (k.cur = k.max));
   p.effects.forEach((e) => (e.usedScene = false));
@@ -794,7 +850,7 @@ export function restoreAll(p: PlayState, c: Character, log: Logger) {
     e.usedScene = false;
   });
   p.conds = [];
-  p.round = 0;
+  p.pills = 0;
   const d = derived(c);
   p.vit = d.vit;
   p.chk = d.chakra;

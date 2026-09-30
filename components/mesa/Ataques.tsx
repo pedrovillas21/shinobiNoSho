@@ -1,11 +1,14 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { GRAU_2D8, ataques, graus, outrosPoderes, partsText, type AtkRow, type Calc } from "@/lib/ataques";
+import { GRAU_2D8, ataques, graus, outrosPoderes, partsText, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
 import { checkChakra, sg } from "@/lib/play";
 import { hasApt, uid } from "@/lib/rules";
 import { AnimatedNumber, IconMinus, IconPlus, IconTrash } from "../ui";
 import { SectionTitle, type MesaProps } from "./shared";
+
+/** Os três melhoramentos do Potencializar (Livro Básico, aptidões de técnica). */
+const POT_LABEL: Record<PotMode, string> = { dano: "+1 de dano base", alcance: "alcance ×2", area: "área ×2" };
 
 /** Colunas da tabela de dano (nome · 4 graus · usar), quando o painel tem largura para isso. */
 const COLS = "@2xl:grid-cols-[minmax(0,1fr)_repeat(4,3.75rem)_6.75rem]";
@@ -16,8 +19,17 @@ export function Ataques(props: MesaProps) {
   const outros = useMemo(() => outrosPoderes(c), [c]);
   const canPot = hasApt(c, "potencializar");
   const canTP = hasApt(c, "tecnica-poderosa");
-  const [pot, setPot] = useState(false);
-  const [tp, setTp] = useState(false);
+  // Uma meta-aptidão por técnica: escolher uma desliga a outra.
+  const [pot, setPotMode] = useState<PotMode | null>(null);
+  const [tp, setTpOn] = useState(false);
+  const setPot = (m: PotMode | null) => {
+    setPotMode(m);
+    if (m) setTpOn(false);
+  };
+  const setTp = (on: boolean) => {
+    setTpOn(on);
+    if (on) setPotMode(null);
+  };
   const [lvls, setLvls] = useState<Record<string, number>>({});
   const [free, setFree] = useState<Record<string, boolean>>({});
   const [adjust, setAdjust] = useState<string | null>(null);
@@ -25,7 +37,7 @@ export function Ataques(props: MesaProps) {
 
   const use = (row: AtkRow, lvl: number, r: Calc) => {
     const withMeta = row.meta && r.cost > 0;
-    const metas = [withMeta && pot && "Potencializar", withMeta && tp && "Técnica Poderosa"].filter(Boolean);
+    const metas = [withMeta && pot && `Potencializar (${POT_LABEL[pot]})`, withMeta && tp && "Técnica Poderosa"].filter(Boolean);
     commit((pl, log) => {
       pl.chk -= r.cost;
       const dmg = r.info ? (r.info.v !== undefined ? `${r.info.label} ${r.info.v}` : "") : r.fixed ? `${r.fixed.v} fixo` : `base ${r.base}`;
@@ -33,8 +45,8 @@ export function Ataques(props: MesaProps) {
       checkChakra(pl, log);
     });
     if (withMeta) {
-      setPot(false);
-      setTp(false);
+      setPotMode(null);
+      setTpOn(false);
     }
   };
 
@@ -49,11 +61,12 @@ export function Ataques(props: MesaProps) {
       {(canPot || canTP || v.dano !== 0) && (
         <div className="flex flex-wrap items-center gap-2">
           {v.dano !== 0 && <span className="chip border-chakra text-[#ffd3a8]">Estados: dano base {sg(v.dano)}</span>}
-          {canPot && (
-            <MetaChip on={pot} onClick={() => setPot(!pot)} label="Potencializar" hint="+1 de dano base" />
-          )}
+          {canPot &&
+            (Object.keys(POT_LABEL) as PotMode[]).map((m) => (
+              <MetaChip key={m} on={pot === m} onClick={() => setPot(pot === m ? null : m)} label="Potencializar" hint={POT_LABEL[m]} />
+            ))}
           {canTP && <MetaChip on={tp} onClick={() => setTp(!tp)} label="Técnica Poderosa" hint="+0,5 de grau" />}
-          {(canPot || canTP) && <span className="text-xs text-faint">Meta-aptidão: ação de movimento, vale para o próximo ataque.</span>}
+          {(canPot || canTP) && <span className="text-xs text-faint">Meta-aptidão: ação de movimento, uma por técnica, vale para o próximo ataque.</span>}
         </div>
       )}
 
@@ -121,7 +134,7 @@ export function Ataques(props: MesaProps) {
                   const divider = row.util && !g.rows[ri - 1]?.util;
                   const lvl = Math.min(row.max, Math.max(row.min, lvls[row.key] ?? row.max));
                   const isFree = !!free[row.key] && row.free && lvl >= 2;
-                  const r = row.calc(lvl, { free: isFree, potencializar: pot && row.meta && !isFree });
+                  const r = row.calc(lvl, { free: isFree, pot: pot && row.meta && !isFree ? pot : undefined });
                   const half = row.plusHalf || (tp && row.meta && r.cost > 0);
                   return (
                     <Fragment key={row.key}>

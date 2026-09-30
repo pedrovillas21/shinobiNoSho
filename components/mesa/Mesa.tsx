@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { endCombat, nextTurn, playView, type Logger } from "@/lib/play";
-import { originKanji, originName, rankLabel, uid } from "@/lib/rules";
+import { playView, withLog } from "@/lib/play";
+import { originKanji, originName, rankLabel } from "@/lib/rules";
 import { useMesa } from "@/lib/sala";
 import { downloadJSON } from "@/lib/store";
-import type { Character, PlayLog, PlayState } from "@/lib/types";
-import { AnimatedNumber, IconDownload, IconInfo, IconLeft, IconRight } from "../ui";
+import type { Character, PlayState } from "@/lib/types";
+import { AnimatedNumber, IconDownload, IconInfo, IconLeft } from "../ui";
 import { Ataques } from "./Ataques";
+import { CombateAviso, CombateBotoes, CombateErro, Rodada, useCombate } from "./Combate";
 import { Condicoes } from "./Condicoes";
 import { Energias } from "./Energias";
 import { Estados } from "./Estados";
@@ -28,32 +29,22 @@ export function Mesa({ c, room, switcher }: { c: Character; room: React.ReactNod
   return <MesaView key={c.id} c={c} p={p} room={room} switcher={switcher} />;
 }
 
-// Desfazer por ficha, na sessão aberta: o mestre troca de ficha e volta sem perder o histórico.
-const histCache = new Map<string, PlayState[]>();
+const NO_HIST: PlayState[] = [];
 
 function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: React.ReactNode; switcher?: React.ReactNode }) {
   const setPlay = useMesa((s) => s.setPlay);
-  const [hist, setHistState] = useState<PlayState[]>(() => histCache.get(c.id) ?? []);
-  const setHist = useCallback(
-    (fn: (h: PlayState[]) => PlayState[]) =>
-      setHistState((h) => {
-        const next = fn(h);
-        histCache.set(c.id, next);
-        return next;
-      }),
-    [c.id],
-  );
+  // Desfazer por ficha, guardado na sala: o mestre troca de ficha e volta sem perder; zera quando a rodada muda.
+  const hist = useMesa((s) => s.hist[c.id] ?? NO_HIST);
+  const setHist = useMesa((s) => s.setHist);
 
   const commit = useCallback<MesaProps["commit"]>(
     (fn) => {
-      const cur = useMesa.getState().plays[c.id];
+      const st = useMesa.getState();
+      const cur = st.plays[c.id];
       if (!cur) return;
-      setHist((h) => [structuredClone(cur), ...h].slice(0, 60));
+      setHist(c.id, [structuredClone(cur), ...(st.hist[c.id] ?? [])].slice(0, 60));
       const play = structuredClone(cur);
-      const out: PlayLog[] = [];
-      const log: Logger = (txt, tone = "n") => out.push({ id: uid(), r: play.round ? `R${play.round}` : "—", txt, tone });
-      fn(play, log, structuredClone(c));
-      play.log = [...out.reverse(), ...play.log].slice(0, 150);
+      withLog(play, (log) => fn(play, log, structuredClone(c)));
       setPlay(c.id, play);
     },
     [c, setPlay, setHist],
@@ -73,13 +64,15 @@ function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: 
   const undo = () => {
     const [prev, ...rest] = hist;
     if (!prev) return;
-    setHist(() => rest);
-    setPlay(c.id, prev);
+    setHist(c.id, rest);
+    // A rodada é do mestre: desfazer nunca tira a ficha dela.
+    setPlay(c.id, { ...prev, round: p.round });
   };
 
   const v = useMemo(() => playView(c, p), [c, p]);
   const props: MesaProps = { c, p, v, commit, patch };
-  const inCombat = p.round > 0;
+  const combate = useCombate();
+  const round = combate.round ?? p.round;
   // A mesa é dividida em abas. No computador, "Mais" (descanso, usos, histórico) é a coluna fixa da direita.
   // A aba aberta continua a mesma quando o mestre troca de ficha.
   const [tab, setTab] = useState<TabKey>(() => lastTab);
@@ -124,18 +117,8 @@ function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: 
             </span>
           </div>
           {room}
-          <div className="flex flex-col items-center rounded-xl border border-line bg-panel px-3 py-1 leading-tight">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">Rodada</span>
-            <span className="font-display text-xl font-extrabold text-paper">{inCombat ? <AnimatedNumber value={p.round} /> : "—"}</span>
-          </div>
-          <button type="button" className="btn-primary hidden lg:inline-flex" onClick={() => commit((pl, log) => nextTurn(pl, log))}>
-            {inCombat ? "Próximo turno" : "Iniciar combate"} <IconRight className="size-4" />
-          </button>
-          {inCombat && (
-            <button type="button" className="btn-ghost hidden lg:inline-flex" onClick={() => commit((pl, log) => endCombat(pl, log))}>
-              Encerrar combate
-            </button>
-          )}
+          <Rodada round={round} />
+          {combate.isAdm && <CombateBotoes />}
           <button type="button" className="btn-ghost hidden lg:inline-flex" onClick={undo} disabled={hist.length === 0}>
             <IconUndo className="size-4" /> Desfazer
           </button>
@@ -143,6 +126,11 @@ function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: 
             <IconDownload className="size-4" />
           </button>
         </div>
+        {combate.error && (
+          <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-8">
+            <CombateErro />
+          </div>
+        )}
         {/* Troca rápida de ficha (só o mestre) */}
         {switcher && <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-8">{switcher}</div>}
         {/* Vida e chakra sempre à vista, em qualquer aba */}
@@ -221,14 +209,7 @@ function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: 
           <button type="button" className="btn-ghost size-11 min-h-11 px-0" onClick={undo} disabled={hist.length === 0} aria-label="Desfazer">
             <IconUndo />
           </button>
-          {inCombat && (
-            <button type="button" className="btn-ghost h-11 min-h-11 flex-1" onClick={() => commit((pl, log) => endCombat(pl, log))}>
-              Encerrar
-            </button>
-          )}
-          <button type="button" className="btn-primary h-11 min-h-11 flex-[2]" onClick={() => commit((pl, log) => nextTurn(pl, log))}>
-            {inCombat ? "Próximo turno" : "Iniciar combate"} <IconRight className="size-4" />
-          </button>
+          {combate.isAdm ? <CombateBotoes bar /> : <CombateAviso round={round} />}
         </div>
         <nav aria-label="Partes da mesa" className="mx-auto grid max-w-3xl grid-cols-5 px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1">
           {TABS.map((t) => {

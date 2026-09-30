@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { ATTRS, COMBAT } from "@/lib/data/base";
-import { budgetFor, combatTotal, hasApt, spent } from "@/lib/rules";
+import { budgetFor, combatTotal, hasApt, socialTests, spent } from "@/lib/rules";
 import type { CombatKey } from "@/lib/types";
 import { AnimatedNumber, NumberField, Stepper, StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
@@ -100,6 +100,9 @@ export function StepAtributos({ c, set }: StepProps) {
                 <span className="text-xs text-faint">
                   base {c.combatBase[k.key]} + {attrName} {c.attrs[attrName]}
                   {c.combatBonus[k.key] ? ` + ${c.combatBonus[k.key]}` : ""}
+                  {k.key === "ESQ" && hasApt(c, "reflexos") ? " + 1 Reflexos" : ""}
+                  {k.key === "ESQ" && hasApt(c, "resiliencia") ? " − 3 Resiliência" : ""}
+                  {k.key === "LM" && hasApt(c, "intuicao") ? " + 1 Intuição" : ""}
                 </span>
                 <div className="flex items-end justify-between gap-2">
                   <div className="flex flex-col gap-1">
@@ -139,6 +142,21 @@ export function StepAtributos({ c, set }: StepProps) {
               <Stepper label={name} value={c.social[k]} onChange={(n) => set((d) => void (d.social[k] = n))} />
             </div>
           ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="label">Testes sociais (Carisma ou Manipulação + ½ atributo ou perícia)</span>
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {socialTests(c).map((t) => (
+              <li key={t.name} className="card flex items-center justify-between gap-3 px-4 py-2.5">
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-sm font-bold text-paper">{t.name}</span>
+                  <span className="text-xs text-faint">{t.formula}</span>
+                  {t.alt && <span className="text-[11px] leading-snug text-faint">{t.alt}</span>}
+                </span>
+                <span className="font-display text-2xl font-extrabold text-paper">{t.v}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
     </div>

@@ -137,6 +137,10 @@ export interface PowerEntry {
   /** Nome livre da técnica criada em cada nível. */
   techniques: string[];
   note?: string;
+  /** Versatilidade: os dois poderes versáteis escolhidos (ids do catálogo). */
+  versatile?: string[];
+  /** Versatilidade: de qual poder versátil (0 ou 1) é cada nível. O nível 1 vale para os dois. */
+  owner?: (number | null)[];
 }
 
 export interface AptEntry {
@@ -357,4 +361,6 @@ export interface PlayState {
   attacks?: PlayAttack[];
   /** Bônus de dano extra por poder (id do poder), para bônus que a ficha não sabe calcular. */
   dmgExtra?: Record<string, number>;
+  /** Pílulas do Soldado tomadas desde o último descanso (o efeito colateral acumula). */
+  pills?: number;
 }

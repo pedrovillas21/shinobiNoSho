@@ -3,7 +3,7 @@
 Criador de fichas e mesa em grupo para o RPG **Naruto: Shinobi no Sho 4.1b** (Sistema D8), feito com Next.js, Tailwind CSS, Motion e Supabase.
 
 - **Contas:** registro com nome de usuário e senha; cada jogador tem as próprias fichas.
-- **Salas:** qualquer um cria uma sala e recebe um código de 6 letras. Quem entra escolhe a ficha; a mesa (vida, chakra, condições, turnos) só existe dentro da sala e é salva por sala.
+- **Salas:** qualquer um cria uma sala e recebe um código de 6 letras. Quem entra escolhe a ficha; a mesa (vida, chakra, condições, turnos) só existe dentro da sala e é salva por sala. O combate é da sala: só o mestre inicia, passa o turno e encerra, e as fichas de todos acompanham ao vivo.
 - **Mestre com várias fichas:** o criador da sala (ADM) põe quantas fichas dele quiser na sala (NPCs, inimigos) e troca entre elas com um toque na faixa do topo da mesa. Jogadores ficam com uma ficha só.
 - **Balão de jogadores:** bolinha no canto que dá para arrastar para qualquer canto da tela; um toque abre um cartão com quem está na sala, Vit/Chakra ao vivo e quem está online. O ADM pode expulsar; os outros só veem.
 

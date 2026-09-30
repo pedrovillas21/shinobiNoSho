@@ -9,16 +9,21 @@ export function Numeros({ v }: MesaProps) {
     {
       l: "Iniciativa",
       val: sg(v.ini),
-      note: v.acel >= 2 ? "super acelerado +4" : v.acel ? "acelerado +2" : v.iniPen ? "surdo −3" : undefined,
+      note: v.acelBloqueado ? "Corpulência: sem os benefícios de acelerado" : v.acel >= 2 ? "super acelerado +4" : v.acel ? "acelerado +2" : v.iniPen ? "surdo −3" : undefined,
       delta: v.ini - v.baseIni,
     },
-    { l: "Deslocamento", val: `${v.desloc}m`, note: v.lento ? "lento: metade" : v.acel ? "Agilidade dobrada" : undefined, delta: v.lento ? -1 : v.acel || v.add.desloc ? 1 : 0 },
-    { l: "Reação de Esquiva", val: v.reacao, delta: v.reacao - v.baseReacao },
+    {
+      l: "Deslocamento",
+      val: `${v.desloc}m`,
+      note: v.lento ? "lento: metade" : v.acel ? (v.velocista ? "acelerado +10m (Velocista)" : "Agilidade dobrada") : v.extraComps ? `${v.extraComps} comp. a mais: −${3 * v.extraComps}m` : undefined,
+      delta: v.lento ? -1 : v.acel || v.add.desloc ? 1 : 0,
+    },
+    { l: "Reação de Esquiva", val: v.reacao, note: v.esqPerdida ? `sem os bônus de Esquiva (−${v.esqPerdida})` : undefined, delta: v.reacao - v.baseReacao },
     { l: "Precisão de ataque", val: sg(v.precAtk), note: v.atk ? `condições ${sg(v.atk)}` : undefined, delta: v.precAtk },
     { l: "Precisão de defesa", val: sg(v.precDef), note: v.def ? `condições ${sg(v.def)}` : undefined, delta: v.precDef },
     { l: "Dano base extra", val: sg(v.dano), delta: v.dano },
     { l: "Dificuldade das técnicas", val: sg(v.dif), delta: v.dif },
-    { l: "Dureza de corpo", val: v.dureza, delta: v.dureza },
+    { l: "Dureza de corpo", val: v.dureza, note: v.baseDureza ? `Resiliência ${v.baseDureza}` : undefined, delta: v.dureza - v.baseDureza },
   ];
 
   return (
@@ -78,6 +83,20 @@ export function Numeros({ v }: MesaProps) {
               </div>
             );
           })}
+        </div>
+      </details>
+
+      <details className="group rounded-xl bg-ink-2 px-3 py-2">
+        <summary className="cursor-pointer select-none py-1.5 text-sm font-bold text-muted group-open:text-text">Testes sociais</summary>
+        <div className="grid gap-x-6 pb-1 sm:grid-cols-2">
+          {v.social.map((s) => (
+            <div key={s.name} className="flex justify-between gap-2 border-b border-line py-1.5 text-sm last:border-0" title={s.alt}>
+              <span className="text-muted">
+                {s.name} <span className="text-[11px] text-faint">{s.formula}</span>
+              </span>
+              <span className="font-bold tabular-nums text-paper">{s.v}</span>
+            </div>
+          ))}
         </div>
       </details>
     </section>

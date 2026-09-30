@@ -4,7 +4,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { APTIDOES, APT_BY_ID, APT_CATEGORIES, BANNED_APTS } from "@/lib/data/aptidoes";
 import { JUUINKA_BONUS, JUUINKA_ICHI_PICKS, JUUINKA_NI_DEFAULT, JUUINKA_SELOS, niChoices } from "@/lib/data/juuinka";
-import { APT_COST, FREE_APTS, allowedRestricted, aptCost, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, uid } from "@/lib/rules";
+import { EFEITO_BY_ID } from "@/lib/data/poderes";
+import { SENSOR_LIMITES } from "@/lib/estados";
+import { APT_COST, FREE_APTS, allowedRestricted, aptCost, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, Stepper, StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
@@ -111,6 +113,8 @@ export function StepAptidoes({ c, set }: StepProps) {
                       {a?.levels && <LevelList c={c} a={a} level={e.level} />}
                       {a?.grants && <GrantChoices c={c} a={a} e={e} set={set} />}
                       {a && (a.id === "juuinka-ichi" || a.id === "juuinka-ni") && <JuuinkaChoices e={e} set={set} />}
+                      {a?.id === "talento-natural" && <TalentoChoices c={c} e={e} set={set} />}
+                      {a?.id === "sensor" && <SensorChoice e={e} set={set} />}
                       {!a && (
                         <textarea
                           rows={2}
@@ -282,6 +286,70 @@ function GrantChoices({ c, a, e, set }: { c: Character; a: Aptidao; e: AptEntry;
         </label>
       ))}
     </div>
+  );
+}
+
+/** Talento Natural (Livro Básico, pág. 243): um efeito não exclusivo para um poder versátil ou Hibon Ninpou, com as evoluções de graça. */
+function TalentoChoices({ c, e, set }: { c: Character; e: AptEntry; set: StepProps["set"] }) {
+  const targets = talentoTargets(c);
+  const [target = "", eff = ""] = e.choices ?? [];
+  const edit = (i: number, v: string) =>
+    set((d) => {
+      const x = d.aptidoes.find((y) => y.uid === e.uid)!;
+      const cur = [x.choices?.[0] ?? "", x.choices?.[1] ?? ""];
+      cur[i] = v;
+      if (i === 0) cur[1] = "";
+      x.choices = cur;
+    });
+  const label = (id: string) => (id === "hibon" ? "Hibon Ninpou" : versatileName(id));
+  return (
+    <div className="mt-1 grid gap-2 sm:grid-cols-2">
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Poder
+        <select className="field py-1.5 text-sm" value={target} onChange={(ev) => edit(0, ev.target.value)}>
+          <option value="">{targets.length ? "Escolher…" : "Nenhum poder versátil ou Hibon na ficha"}</option>
+          {target && !targets.includes(target) && <option value={target}>{label(target)} (não está na ficha)</option>}
+          {targets.map((id) => (
+            <option key={id} value={id}>
+              {label(id)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Efeito (ganha as evoluções no nível certo)
+        <select className="field py-1.5 text-sm" value={eff} disabled={!target} onChange={(ev) => edit(1, ev.target.value)}>
+          <option value="">Escolher…</option>
+          {target &&
+            talentoEffects(target)
+              .map((id) => EFEITO_BY_ID[id])
+              .filter(Boolean)
+              .sort((a, b) => a.level - b.level)
+              .map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name} (nv {x.level})
+                </option>
+              ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+/** Sensor Limitado (Livro Básico, aptidão Sensor): escolhido na compra, custa 3 de chakra em vez de 5. */
+function SensorChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
+  return (
+    <label className="mt-1 flex max-w-sm flex-col gap-1 text-xs text-muted">
+      Tipo de sensor
+      <select className="field py-1.5 text-sm" value={e.variant ?? ""} onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.variant = ev.target.value))}>
+        <option value="">Completo · 5 chakra</option>
+        {Object.entries(SENSOR_LIMITES).map(([k, l]) => (
+          <option key={k} value={k}>
+            Limitado ({l}) · 3 chakra
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

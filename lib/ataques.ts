@@ -1,6 +1,6 @@
-import { EFEITO_BY_ID, PODER_BY_ID } from "./data/poderes";
+import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { evolutionIndex, hasApt } from "./rules";
+import { evolutionIndex, hasApt, hasChakraExpandido, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -225,9 +225,6 @@ const DIF_PODER: Record<string, number> = {
 /** Poderes que contam como “Ninpou e elementos” para a aptidão Capacidade. */
 const NINPOU_E_ELEMENTOS = ["ninpou", "doton", "fuuton", "katon", "raiton", "suiton", "versatilidade", "hibon"];
 
-/** Efeitos exclusivos de elemento (Capacidade não soma neles). */
-const EXCLUSIVOS = ["bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"];
-
 /** Poderes cujos parâmetros usam uma perícia no lugar do Espírito. */
 const CHAVE_PERICIA: Record<string, { k: SkillKey; label: string; optional?: boolean }> = {
   "kikai-ninpou": { k: "animais", label: "Lidar c/ Animais" },
@@ -269,8 +266,11 @@ export interface AtkRow {
   plusHalf?: boolean;
   /** Efeito que não causa dano. */
   util?: boolean;
-  calc: (lvl: number, o: { free?: boolean; potencializar?: boolean }) => Calc;
+  calc: (lvl: number, o: { free?: boolean; pot?: PotMode }) => Calc;
 }
+
+/** Melhoramento escolhido no Potencializar (Livro Básico, aptidões de técnica). */
+export type PotMode = "dano" | "alcance" | "area";
 
 export interface AtkGroup {
   id: string;
@@ -316,135 +316,82 @@ function chave(c: Character, v: PlayView, powerId: string) {
   return { label, val };
 }
 
+/** Efeito escolhido num poder: nome da técnica e evolução alcançada. */
+interface EffPick {
+  eff: string;
+  tech: string;
+  ev: number;
+  /** Ganho pelo Talento Natural. */
+  talento?: boolean;
+}
+
+/** Junta a mesma escolha feita em compras diferentes, guardando a evolução mais alta. */
+function addPick(picks: EffPick[], x: EffPick) {
+  const cur = picks.find((y) => y.eff === x.eff);
+  if (!cur) picks.push(x);
+  else {
+    cur.ev = Math.max(cur.ev, x.ev);
+    if (!cur.tech) cur.tech = x.tech;
+  }
+}
+
+/** Talento Natural: o efeito vem com todas as evoluções que o nível do poder já permite (Livro Básico, pág. 243). */
+function addTalento(g: { level: number; picks: EffPick[] }, eff: string) {
+  const e = EFEITO_BY_ID[eff];
+  if (!e || e.level > g.level) return;
+  const ev = (e.evolves ?? []).filter((l) => l <= g.level).length;
+  const cur = g.picks.find((y) => y.eff === eff);
+  if (cur) {
+    cur.ev = Math.max(cur.ev, ev);
+    cur.talento = true;
+  } else g.picks.push({ eff, tech: "", ev, talento: true });
+}
+
 export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
   const groups: AtkGroup[] = [];
   const estado = v.dano;
+  const tn = talentoNatural(c);
 
   // Poderes com efeitos (Ninpou, elementos e parecidos). Comprar o mesmo poder 2× usa o nível mais alto.
-  const byId = new Map<string, { level: number; picks: { eff: string; tech: string; ev: number }[] }>();
+  const byId = new Map<string, { level: number; picks: EffPick[] }>();
   for (const pe of c.poderes) {
     const def = PODER_BY_ID[pe.id];
-    if (!def || def.mode !== "efeitos") continue;
+    if (!def || def.mode !== "efeitos" || pe.id === "versatilidade") continue;
     const g = byId.get(pe.id) ?? { level: 0, picks: [] };
     g.level = Math.max(g.level, pe.level);
     pe.effects.slice(0, pe.level).forEach((eff, i) => {
       if (!eff || !EFEITO_BY_ID[eff]) return;
-      // Escolher o efeito de novo = evolução; guarda a evolução mais alta entre as compras.
-      const ev = evolutionIndex(pe.effects, i);
-      const cur = g.picks.find((x) => x.eff === eff);
-      if (!cur) g.picks.push({ eff, tech: pe.techniques[i]?.trim() ?? "", ev });
-      else cur.ev = Math.max(cur.ev, ev);
+      // Escolher o efeito de novo = evolução.
+      addPick(g.picks, { eff, tech: pe.techniques[i]?.trim() ?? "", ev: evolutionIndex(pe.effects, i) });
     });
     byId.set(pe.id, g);
   }
-
   for (const [id, g] of byId) {
-    if (!g.picks.length) continue;
-    const def = PODER_BY_ID[id];
-    const k = chave(c, v, id);
-    const at = alcanceTamanho(id, k.val);
-    const elem = ELEMENTO[id] ?? 0;
-    const bonus: AtkGroup["bonus"] = [];
-    if (elem) bonus.push({ label: def.name.split(" (")[0], v: elem });
-    if (id === "suiton" && hasApt(c, "elemento-natural-suiton")) bonus.push({ label: "Elemento Natural", v: 2 });
-    if (id === "doton" && hasApt(c, "elemento-natural-terra")) bonus.push({ label: "Elemento Natural", v: 1 });
-    const capacidade = hasApt(c, "capacidade") && NINPOU_E_ELEMENTOS.includes(id);
-    const extra = p.dmgExtra?.[id] ?? 0;
-    const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
+    if (id === "hibon" && tn?.target === "hibon") addTalento(g, tn.eff);
+    if (g.picks.length) groups.push(effectGroup(c, v, p, { key: id, powerId: id, title: PODER_BY_ID[id].name, level: g.level, picks: g.picks }));
+  }
 
-    const rows: AtkRow[] = g.picks
-      .map(({ eff, tech, ev }): AtkRow => {
-        const e = EFEITO_BY_ID[eff];
-        const spec = DANO_EFEITO[eff];
-        if (!spec) return utilRow(id, eff, tech, ev, g.level, k, v);
-        const effName = e.name.replace(/ \(.*\)$/, "");
-        const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
-        const evoTxt = evoLvl ? `evoluído Nv ${evoLvl}` : "";
-        return {
-          key: `${id}:${eff}`,
-          name: tech || effName,
-          sub: [tech ? effName : "", evoTxt].filter(Boolean).join(" · "),
-          note: spec.note,
-          min: e.level,
-          max: spec.costFixed ? e.level : Math.max(e.level, g.level),
-          meta: !spec.noMeta,
-          free: !!spec.free,
-          calc: (lvl, o) => ({ ...dmgCalc(lvl, o), geo: geo(eff, { A: at.alcance, T: at.tamanho, lvl, ev, key: k.val }) }),
-        };
-        function dmgCalc(lvl: number, o: { free?: boolean; potencializar?: boolean }): Calc {
-          const comum = lvl + half(k.val);
-          const dif = 9 + lvl + half(k.val) + v.dif + (DIF_PODER[id] ?? 0);
-          // Orbe Nv 7 (evolução): usado no nível 7 ou mais, custa metade do chakra.
-          const cost = spec.costFixed ?? (eff === "orbe" && ev >= 1 && lvl >= 7 ? Math.ceil(lvl / 2) : lvl * (spec.costX ?? 1));
-          const kind = spec.kind;
-          if (kind.k === "fixo") {
-            // Nuvem Nv 10 (evolução): dano fixo dobrado.
-            const mult = eff === "nuvem" && ev >= 2 ? 2 * kind.mult : kind.mult;
-            return { base: 0, cost, dif, parts: [`${mult} × Nv ${lvl}`], fixed: { v: mult * lvl, txt: kind.txt } };
-          }
-          const parts: string[] = [];
-          let base = 0;
-          if (kind.k === "comum") {
-            base = comum;
-            parts.push(`Nv ${lvl}`, `½${k.label} ${half(k.val)}`);
-          } else if (kind.k === "porNivel") {
-            base = kind.x * lvl;
-            parts.push(`${kind.x} × Nv ${lvl}`);
-          } else if (kind.k === "flechas") {
-            base = 2 * lvl;
-            parts.push(`${lvl} projéteis × 2`);
-          } else if (kind.k === "metade") {
-            base = half(comum);
-            parts.push(`½ comum ${half(comum)}`);
-          } else if (kind.k === "valor") {
-            // Colisão de Ondas: 10, 14 com a evolução Nv 8 e 18 com a Nv 10.
-            base = eff === "colisao-ondas" ? [10, 14, 18][Math.min(ev, 2)] : kind.v;
-            parts.push(`${base}`);
-          } else if (kind.k === "canhao2") {
-            base = 2 * lvl + 2;
-            parts.push(`Canhão ${2 * lvl}`, "combustão 2");
-          } else if (kind.k === "arma") {
-            const forDes = Math.max(v.attrs.FOR, v.attrs.DES);
-            const parts2 = [`½${v.attrs.DES > v.attrs.FOR ? "Des" : "For"} ${half(forDes)}`, `arma ${kind.arma}`];
-            if (estado) parts2.push(`estado ${estado}`);
-            return { base: Math.max(0, half(forDes) + kind.arma + estado), cost, dif, parts: parts2, noDif: true };
-          } else if (kind.k === "laminas") {
-            const per = 1 + elemTotal;
-            return { base: per * lvl, cost, dif, parts: [`${lvl} lâminas × ${per}`] };
-          }
-          for (const b of bonus) parts.push(`${b.label} ${b.v}`);
-          base += elemTotal;
-          if (capacidade && !EXCLUSIVOS.includes(eff)) {
-            base += 1;
-            parts.push("Capacidade 1");
-          }
-          if (extra) {
-            base += extra;
-            parts.push(`extra ${extra}`);
-          }
-          if (estado) {
-            base += estado;
-            parts.push(`estado ${estado}`);
-          }
-          if (o.potencializar && !spec.noMeta) {
-            base += 1;
-            parts.push("Potencializar 1");
-          }
-          if (o.free && spec.free && lvl >= 2) return { base: Math.max(0, half(base)), cost: 0, dif, parts: [`(${partsText(parts)}) ÷ 2`] };
-          return { base: Math.max(0, base), cost, dif, parts };
-        }
-      })
-      // Primeiro o que causa dano, depois o resto; cada parte pelo nível do efeito.
-      .sort((a, b) => Number(!!a.util) - Number(!!b.util) || a.min - b.min);
-
-    groups.push({ id, title: def.name, level: g.level, keyLabel: k.label, keyVal: k.val, alcance: at.alcance, tamanho: at.tamanho, bonus, extra, rows });
+  // Versatilidade: cada poder versátil vira um grupo com alcance, tamanho e bônus do próprio elemento.
+  // Os parâmetros usam o nível de Versatilidade mais alto entre as compras (como no Ninpou comprado 2×).
+  const vLevel = powerLevel(c, "versatilidade");
+  const seen = new Set<string>();
+  for (const pe of c.poderes) {
+    if (pe.id !== "versatilidade") continue;
+    (pe.versatile ?? []).forEach((id, k) => {
+      if (!id || seen.has(id) || PODER_BY_ID[id]?.mode !== "efeitos") return;
+      seen.add(id);
+      const g = { level: vLevel, picks: [] as EffPick[] };
+      for (const x of versatilePicks(pe, k)) if (x.eff && EFEITO_BY_ID[x.eff]) addPick(g.picks, { eff: x.eff, tech: x.tech.trim(), ev: x.ev });
+      if (tn?.target === id) addTalento(g, tn.eff);
+      if (g.picks.length) groups.push(effectGroup(c, v, p, { key: `versatilidade:${id}`, powerId: id, title: versatileName(id), level: vLevel, picks: g.picks }));
+    });
   }
 
   // Rasengan (Livro Básico pág. 121–122)
   const ras = c.poderes.filter((x) => x.id === "rasengan").reduce((m, x) => Math.max(m, x.level), 0);
   if (ras) {
     const k = chave(c, v, "rasengan");
-    const ce = hasApt(c, "chakra-expandido");
+    const ce = hasChakraExpandido(c);
     const completo = ras >= 6 && (k.val >= 14 || (ce && k.val >= 12));
     const oodama = ras >= 7 && (k.val >= 16 || (ce && k.val >= 14)) && hasApt(c, "tecnica-poderosa");
     const extra = p.dmgExtra?.rasengan ?? 0;
@@ -513,16 +460,128 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
   return groups;
 }
 
-function utilRow(powerId: string, eff: string, tech: string, ev: number, level: number, k: { label: string; val: number }, v: PlayView): AtkRow {
+/**
+ * Grupo de ataques de um poder de efeitos. `key` identifica o grupo (e o bônus extra anotado);
+ * `powerId` dá o alcance, o tamanho, o bônus do elemento e o atributo chave (num poder versátil, o do elemento).
+ */
+function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; powerId: string; title: string; level: number; picks: EffPick[] }): AtkGroup {
+  const { key, powerId: id, level } = o;
+  const estado = v.dano;
+  const k = chave(c, v, id);
+  const at = alcanceTamanho(id, k.val);
+  const elem = ELEMENTO[id] ?? 0;
+  const bonus: AtkGroup["bonus"] = [];
+  if (elem) bonus.push({ label: (PODER_BY_ID[id]?.name ?? o.title).split(" (")[0], v: elem });
+  if (id === "suiton" && hasApt(c, "elemento-natural-suiton")) bonus.push({ label: "Elemento Natural", v: 2 });
+  if (id === "doton" && hasApt(c, "elemento-natural-terra")) bonus.push({ label: "Elemento Natural", v: 1 });
+  const capacidade = hasApt(c, "capacidade") && NINPOU_E_ELEMENTOS.includes(id);
+  const extra = p.dmgExtra?.[key] ?? 0;
+  const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
+
+  const rows: AtkRow[] = o.picks
+    .map(({ eff, tech, ev, talento }): AtkRow => {
+      const e = EFEITO_BY_ID[eff];
+      const spec = DANO_EFEITO[eff];
+      const tag = talento ? "Talento Natural" : "";
+      if (!spec) return utilRow(key, id, eff, tech, ev, level, k, v, tag);
+      const effName = e.name.replace(/ \(.*\)$/, "");
+      const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
+      const evoTxt = evoLvl ? `evoluído Nv ${evoLvl}` : "";
+      const meta = !spec.noMeta;
+      return {
+        key: `${key}:${eff}`,
+        name: tech || effName,
+        sub: [tech ? effName : "", evoTxt, tag].filter(Boolean).join(" · "),
+        note: spec.note,
+        min: e.level,
+        max: spec.costFixed ? e.level : Math.max(e.level, level),
+        meta,
+        free: !!spec.free,
+        calc: (lvl, opt) => ({
+          ...dmgCalc(lvl, opt),
+          // Potencializar: dobra o alcance ou a área, à escolha.
+          geo: geo(eff, { A: at.alcance * (meta && opt.pot === "alcance" ? 2 : 1), T: at.tamanho * (meta && opt.pot === "area" ? 2 : 1), lvl, ev, key: k.val }),
+        }),
+      };
+      function dmgCalc(lvl: number, opt: { free?: boolean; pot?: PotMode }): Calc {
+        const comum = lvl + half(k.val);
+        const dif = 9 + lvl + half(k.val) + v.dif + (DIF_PODER[id] ?? 0);
+        // Orbe Nv 7 (evolução): usado no nível 7 ou mais, custa metade do chakra.
+        const cost = spec.costFixed ?? (eff === "orbe" && ev >= 1 && lvl >= 7 ? Math.ceil(lvl / 2) : lvl * (spec.costX ?? 1));
+        const kind = spec.kind;
+        if (kind.k === "fixo") {
+          // Nuvem Nv 10 (evolução): dano fixo dobrado.
+          const mult = eff === "nuvem" && ev >= 2 ? 2 * kind.mult : kind.mult;
+          return { base: 0, cost, dif, parts: [`${mult} × Nv ${lvl}`], fixed: { v: mult * lvl, txt: kind.txt } };
+        }
+        const parts: string[] = [];
+        let base = 0;
+        if (kind.k === "comum") {
+          base = comum;
+          parts.push(`Nv ${lvl}`, `½${k.label} ${half(k.val)}`);
+        } else if (kind.k === "porNivel") {
+          base = kind.x * lvl;
+          parts.push(`${kind.x} × Nv ${lvl}`);
+        } else if (kind.k === "flechas") {
+          base = 2 * lvl;
+          parts.push(`${lvl} projéteis × 2`);
+        } else if (kind.k === "metade") {
+          base = half(comum);
+          parts.push(`½ comum ${half(comum)}`);
+        } else if (kind.k === "valor") {
+          // Colisão de Ondas: 10, 14 com a evolução Nv 8 e 18 com a Nv 10.
+          base = eff === "colisao-ondas" ? [10, 14, 18][Math.min(ev, 2)] : kind.v;
+          parts.push(`${base}`);
+        } else if (kind.k === "canhao2") {
+          base = 2 * lvl + 2;
+          parts.push(`Canhão ${2 * lvl}`, "combustão 2");
+        } else if (kind.k === "arma") {
+          const forDes = Math.max(v.attrs.FOR, v.attrs.DES);
+          const parts2 = [`½${v.attrs.DES > v.attrs.FOR ? "Des" : "For"} ${half(forDes)}`, `arma ${kind.arma}`];
+          if (estado) parts2.push(`estado ${estado}`);
+          return { base: Math.max(0, half(forDes) + kind.arma + estado), cost, dif, parts: parts2, noDif: true };
+        } else if (kind.k === "laminas") {
+          const per = 1 + elemTotal;
+          return { base: per * lvl, cost, dif, parts: [`${lvl} lâminas × ${per}`] };
+        }
+        for (const b of bonus) parts.push(`${b.label} ${b.v}`);
+        base += elemTotal;
+        if (capacidade && !EXCLUSIVOS.includes(eff)) {
+          base += 1;
+          parts.push("Capacidade 1");
+        }
+        if (extra) {
+          base += extra;
+          parts.push(`extra ${extra}`);
+        }
+        if (estado) {
+          base += estado;
+          parts.push(`estado ${estado}`);
+        }
+        if (opt.pot === "dano" && meta) {
+          base += 1;
+          parts.push("Potencializar 1");
+        }
+        if (opt.free && spec.free && lvl >= 2) return { base: Math.max(0, half(base)), cost: 0, dif, parts: [`(${partsText(parts)}) ÷ 2`] };
+        return { base: Math.max(0, base), cost, dif, parts };
+      }
+    })
+    // Primeiro o que causa dano, depois o resto; cada parte pelo nível do efeito.
+    .sort((a, b) => Number(!!a.util) - Number(!!b.util) || a.min - b.min);
+
+  return { id: key, title: o.title, level, keyLabel: k.label, keyVal: k.val, alcance: at.alcance, tamanho: at.tamanho, bonus, extra, rows };
+}
+
+function utilRow(groupKey: string, powerId: string, eff: string, tech: string, ev: number, level: number, k: { label: string; val: number }, v: PlayView, tag = ""): AtkRow {
   const e = EFEITO_BY_ID[eff];
   const spec: UtilSpec = EFEITO_UTIL[eff] ?? { show: "texto", txt: e.desc };
   const effName = e.name.replace(/ \(.*\)$/, "");
   const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
   const txt = typeof spec.txt === "function" ? spec.txt({ meia: half(k.val) }) : spec.txt;
   return {
-    key: `${powerId}:${eff}`,
+    key: `${groupKey}:${eff}`,
     name: tech || effName,
-    sub: [tech ? effName : "", evoLvl ? `evoluído Nv ${evoLvl}` : ""].filter(Boolean).join(" · "),
+    sub: [tech ? effName : "", evoLvl ? `evoluído Nv ${evoLvl}` : "", tag].filter(Boolean).join(" · "),
     note: "",
     min: e.level,
     max: spec.costFixed ? e.level : Math.max(e.level, level),
@@ -555,6 +614,19 @@ export function outrosPoderes(c: Character): OutroPoder[] {
     if (def?.mode === "efeitos" || pe.id === "rasengan") return;
     const items = def?.mode === "tecnicas" ? (def.techniques ?? []).filter((t) => t.level <= pe.level).map((t) => `Nv ${t.level} · ${t.name}`) : pe.techniques.map((t) => t.trim()).filter(Boolean);
     out.push({ id: `${pe.id}:${i}`, title: def?.name ?? pe.customName ?? "Poder", level: pe.level, items, note: pe.note?.trim() ?? "" });
+  });
+  // Poder de técnicas usado como versátil (Fuuinjutsu): só as técnicas escolhidas nos níveis dele.
+  c.poderes.forEach((pe, i) => {
+    if (pe.id !== "versatilidade") return;
+    (pe.versatile ?? []).forEach((id, k) => {
+      const def = PODER_BY_ID[id];
+      if (def?.mode !== "tecnicas") return;
+      const items = versatilePicks(pe, k)
+        .map((x) => def.techniques?.[tecIndex(x.eff)])
+        .filter((t): t is NonNullable<typeof t> => !!t)
+        .map((t) => `Nv ${t.level} · ${t.name}`);
+      out.push({ id: `versatilidade:${id}:${i}`, title: versatileName(id), level: pe.level, items: [...new Set(items)], note: "" });
+    });
   });
   return out;
 }

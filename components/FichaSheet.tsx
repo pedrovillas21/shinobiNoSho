@@ -2,7 +2,8 @@ import { APT_BY_ID } from "@/lib/data/aptidoes";
 import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka";
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
-import { CUSTOM_ORIGIN, budgetFor, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal } from "@/lib/rules";
+import { SENSOR_LIMITES } from "@/lib/estados";
+import { CUSTOM_ORIGIN, budgetFor, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 
 function H({ children }: { children: React.ReactNode }) {
@@ -82,12 +83,16 @@ export function FichaSheet({ c }: { c: Character }) {
           </div>
           <Row k="Carisma" v={c.social.car} />
           <Row k="Manipulação" v={c.social.man} />
+          {socialTests(c).map((t) => (
+            <Row key={t.name} k={<span title={t.formula}>{t.name}</span>} v={t.v} />
+          ))}
         </div>
         <div className="print-avoid flex flex-col gap-1 rounded-2xl bg-paper-2 p-4">
           <H>Estatísticas</H>
           <Row k="Iniciativa" v={d.ini} />
           <Row k="Reação de Esquiva" v={d.reacaoEsquiva} />
           <Row k="Deslocamento" v={`${d.desloc}m`} />
+          {d.dureza > 0 && <Row k="Dureza de corpo" v={d.dureza} />}
           <Row k="Carga" v={`${d.carga} kg`} />
           <Row k="Limite de poder" v={b.cap} />
         </div>
@@ -124,6 +129,8 @@ export function FichaSheet({ c }: { c: Character }) {
                       {e.level > 1 ? ` (nv ${e.level})` : ""}
                       {a?.grants && e.choices?.some(Boolean) ? `: ${e.choices.filter(Boolean).map((id) => APT_BY_ID[id]?.name ?? id).join(", ")}` : ""}
                       {e.id === "juuinka-ni" ? ` · ${niChoices(e.choices).map(juuinkaChoiceLabel).join(", ")}${e.variant ? ` · ${JUUINKA_SELOS.find((x) => x.k === e.variant)?.label}` : ""}` : ""}
+                      {e.id === "talento-natural" && e.choices?.[1] ? `: ${EFEITO_BY_ID[e.choices[1]]?.name} (${e.choices[0] === "hibon" ? "Hibon Ninpou" : versatileName(e.choices[0])})` : ""}
+                      {e.id === "sensor" && SENSOR_LIMITES[e.variant ?? ""] ? ` limitado (${SENSOR_LIMITES[e.variant!]})` : ""}
                     </li>
                   );
                 })}
@@ -155,7 +162,23 @@ export function FichaSheet({ c }: { c: Character }) {
                       {isRepurchase(c, i) ? " · nova compra" : ""}
                     </span>
                   </div>
-                  {def?.mode === "efeitos" && (
+                  {p.id === "versatilidade" &&
+                    (p.versatile ?? []).map((id, k) =>
+                      id ? (
+                        <p key={id} className="text-sm leading-snug">
+                          <strong>{versatileName(id)}:</strong>{" "}
+                          {versatilePicks(p, k)
+                            .map((x) => {
+                              const t = PODER_BY_ID[id]?.techniques?.[tecIndex(x.eff)];
+                              const name = t ? t.name : x.eff ? EFEITO_BY_ID[x.eff]?.name : "—";
+                              const evo = x.ev && x.eff ? ` → evolução Nv ${evolutionLevel(x.eff, x.ev) ?? "?"}` : "";
+                              return `Nv ${x.level} ${name}${evo}${x.tech && !x.auto ? ` (${x.tech})` : ""}`;
+                            })
+                            .join(" · ")}
+                        </p>
+                      ) : null,
+                    )}
+                  {def?.mode === "efeitos" && p.id !== "versatilidade" && (
                     <>
                       <p className="text-xs text-paper-muted">
                         Dano base {top + Math.ceil(c.attrs.ESP / 2)} · Dif {9 + top + Math.ceil(c.attrs.ESP / 2)} · Custo = nível usado

@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { ITEM_PRESETS, VILLAGE_ITEMS_NOTE } from "@/lib/data/base";
-import { budgetFor, hasApt, spent, uid } from "@/lib/rules";
+import { budgetFor, compLimit, hasApt, spent, uid } from "@/lib/rules";
 import type { ItemEntry } from "@/lib/types";
 import { IconPlus, IconTrash, NumberField, StepHeader } from "../../ui";
 import type { StepProps } from "../shared";
@@ -13,7 +13,7 @@ export function StepEquipamento({ c, set }: StepProps) {
   const s = spent(c);
   const total = b.ryos + (c.extraRyos || 0);
   const left = total - s.ryos;
-  const compLimit = 3 + (hasApt(c, "burro-carga") ? 1 : 0);
+  const limit = compLimit(c);
   const [name, setName] = useState("");
 
   const addItem = (item: Partial<ItemEntry> & { name: string }) =>
@@ -34,10 +34,12 @@ export function StepEquipamento({ c, set }: StepProps) {
         </div>
         <div className="card flex flex-col gap-1 p-4">
           <span className="text-xs text-muted">Compartimentos usados</span>
-          <span className={`font-display text-3xl font-extrabold ${s.comps > compLimit ? "text-chakra" : "text-paper"}`}>
-            {s.comps} / {compLimit}
+          <span className={`font-display text-3xl font-extrabold ${s.comps > limit ? "text-chakra" : "text-paper"}`}>
+            {s.comps} / {limit}
           </span>
-          <span className="text-xs text-faint">acima disso: −3m de deslocamento</span>
+          <span className="text-xs text-faint">
+            cada um acima: −3m de deslocamento e −1 de precisão{hasApt(c, "burro-carga") ? " · Burro de Carga: 4, 5 com Força 8, 6 com Força 12" : ""}
+          </span>
         </div>
         <NumberField label="Ryos extras (missões, mestre)" value={c.extraRyos} onChange={(n) => set((d) => void (d.extraRyos = n))} className="card p-4" />
       </div>

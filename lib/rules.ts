@@ -1,8 +1,8 @@
 import { APT_BY_ID, BANNED_APTS } from "./data/aptidoes";
 import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
 import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
-import { EFEITO_BY_ID, PODER_BY_ID } from "./data/poderes";
-import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, Optionals, Req, SkillKey } from "./types";
+import { EFEITO_BY_ID, EXCLUSIVOS, NINPOU_BASE, PODER_BY_ID, VERSATEIS } from "./data/poderes";
+import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, Optionals, PowerEntry, Req, SkillKey } from "./types";
 
 /** Nível máximo de campanha da mesa (o livro vai até 20). */
 export const NC_MIN = 4;
@@ -106,19 +106,111 @@ export function isRepurchase(c: Character, idx: number): boolean {
   return PODER_BY_ID[p.id]?.mode === "efeitos" && c.poderes.slice(0, idx).some((x) => x.id === p.id);
 }
 
+/* ---------------- Versatilidade (Livro Básico, pág. 242–243) ---------------- */
+
+/** Nome curto do poder versátil (ex.: "Katon Versátil"). */
+export const versatileName = (id: string) => `${(PODER_BY_ID[id]?.name ?? id).split(" (")[0]} Versátil`;
+
+/** Nível de Versatilidade que conta como nível do poder versátil nos pré-requisitos (ex.: Versatilidade 5 com Suiton Versátil cumpre Suiton 5). */
+export function versatileLevel(c: Character, id: string): number {
+  return c.poderes.filter((p) => p.id === "versatilidade" && p.versatile?.includes(id)).reduce((m, p) => Math.max(m, p.level), 0);
+}
+
+/** Escolha de um nível de poder de técnicas prontas usado como versátil (Fuuinjutsu): índice da técnica. */
+export const tecId = (i: number) => `tec:${i}`;
+export const tecIndex = (id: string | null | undefined) => (id?.startsWith("tec:") ? Number(id.slice(4)) : -1);
+
+export interface VersatilePick {
+  /** Nível da Versatilidade em que foi escolhido. */
+  level: number;
+  eff: string | null;
+  /** 0 = efeito novo; 1 = 1ª evolução… */
+  ev: number;
+  tech: string;
+  /** Recebido no nível 1 (vale para os dois poderes versáteis). */
+  auto?: boolean;
+}
+
+/**
+ * O que um poder versátil (0 ou 1) ganhou em cada nível. O nível 1 dá o efeito de nível 1 aos dois (Canhão, ou a técnica
+ * de nível 1 num poder de técnicas); do 2º em diante, cada nível é de um dos dois.
+ */
+export function versatilePicks(p: PowerEntry, k: number): VersatilePick[] {
+  const id = p.versatile?.[k];
+  if (!id) return [];
+  const tec = PODER_BY_ID[id]?.mode === "tecnicas";
+  const out: VersatilePick[] = [{ level: 1, eff: tec ? tecId(0) : "canhao", ev: 0, tech: p.techniques[0] ?? "", auto: true }];
+  for (let i = 1; i < p.level; i++) {
+    if (p.owner?.[i] !== k) continue;
+    const eff = p.effects[i] ?? null;
+    out.push({ level: i + 1, eff, ev: eff && !tec ? out.filter((x) => x.eff === eff).length : 0, tech: p.techniques[i] ?? "" });
+  }
+  return out;
+}
+
+/** Escolha do Talento Natural: poder (versátil ou Hibon) e efeito que ganha com todas as evoluções. */
+export function talentoNatural(c: Character): { target: string; eff: string } | null {
+  const e = c.aptidoes.find((a) => a.id === "talento-natural");
+  const [target, eff] = e?.choices ?? [];
+  return target && eff ? { target, eff } : null;
+}
+
+/** Poderes que podem receber o Talento Natural: versáteis de efeitos e Hibon Ninpou. */
+export function talentoTargets(c: Character): string[] {
+  const vs = c.poderes.filter((p) => p.id === "versatilidade").flatMap((p) => p.versatile ?? []);
+  const out = [...new Set(vs)].filter((id) => PODER_BY_ID[id]?.mode === "efeitos");
+  if (powerLevel(c, "hibon") > 0) out.push("hibon");
+  return out;
+}
+
+/** Efeitos que o Talento Natural pode dar a um poder: os do poder que não são exclusivos de elemento. */
+export const talentoEffects = (target: string) => (PODER_BY_ID[target]?.effects ?? NINPOU_BASE).filter((id) => !EXCLUSIVOS.includes(id));
+
+/* ---------------- totais ---------------- */
+
+/** Precisão vinda de aptidões: Reflexos, Intuição e a penalidade da Resiliência. Não conta para pré-requisitos. */
+function aptCombatMod(c: Character, k: CombatKey): number {
+  if (k === "ESQ") return (hasApt(c, "reflexos") ? 1 : 0) - (hasApt(c, "resiliencia") ? 3 : 0);
+  if (k === "LM") return hasApt(c, "intuicao") ? 1 : 0;
+  return 0;
+}
+
+/** Bônus de Esquiva da ficha (Reflexos e bônus positivos em "Outros"), perdidos quando desprevenido ou sem poder se mover. */
+export const esqBonus = (c: Character) => (hasApt(c, "reflexos") ? 1 : 0) + Math.max(0, c.combatBonus.ESQ || 0);
+
 export function combatTotal(c: Character, k: CombatKey): number {
   const def = COMBAT.find((x) => x.key === k)!;
   let attr = c.attrs[def.attr];
   if (k === "CC" && c.acuidade && hasApt(c, "acuidade")) attr = Math.max(attr, c.attrs.DES);
-  return c.combatBase[k] + attr + (c.combatBonus[k] || 0);
+  return c.combatBase[k] + attr + (c.combatBonus[k] || 0) + aptCombatMod(c, k);
 }
+
+/** Resiliência (clã Akimichi): −3 de precisão em Acrobacia e Furtividade. */
+const RESILIENCIA_SKILLS: SkillKey[] = ["acrobacia", "furtividade"];
 
 /** Valor de perícia, ou null se é treinada e não recebeu pontos. */
 export function skillTotal(c: Character, k: SkillKey): number | null {
   const def = SKILLS.find((s) => s.key === k)!;
   const pts = c.skills[k] || 0;
   if (def.trained && pts <= 0) return null;
-  return ceilHalf(c.attrs[def.attr]) + pts + (c.skillBonus[k] || 0);
+  const resil = RESILIENCIA_SKILLS.includes(k) && hasApt(c, "resiliencia") ? 3 : 0;
+  return ceilHalf(c.attrs[def.attr]) + pts + (c.skillBonus[k] || 0) - resil;
+}
+
+/** Testes sociais: Carisma ou Manipulação + metade do atributo ou perícia (Livro Básico, pág. 53–55). */
+export function socialTests(c: Character) {
+  const { car, man } = c.social;
+  const arte = ceilHalf(skillTotal(c, "arte") ?? 0);
+  const per = ceilHalf(c.attrs.PER);
+  const int = ceilHalf(c.attrs.INT);
+  return [
+    { name: "Atuação", formula: "Carisma + ½ Arte", v: car + arte },
+    { name: "Barganha", formula: "Carisma + ½ Percepção", v: car + per },
+    { name: "Blefar", formula: "Manipulação + ½ Inteligência", v: man + int, alt: `com Carisma: ${car + int} (Dif +3 inamistoso, +6 hostil; −3 amistoso, −6 prestativo)` },
+    { name: "Intimidação", formula: "Manipulação + ½ Percepção", v: man + per },
+    { name: "Mudar Atitude", formula: "Manipulação + ½ Percepção", v: man + per, alt: `com Carisma, só para melhorar: ${car + per}` },
+    { name: "Obter Informação", formula: "Carisma + ½ Inteligência", v: car + int },
+  ];
 }
 
 /** Valor usado em pré-requisitos (sem bônus de precisão). */
@@ -148,7 +240,7 @@ export function checkReq(c: Character, r: Req): boolean {
       if (c.optionals.aptidoesBanidas && BANNED_APTS.includes(r.id)) return true;
       return hasApt(c, r.id, r.level ?? 1);
     case "power":
-      return powerLevel(c, r.id) >= r.min;
+      return Math.max(powerLevel(c, r.id), versatileLevel(c, r.id)) >= r.min;
     case "noOrigin":
       return !c.originId;
     case "any":
@@ -234,20 +326,37 @@ export function allowedRestricted(c: Character) {
 
 /* ---------------- energias e estatísticas ---------------- */
 
+/** Benefícios do Chakra Expandido: pela aptidão ou pelo Chakra Bijuu do Jinchuuriki nível 1 (não acumulam). */
+export const hasChakraExpandido = (c: Character) => hasApt(c, "chakra-expandido") || powerLevel(c, "jinchuuriki") >= 1;
+
+/** Compartimentos sem penalidade: 3; com Burro de Carga, 4, 5 com Força 8 e 6 com Força 12 (Guia Avançado). */
+export function compLimit(c: Character): number {
+  if (!hasApt(c, "burro-carga")) return 3;
+  const f = c.attrs.FOR;
+  return f >= 12 ? 6 : f >= 8 ? 5 : 4;
+}
+
+/** Compartimentos acima do limite: cada um dá −3m de deslocamento e −1 de precisão (Livro Básico, pág. 126). */
+export const extraComps = (c: Character) => Math.max(0, c.items.reduce((t, i) => t + i.comps, 0) - compLimit(c));
+
 export function derived(c: Character) {
   const vig = c.attrs.VIG;
   let vit = 10 + 3 * vig + 5 * c.nc;
   if (hasApt(c, "corpulencia")) vit += 3 * vig;
   vit += c.bonus.vit || 0;
   let chakra = 10 + 3 * c.attrs.ESP;
-  if (hasApt(c, "chakra-expandido")) chakra = Math.ceil(chakra * 1.5);
+  if (hasChakraExpandido(c)) chakra = Math.ceil(chakra * 1.5);
   if (hasApt(c, "controle-perfeito", 2)) chakra += c.attrs.INT;
+  // Rinnegan: doujutsu permanente, reduz o chakra total em 10% (Livro de Hijutsus).
+  if (hasApt(c, "rinnegan")) chakra = Math.ceil(chakra * 0.9);
   chakra += c.bonus.chakra || 0;
   const prontidao = skillTotal(c, "prontidao") ?? 0;
   let ini = prontidao + c.attrs.AGI + (c.bonus.ini || 0);
   if (hasApt(c, "diligente")) ini += 3;
+  const resil = hasApt(c, "resiliencia");
   const agiDesloc = hasApt(c, "velocista") ? c.attrs.AGI * 2 : c.attrs.AGI;
-  const desloc = 10 + ceilHalf(agiDesloc) + (c.bonus.desloc || 0);
+  const comps = extraComps(c);
+  const desloc = Math.max(0, 10 + ceilHalf(agiDesloc) - (resil ? 5 : 0) - 3 * comps + (c.bonus.desloc || 0));
   const esq = combatTotal(c, "ESQ");
   return {
     vit,
@@ -256,6 +365,9 @@ export function derived(c: Character) {
     desloc,
     reacaoEsquiva: esq + 9,
     carga: Math.max(10, c.attrs.FOR * 10),
+    /** Resiliência: dureza de corpo 1 a cada 4 pontos completos de Vigor (tamanho não conta). */
+    dureza: resil ? Math.floor(vig / 4) : 0,
+    extraComps: comps,
   };
 }
 
@@ -293,6 +405,79 @@ const NATURAL: Record<string, string> = {
   "elemento-natural-fuuton": "fuuton",
   "elemento-natural-terra": "doton",
 };
+
+/** Regras da Versatilidade, da Aprendizagem Rápida e do Talento Natural (Livro Básico, pág. 242–243). */
+function validateVersatilidade(c: Character, push: (sev: Severity, step: string, text: string) => void) {
+  const vs = c.poderes.filter((p) => p.id === "versatilidade");
+  const extra = c.aptidoes.filter((a) => a.id === "aprendizagem-rapida").length;
+  if (vs.length > 1 + extra)
+    push("erro", "poderes", `Versatilidade comprada ${vs.length} vezes: cada compra além da 1ª pede uma Aprendizagem Rápida (você tem ${extra}).`);
+  const seen = new Set<string>();
+  vs.forEach((p, n) => {
+    const tag = vs.length > 1 ? `Versatilidade (${n + 1}ª compra)` : "Versatilidade";
+    const vv = (p.versatile ?? []).filter(Boolean);
+    if (vv.length < 2) push("aviso", "poderes", `${tag}: escolha os dois poderes versáteis.`);
+    if (new Set(vv).size < vv.length) push("erro", "poderes", `${tag}: os dois poderes versáteis precisam ser diferentes.`);
+    for (const id of new Set(vv)) {
+      if (!VERSATEIS.includes(id)) push("erro", "poderes", `${tag}: ${PODER_BY_ID[id]?.name ?? id} não pode ser versátil.`);
+      if (seen.has(id)) push("erro", "poderes", `${tag}: ${versatileName(id)} já é versátil em outra compra (cada compra traz dois poderes novos).`);
+      seen.add(id);
+    }
+    let missing = 0;
+    let run = 0;
+    let last: number | null = null;
+    for (let i = 1; i < p.level; i++) {
+      const k = p.owner?.[i];
+      const lvl = i + 1;
+      if (k !== 0 && k !== 1) {
+        missing++;
+        run = 0;
+        last = null;
+        continue;
+      }
+      run = k === last ? run + 1 : 1;
+      last = k;
+      const id = p.versatile?.[k];
+      if (!id) continue;
+      if (run > 2) push("erro", "poderes", `${tag}: o nível ${lvl} é o 3º seguido de ${versatileName(id)}; depois de 2 seguidos, o próximo é do outro poder.`);
+      const eff = p.effects[i];
+      if (!eff) {
+        missing++;
+        continue;
+      }
+      const def = PODER_BY_ID[id];
+      if (def?.mode === "tecnicas") {
+        const t = def.techniques?.[tecIndex(eff)];
+        if (!t) missing++;
+        else if (t.level > lvl) push("erro", "poderes", `${tag}: ${t.name} é de nível ${t.level}, acima do nível ${lvl} em que foi escolhida.`);
+        continue;
+      }
+      const ef = EFEITO_BY_ID[eff];
+      if (!ef || !(def?.effects ?? NINPOU_BASE).includes(eff)) {
+        push("erro", "poderes", `${tag}: ${ef?.name ?? eff} não é um efeito de ${versatileName(id)}.`);
+        continue;
+      }
+      const ev = versatilePicks(p, k).find((x) => x.level === lvl)?.ev ?? 0;
+      if (!ev) {
+        if (ef.level > lvl) push("erro", "poderes", `${tag}: ${ef.name} é de nível ${ef.level}, acima do nível ${lvl} em que foi escolhido.`);
+        continue;
+      }
+      const need = evolutionLevel(eff, ev);
+      if (need === null) push("erro", "poderes", `${tag}: ${ef.name} não tem ${ev > 1 ? `${ev}ª ` : ""}evolução.`);
+      else if (need > lvl) push("erro", "poderes", `${tag}: a evolução ${ef.name} Nv ${need} só pode ser escolhida no nível ${need} ou depois.`);
+    }
+    if (missing) push("aviso", "poderes", `${tag}: ${missing} nível(is) sem poder versátil ou efeito escolhido.`);
+  });
+
+  if (hasApt(c, "talento-natural")) {
+    const tn = talentoNatural(c);
+    if (!tn) push("aviso", "aptidoes", "Talento Natural: escolha o poder e o efeito.");
+    else {
+      if (!talentoTargets(c).includes(tn.target)) push("erro", "aptidoes", `Talento Natural: ${PODER_BY_ID[tn.target]?.name ?? tn.target} não é um poder versátil nem Hibon Ninpou da ficha.`);
+      if (!talentoEffects(tn.target).includes(tn.eff)) push("erro", "aptidoes", `Talento Natural: ${EFEITO_BY_ID[tn.eff]?.name ?? tn.eff} não serve (efeito exclusivo ou de outro poder).`);
+    }
+  }
+}
 
 export function validate(c: Character): Issue[] {
   const b = budgetFor(c.nc, c.optionals);
@@ -389,7 +574,7 @@ export function validate(c: Character): Issue[] {
     if (def.restricted && !allowed.powers.has(def.id)) push("erro", "poderes", `${def.name} é restrito a: ${ownersText("poderes", def.id)}.`);
     if (!reqsMet(c, def.req)) push("erro", "poderes", `${def.name}: pré-requisito não atendido (${def.reqText}).`);
     if (c.originId === "samurai" && !def.restricted) push("erro", "poderes", `Samurais não compram poderes comuns (${def.name}).`);
-    if (def.mode === "efeitos") {
+    if (def.mode === "efeitos" && def.id !== "versatilidade") {
       // A ordem das escolhas é livre: o limite é o nível do poder (o mais alto entre as compras).
       const top = powerLevel(c, p.id);
       p.effects.slice(0, p.level).forEach((eid, i) => {
@@ -410,11 +595,19 @@ export function validate(c: Character): Issue[] {
     }
   }
 
+  validateVersatilidade(c, push);
+
+  // Aptidões que a ficha soma sozinha: avisa se o bônus também foi digitado em "Outros".
+  if (hasApt(c, "reflexos") && (c.combatBonus.ESQ || 0) >= 1)
+    push("aviso", "atributos", "Reflexos já soma +1 na Esquiva automaticamente; confira se o +1 em “Outros” não está repetido.");
+  if (hasApt(c, "intuicao") && (c.combatBonus.LM || 0) >= 1)
+    push("aviso", "atributos", "Intuição já soma +1 em Ler Movimento automaticamente; confira se o +1 em “Outros” não está repetido.");
+
   // Equipamento
   const ryosTotal = b.ryos + (c.extraRyos || 0);
   if (s.ryos > ryosTotal) push("aviso", "equipamento", `Equipamento custa ${s.ryos - ryosTotal} ryos a mais que o disponível.`);
-  const compLimit = 3 + (hasApt(c, "burro-carga") ? 1 : 0);
-  if (s.comps > compLimit) push("aviso", "equipamento", `${s.comps} compartimentos: acima de ${compLimit} o deslocamento cai 3m.`);
+  const over = extraComps(c);
+  if (over > 0) push("aviso", "equipamento", `${s.comps} compartimentos (limite ${compLimit(c)}): −${3 * over}m de deslocamento e −${over} de precisão.`);
 
   // Origem
   const extras = c.extraOrigins.filter((x) => x && x !== c.originId);
@@ -484,8 +677,17 @@ const POWER_TO_APT: Record<string, string> = { senjutsu: "senjutsu", souma: "sou
 /** Poderes que não existem nos livros (Kakuran e Nan no Kaizou são só Aptidões Especiais do Tensai). */
 const REMOVED_POWERS = ["kakuran", "nan-no-kaizou"];
 
+/** Versatilidades antigas guardavam os poderes versáteis só no nome (ex.: "Katon Versátil + Suiton Versátil"). */
+function migrateVersatile(p: PowerEntry): PowerEntry {
+  if (p.id !== "versatilidade" || p.versatile?.length) return p;
+  const name = (p.customName ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const found = VERSATEIS.map((id) => ({ id, at: name.indexOf(id) })).filter((x) => x.at >= 0);
+  const versatile = found.sort((a, b) => a.at - b.at).slice(0, 2).map((x) => x.id);
+  return versatile.length ? { ...p, versatile } : p;
+}
+
 function migrateApts(raw: Partial<Character>): Pick<Character, "aptidoes" | "poderes"> {
-  const poderes = (raw.poderes ?? []).filter((p) => !POWER_TO_APT[p.id] && !REMOVED_POWERS.includes(p.id));
+  const poderes = (raw.poderes ?? []).filter((p) => !POWER_TO_APT[p.id] && !REMOVED_POWERS.includes(p.id)).map(migrateVersatile);
   const aptidoes = (raw.aptidoes ?? []).map((e) => {
     const a = APT_BY_ID[e.id];
     // Aptidões sem níveis (ex.: Kugutsu, que antes aceitava 3) voltam ao nível 1; os níveis de marionete são do Kurohigi.

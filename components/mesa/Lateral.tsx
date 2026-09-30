@@ -7,6 +7,9 @@ import type { PlayCounter, PlayLog } from "@/lib/types";
 import { IconTrash } from "../ui";
 import { type MesaProps } from "./shared";
 
+/** O que a próxima Pílula do Soldado causa, pelas já tomadas desde o descanso. */
+const PILL_NEXT = ["a próxima deixa fatigado", "a próxima deixa exausto", "a próxima deixa inconsciente", "a próxima intoxica (sem chakra)"];
+
 const DOT: Record<PlayLog["tone"], string> = { bad: "bg-bad", ok: "bg-ok", chk: "bg-[#4f9bd9]", n: "bg-muted" };
 
 export function Lateral(props: MesaProps) {
@@ -115,7 +118,7 @@ function Contadores({ c, v, p, commit, patch }: MesaProps) {
               <span className="truncate font-bold">{k.n}</span>
               <span className="text-xs text-muted">
                 {RESET_LABEL[k.reset]}
-                {k.pill ? ` · +${pillGain} chakra` : ""}
+                {k.pill ? ` · +${pillGain} chakra · ${PILL_NEXT[Math.min(p.pills ?? 0, 3)]}` : ""}
               </span>
             </div>
             {k.pill && (

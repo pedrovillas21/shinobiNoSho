@@ -120,6 +120,15 @@ function bijuu(c: Character) {
   return { tails: i >= 0 ? i + 1 : 9, kyuubi: i === 8, nibi: i === 1, name: i >= 0 ? BIJUUS[i] : "Bijuu" };
 }
 
+const rastrear = (c: Character) => skillTotal(c, "rastrear") ?? 0;
+
+/** Sensor Limitado (Livro Básico, aptidão Sensor): custo de chakra 3. */
+export const SENSOR_LIMITES: Record<string, string> = { solo: "detecção pelo solo", olfato: "olfato" };
+const sensorVariant = (c: Character) => {
+  const v = c.aptidoes.find((a) => a.id === "sensor")?.variant ?? "";
+  return SENSOR_LIMITES[v] ? v : "";
+};
+
 /** Dano de arma das garras do Shikakyu e da Potência da Besta pelo nível do poder. */
 const beastWeapon = (lvl: number) => (lvl >= 6 ? 4 : lvl === 5 ? 3 : lvl === 4 ? 2 : 1);
 
@@ -187,9 +196,9 @@ export const ESTADOS: EstadoDef[] = [
     id: "byakugan",
     name: "Byakugan",
     has: (c) => hasApt(c, "byakugan"),
-    sig: (c) => `${hasApt(c, "tenketsu-byakugan")}|${skillTotal(c, "rastrear") ?? 0}`,
+    sig: (c) => `${hasApt(c, "tenketsu-byakugan")}|${rastrear(c)}`,
     build(e, c) {
-      const alc = 10 + 2 * (skillTotal(c, "rastrear") ?? 0);
+      const alc = 10 + 2 * rastrear(c);
       e.src = "Hyuuga · doujutsu";
       e.costChk = 1;
       e.hint = text(
@@ -218,7 +227,7 @@ export const ESTADOS: EstadoDef[] = [
     id: "controle-caloria",
     name: "Controle de Caloria",
     has: (c) => hasApt(c, "controle-caloria"),
-    sig: (c) => `${powerLevel(c, "baika")}`,
+    sig: (c) => `${powerLevel(c, "baika")}|${hasApt(c, "resiliencia")}`,
     stages: () => [{ label: "Verde" }, { label: "Amarelo" }, { label: "Vermelho" }],
     opt: "Com pílula",
     switchCost: (e, from, to) => (to > from ? { vit: e.costVit, chk: 0, gain: e.gainChk } : NO_COST),
@@ -232,7 +241,8 @@ export const ESTADOS: EstadoDef[] = [
       e.src = `Akimichi · nível ${s + 1} (${["verde", "amarelo", "vermelho"][s]})`;
       e.costVit = L.vit;
       e.gainChk = L.chk;
-      e.mods = [on("FOR", L.f)];
+      // Modo Chou: sem as penalidades da Resiliência (os −3 em Acrobacia e Furtividade ficam no texto).
+      e.mods = s === 2 && hasApt(c, "resiliencia") ? [on("FOR", L.f), on("desloc", 5), on("ESQ", 3)] : [on("FOR", L.f)];
       e.turns = e.opt ? 3 : 0;
       e.after = e.opt ? L.pen : "";
       e.afterTurns = e.opt ? L.t : 0;
@@ -260,11 +270,49 @@ export const ESTADOS: EstadoDef[] = [
     id: "hakken",
     name: "Hakken no Jutsu",
     has: (c) => hasApt(c, "hakken"),
-    sig: () => "",
-    build(e) {
+    sig: (c) => `${rastrear(c)}`,
+    build(e, c) {
       e.src = "Inuzuka · olfato";
       e.costChk = 2;
-      e.hint = "Ação livre para ativar ou desativar, contínua. Detecta inimigos se aproximando e localiza adversários escondidos pelo cheiro.";
+      e.hint = `Ação livre para ativar ou desativar, contínua. Olfato até ${10 + 2 * rastrear(c)}m (10m + 2× Rastrear): detecta inimigos se aproximando e localiza adversários escondidos pelo cheiro. Teste de Rastrear para notar ataque surpresa.`;
+    },
+  },
+  {
+    id: "sensor",
+    name: "Sensor",
+    has: (c) => hasApt(c, "sensor"),
+    sig: (c) => `${rastrear(c)}|${sensorVariant(c)}`,
+    opt: "Manter (concentração)",
+    build(e, c) {
+      const v = sensorVariant(c);
+      const alc = 10 + 2 * rastrear(c);
+      e.src = v ? `Sensor limitado · ${SENSOR_LIMITES[v]}` : "Sensor de chakra";
+      e.costChk = v ? 3 : 5;
+      e.turns = e.opt ? 0 : 1;
+      e.hint = text(
+        `Localiza a posição exata de criaturas com chakra até ${alc}m (10m + 2× Rastrear), sem distinguir assinaturas nem medir o chakra.`,
+        e.opt ? "Mantido: ação padrão para usar e concentração para manter." : "Ação de movimento; dura até o início do seu próximo turno. Para manter, ligue “Manter (concentração)”.",
+        v === "solo" && "Só com a mão no solo, e só detecta quem está em contato com o solo.",
+        v === "olfato" && "Detecta o cheiro, não o chakra: Rastrear Dif 20 (30 com vento, chuva ou cheiros fortes).",
+      );
+    },
+  },
+  {
+    id: "kagura-shingan",
+    name: "Kagura Shingan",
+    has: (c) => hasApt(c, "kagura-shingan"),
+    sig: (c) => `${rastrear(c)}|${hasApt(c, "ryoushitsu-kagura")}`,
+    opt: "Alcance estendido",
+    build(e, c) {
+      const r = rastrear(c);
+      const ryou = hasApt(c, "ryoushitsu-kagura");
+      const alc = (20 + 4 * r) * (ryou ? 2 : 1) * (e.opt && r >= 4 ? 2 : 1);
+      e.src = ryou ? "Ryoushitsu Kagura Shingan" : "Sensor de chakra";
+      e.hint = text(
+        `Ativo (procurando): ${alc}m${ryou ? " (dobrado pelo Ryoushitsu)" : ""}; passivo: ${Math.ceil(alc / 2)}m. Distingue as assinaturas, mede o poder, lê emoções e identifica genjutsu no alcance (reação). Não sofre ataque surpresa.`,
+        e.opt ? (r >= 4 ? "Alcance estendido: dobrado enquanto mantém concentração (começa com selos, vale a partir do turno seguinte)." : "Alcance estendido pede Rastrear 4.") : "Alcance estendido (Rastrear 4): concentração com selos, dobra o alcance.",
+        ryou && `Alcance progressivo: imóvel e concentrado por 2 minutos, ${100 * r}m (100m por Rastrear). Supressão de chakra: para ser detectado, Rastrear Dif ${9 + r}.`,
+      );
     },
   },
   {

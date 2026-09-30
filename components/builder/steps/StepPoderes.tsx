@@ -2,8 +2,8 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
-import { EFEITO_BY_ID, PODERES, PODER_BY_ID } from "@/lib/data/poderes";
-import { allowedRestricted, budgetFor, evolutionIndex, evolutionLevel, isRepurchase, ownersText, powerLevel, reqsMet, spent, uid } from "@/lib/rules";
+import { EFEITO_BY_ID, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
+import { allowedRestricted, budgetFor, evolutionIndex, evolutionLevel, isRepurchase, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks } from "@/lib/rules";
 import type { Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconTrash, Stepper, StepHeader, Toggle } from "../../ui";
 import type { StepProps } from "../shared";
@@ -22,7 +22,7 @@ export function StepPoderes({ c, set }: StepProps) {
   const owned = new Set(c.poderes.map((p) => p.id));
 
   const add = (p: Poder) =>
-    set((d) => void d.poderes.push({ id: p.id, level: 1, effects: [null], techniques: [""] }));
+    set((d) => void d.poderes.push({ id: p.id, level: 1, effects: [null], techniques: [""], ...(p.id === "versatilidade" ? { versatile: ["", ""], owner: [null] } : {}) }));
 
   const edit = (idx: number, fn: (p: PowerEntry) => void) => set((d) => fn(d.poderes[idx]));
 
@@ -92,10 +92,10 @@ export function StepPoderes({ c, set }: StepProps) {
                 </div>
 
                 <div className="flex flex-col gap-4 p-4">
-                  {(p.id === "ninpou" || p.id === "hibon" || p.id === "versatilidade" || !def) && (
+                  {(p.id === "ninpou" || p.id === "hibon" || !def) && (
                     <label className="flex flex-col gap-1.5">
                       <span className="label">{def ? "Nome / estilo do poder" : "Nome do poder"}</span>
-                      <input className="field" value={p.customName ?? ""} placeholder={p.id === "versatilidade" ? "Ex.: Katon Versátil + Suiton Versátil" : "Ex.: Ninpou: Hari Jizou"} onChange={(e) => edit(idx, (x) => void (x.customName = e.target.value))} />
+                      <input className="field" value={p.customName ?? ""} placeholder="Ex.: Ninpou: Hari Jizou" onChange={(e) => edit(idx, (x) => void (x.customName = e.target.value))} />
                     </label>
                   )}
 
@@ -118,7 +118,15 @@ export function StepPoderes({ c, set }: StepProps) {
                     </div>
                   )}
 
-                  {def?.mode === "efeitos" && (
+                  {p.id === "versatilidade" && (
+                    <VersatileEditor
+                      p={p}
+                      taken={c.poderes.flatMap((x, j) => (j !== idx && x.id === "versatilidade" ? (x.versatile ?? []) : []))}
+                      edit={(fn) => edit(idx, fn)}
+                    />
+                  )}
+
+                  {def?.mode === "efeitos" && p.id !== "versatilidade" && (
                     <ol className="flex flex-col gap-2">
                       {Array.from({ length: p.level }, (_, i) => {
                         const chosen = p.effects[i];
@@ -290,6 +298,160 @@ export function StepPoderes({ c, set }: StepProps) {
         </form>
         {c.originId === "samurai" && <p className="text-sm text-muted">Pela regra, Samurais não compram poderes comuns (ficam como observação).</p>}
       </section>
+    </div>
+  );
+}
+
+/**
+ * Versatilidade (Livro Básico, pág. 242–243): dois poderes versáteis. O nível 1 dá o efeito de nível 1 aos dois;
+ * do 2º em diante, cada nível é de um deles, com no máximo 2 níveis seguidos no mesmo, e o efeito tem nível igual ou menor.
+ */
+function VersatileEditor({ p, taken, edit }: { p: PowerEntry; taken: string[]; edit: (fn: (x: PowerEntry) => void) => void }) {
+  const vv = [p.versatile?.[0] ?? "", p.versatile?.[1] ?? ""];
+  const setV = (k: number, id: string) =>
+    edit((x) => {
+      const cur = [x.versatile?.[0] ?? "", x.versatile?.[1] ?? ""];
+      if (cur[k] === id) return;
+      cur[k] = id;
+      x.versatile = cur;
+      // Trocar o poder apaga os efeitos escolhidos para ele.
+      x.owner?.forEach((o, i) => o === k && (x.effects[i] = null));
+    });
+  const setOwner = (i: number, k: number | null) =>
+    edit((x) => {
+      const o = Array.from({ length: Math.max(x.level, i + 1) }, (_, j) => x.owner?.[j] ?? null);
+      if (o[i] === k) return;
+      o[i] = k;
+      x.owner = o;
+      x.effects[i] = null;
+    });
+  const firstOf = (id: string) => (PODER_BY_ID[id]?.mode === "tecnicas" ? PODER_BY_ID[id].techniques?.[0]?.name : "Canhão");
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[0, 1].map((k) => (
+          <label key={k} className="flex flex-col gap-1.5">
+            <span className="label">{k + 1}º poder versátil</span>
+            <select className="field py-2" value={vv[k]} onChange={(e) => setV(k, e.target.value)}>
+              <option value="">Escolher…</option>
+              {VERSATEIS.map((id) => (
+                <option key={id} value={id} disabled={vv[1 - k] === id}>
+                  {versatileName(id)}
+                  {taken.includes(id) ? " (já é versátil em outra compra)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+      <p className="text-xs leading-relaxed text-muted">
+        Cada poder versátil usa as regras do próprio poder (alcance, tamanho e bônus do elemento) com o nível da Versatilidade. Do 2º nível em diante, escolha de qual poder é cada nível: depois de 2 níveis
+        seguidos no mesmo, o próximo é do outro. O efeito precisa ser do nível escolhido ou menor.
+      </p>
+      <ol className="flex flex-col gap-2">
+        <li className="grid items-center gap-2 sm:grid-cols-[3.5rem_1fr_1fr]">
+          <span className="text-sm font-bold text-chakra">1º</span>
+          <span className="text-sm text-text">
+            {vv.some(Boolean)
+              ? vv
+                  .filter(Boolean)
+                  .map((id) => `${firstOf(id)} (${versatileName(id)})`)
+                  .join(" e ")
+              : "Efeito de nível 1 dos dois poderes"}
+          </span>
+          <input aria-label="Nome da técnica do 1º nível" className="field py-2" placeholder="Nome da técnica (opcional)" value={p.techniques[0] ?? ""} onChange={(e) => edit((x) => void (x.techniques[0] = e.target.value))} />
+        </li>
+        {Array.from({ length: Math.max(0, p.level - 1) }, (_, j) => {
+          const i = j + 1;
+          const lvl = i + 1;
+          const k = p.owner?.[i];
+          const has = k === 0 || k === 1;
+          // O 3º nível seguido no mesmo poder não é permitido.
+          const blocked = [0, 1].filter((x) => p.owner?.[i - 1] === x && p.owner?.[i - 2] === x && i - 2 >= 1);
+          return (
+            <li key={i} className="grid items-start gap-2 sm:grid-cols-[3.5rem_10rem_1fr_1fr]">
+              <span className="pt-2 text-sm font-bold text-chakra">{lvl}º</span>
+              <select aria-label={`Poder versátil do nível ${lvl}`} className="field py-2" value={has ? String(k) : ""} onChange={(e) => setOwner(i, e.target.value === "" ? null : Number(e.target.value))}>
+                <option value="">Poder…</option>
+                {[0, 1].map((x) => (
+                  <option key={x} value={x} disabled={!vv[x]}>
+                    {vv[x] ? versatileName(vv[x]) : `${x + 1}º poder`}
+                    {blocked.includes(x) ? " (3º seguido)" : ""}
+                  </option>
+                ))}
+              </select>
+              {has && vv[k!] ? <VersatileChoice p={p} i={i} k={k!} id={vv[k!]} edit={edit} /> : <span className="pt-2 text-xs text-faint">Escolha o poder deste nível.</span>}
+              <input aria-label={`Nome da técnica do nível ${lvl}`} className="field py-2" placeholder="Nome da técnica (opcional)" value={p.techniques[i] ?? ""} onChange={(e) => edit((x) => void (x.techniques[i] = e.target.value))} />
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** Efeito (ou técnica, num poder de técnicas) escolhido num nível da Versatilidade. */
+function VersatileChoice({ p, i, k, id, edit }: { p: PowerEntry; i: number; k: number; id: string; edit: (fn: (x: PowerEntry) => void) => void }) {
+  const lvl = i + 1;
+  const def = PODER_BY_ID[id];
+  const chosen = p.effects[i] ?? "";
+  const picks = versatilePicks(p, k);
+  const set = (v: string) => edit((x) => void (x.effects[i] = v || null));
+
+  if (def?.mode === "tecnicas") {
+    const used = picks.filter((x) => x.level !== lvl).map((x) => x.eff);
+    return (
+      <select aria-label={`Técnica do nível ${lvl}`} className="field py-2" value={chosen} onChange={(e) => set(e.target.value)}>
+        <option value="">Escolher técnica…</option>
+        {(def.techniques ?? []).map((t, n) =>
+          t.level <= lvl && !used.includes(tecId(n)) ? (
+            <option key={t.name} value={tecId(n)}>
+              Nv {t.level} · {t.name}
+            </option>
+          ) : null,
+        )}
+        {chosen && tecIndex(chosen) >= 0 && (def.techniques?.[tecIndex(chosen)]?.level ?? 0) > lvl && <option value={chosen}>{def.techniques?.[tecIndex(chosen)]?.name} (acima do nível)</option>}
+      </select>
+    );
+  }
+
+  const others = picks.filter((x) => x.level !== lvl).map((x) => x.eff);
+  const before = picks.filter((x) => x.level < lvl).map((x) => x.eff);
+  const fresh = (def?.effects ?? NINPOU_BASE)
+    .map((e) => EFEITO_BY_ID[e])
+    .filter((e) => e && e.level <= lvl && !others.includes(e.id))
+    .sort((a, b) => a.level - b.level);
+  const evos = [...new Set(before.filter((x): x is string => !!x))]
+    .map((e) => ({ e: EFEITO_BY_ID[e], need: evolutionLevel(e, before.filter((x) => x === e).length) }))
+    .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null && o.need <= lvl);
+  const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
+  const ev = picks.find((x) => x.level === lvl)?.ev ?? 0;
+  return (
+    <div className="flex flex-col gap-1">
+      <select aria-label={`Efeito do nível ${lvl}`} className="field py-2" value={chosen} onChange={(e) => set(e.target.value)}>
+        <option value="">Escolher efeito…</option>
+        {stale && <option value={chosen}>{EFEITO_BY_ID[chosen]?.name ?? chosen} (fora da regra)</option>}
+        <optgroup label="Efeito novo">
+          {fresh.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name} (nv {e.level})
+            </option>
+          ))}
+        </optgroup>
+        {evos.length > 0 && (
+          <optgroup label="Evoluir efeito">
+            {evos.map((o) => (
+              <option key={o.e.id} value={o.e.id}>
+                {o.e.name} → evolução Nv {o.need}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+      {chosen && EFEITO_BY_ID[chosen] && (
+        <span className="text-xs text-faint">{ev ? `Evolução Nv ${evolutionLevel(chosen, ev) ?? "?"}: ganha o melhoramento descrito no livro.` : EFEITO_BY_ID[chosen].desc}</span>
+      )}
     </div>
   );
 }

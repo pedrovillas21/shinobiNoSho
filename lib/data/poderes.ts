@@ -48,7 +48,13 @@ export const EFEITOS: Efeito[] = [
 
 export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.map((e) => [e.id, e]));
 
-const NINPOU_BASE = ["canhao", "criar-arma", "orbe", "raio", "restringente", "projetar", "repelir", "barreira", "flechas", "lanca", "ricochete", "coluna", "energizar", "nuvem", "sopro", "correnteza", "missil", "onda-explosiva", "cegante", "algemar", "desastre"];
+/** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
+export const EXCLUSIVOS = ["bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"];
+
+/** Poderes que podem ser escolhidos como versáteis na Versatilidade (Livro Básico, pág. 243). */
+export const VERSATEIS = ["ninpou", "suiton", "katon", "doton", "fuuton", "raiton", "fuuinjutsu"];
+
+export const NINPOU_BASE = ["canhao", "criar-arma", "orbe", "raio", "restringente", "projetar", "repelir", "barreira", "flechas", "lanca", "ricochete", "coluna", "energizar", "nuvem", "sopro", "correnteza", "missil", "onda-explosiva", "cegante", "algemar", "desastre"];
 
 const A = (k: "ESP" | "INT" | "VIG" | "DES" | "PER", min: number): Req => ({ t: "attr", k, min });
 

@@ -49,13 +49,14 @@ export const SKILLS: SkillDef[] = [
   { key: "venef", name: "Venefício", attr: "INT", trained: true, needsQuimico: true, desc: "Preparar e reconhecer venenos. Só com a aptidão Químico." },
 ];
 
+/** Nível shinobi pelo NC, como na Tabela de Evolução (Livro Básico, pág. 30). */
 export const RANKS = [
   { min: 4, name: "Genin", ryos: 100 },
-  { min: 8, name: "Chuunin", ryos: 1000 },
+  { min: 7, name: "Chuunin", ryos: 1000 },
   { min: 10, name: "Jounin Especial", ryos: 5000 },
   { min: 12, name: "Jounin", ryos: 13000 },
-  { min: 16, name: "Jounin Elite", ryos: 36000 },
-  { min: 20, name: "Sannin / Kage", ryos: 88000 },
+  { min: 15, name: "Jounin Elite", ryos: 36000 },
+  { min: 18, name: "Sannin / Kage", ryos: 88000 },
 ] as const;
 
 export const ALIGNMENTS = [
