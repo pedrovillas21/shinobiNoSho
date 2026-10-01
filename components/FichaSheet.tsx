@@ -7,6 +7,7 @@ import { SENSOR_LIMITES } from "@/lib/estados";
 import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
 import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, isRepurchase, kekkeiGratis, nivelGratis, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
+import { RetratoFicha } from "./Retrato";
 
 function H({ children }: { children: React.ReactNode }) {
   return <h3 className="border-b-2 border-paper-ink pb-1 font-display text-lg font-extrabold">{children}</h3>;
@@ -140,8 +141,9 @@ export function FichaSheet({ c }: { c: Character }) {
 
   return (
     <article className="print-sheet flex flex-col gap-6 rounded-3xl bg-paper p-5 text-paper-ink shadow-2xl sm:p-8">
-      <header className="flex items-start justify-between gap-4 border-b-4 border-double border-paper-ink pb-4">
-        <div className="flex min-w-0 flex-col gap-1">
+      <header className="flex items-start gap-4 border-b-4 border-double border-paper-ink pb-4 sm:gap-6">
+        <RetratoFicha c={c} />
+        <div className={`flex min-w-0 flex-1 flex-col gap-1 ${c.portrait ? "self-center" : ""}`}>
           <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-seal-dark">Naruto · Shinobi no Sho</span>
           <h2 className="break-words font-display text-3xl font-extrabold leading-none sm:text-5xl">{c.name || "Shinobi sem nome"}</h2>
           <p className="text-sm text-paper-muted">

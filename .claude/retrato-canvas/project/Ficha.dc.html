@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ficha · Cabeçalho com retrato</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0;background:#16120e}
+a{color:#a12f16}a:hover{color:#c2381b}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="position: relative; width: 960px; height: 640px; box-sizing: border-box; padding: 40px; background: #16120e; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif">
+  <article style="display: flex; flex-direction: column; gap: 24px; padding: 32px; border-radius: 24px; background: #f3e9d6; color: #231b13">
+
+    <header style="display: flex; align-items: stretch; gap: 24px; padding-bottom: 20px; border-bottom: 4px double #231b13">
+      <button type="button" onClick="{{ open }}" aria-label="Ampliar retrato de Ashihira Senju" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: transparent; color: #231b13">
+        <span style="display: block; width: 138px; height: 184px; box-sizing: border-box; padding: 5px; border: 1.5px solid #231b13; border-radius: {{ outer }}; background: #e7d8bc">
+          <span style="display: block; width: 100%; height: 100%; overflow: hidden; border-radius: {{ inner }}">
+            <svg viewBox="0 0 120 160" width="126" height="172" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="display: block"><rect width="120" height="160" fill="#2a221a"></rect><circle cx="92" cy="34" r="30" fill="#c2381b" opacity="0.45"></circle><path d="M6 160 C10 122 32 108 60 108 C88 108 110 122 114 160 Z" fill="#0f0c09"></path><path d="M46 104 L60 122 L74 104 Z" fill="#3a3027"></path><path d="M30 64 L26 40 L40 50 L44 28 L54 44 L62 24 L68 44 L80 30 L80 50 L94 42 L88 66 Z" fill="#0f0c09"></path><circle cx="60" cy="72" r="26" fill="#0f0c09"></circle><rect x="33" y="56" width="54" height="11" rx="2" fill="#5b4a36"></rect><rect x="49" y="57" width="22" height="9" rx="1.5" fill="#b3a48c"></rect><path d="M54 61.5 h12" stroke="#5b4a36" stroke-width="1.4"></path></svg>
+          </span>
+        </span>
+      </button>
+
+      <div style="display: flex; flex-direction: column; justify-content: center; gap: 6px; flex: 1; min-width: 0">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.25em; text-transform: uppercase; color: #a12f16">Naruto · Shinobi no Sho</span>
+        <h2 style="margin: 0; font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 48px; font-weight: 800; line-height: 1">Ashihira Senju</h2>
+        <p style="margin: 0; font-size: 14px; color: #5b4a36">Sannin/Kage · Senju · Konoha · Leal e Bom · 34 anos</p>
+        <p style="margin: 0; font-size: 12px; color: #5b4a36">Jogador: [NOME DO JOGADOR]</p>
+      </div>
+
+      <div style="align-self: flex-start; display: grid; place-items: center; width: 96px; height: 96px; flex-shrink: 0; border-radius: 99px; background: #c2381b; color: #fff">
+        <span style="display: flex; flex-direction: column; align-items: center; line-height: 1">
+          <span style="font-size: 10px; letter-spacing: 0.2em">NC</span>
+          <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 40px; font-weight: 800">20</span>
+        </span>
+      </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{ attrs }}" as="a" hint-placeholder-count="7">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 12px; background: #e7d8bc">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #5b4a36">{{ a.k }}</span>
+          <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 30px; font-weight: 800; line-height: 1.15">{{ a.v }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-radius: 12px; background: #2b1712; color: #ffd9cf">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em">VITALIDADE</span>
+        <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 30px; font-weight: 800">134</span>
+      </div>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-radius: 12px; background: #13202b; color: #d6e9fa">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em">CHAKRA</span>
+        <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 30px; font-weight: 800">90</span>
+      </div>
+    </div>
+  </article>
+
+  <sc-if value="{{ big }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(15,12,9,0.86)">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 14px">
+        <span style="display: block; width: 330px; height: 440px; box-sizing: border-box; padding: 8px; border-radius: 6px; background: #f3e9d6">
+          <span style="display: block; width: 100%; height: 100%; overflow: hidden; border-radius: 2px">
+            <svg viewBox="0 0 120 160" width="314" height="424" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="display: block"><rect width="120" height="160" fill="#2a221a"></rect><circle cx="92" cy="34" r="30" fill="#c2381b" opacity="0.45"></circle><path d="M6 160 C10 122 32 108 60 108 C88 108 110 122 114 160 Z" fill="#0f0c09"></path><path d="M46 104 L60 122 L74 104 Z" fill="#3a3027"></path><path d="M30 64 L26 40 L40 50 L44 28 L54 44 L62 24 L68 44 L80 30 L80 50 L94 42 L88 66 Z" fill="#0f0c09"></path><circle cx="60" cy="72" r="26" fill="#0f0c09"></circle><rect x="33" y="56" width="54" height="11" rx="2" fill="#5b4a36"></rect><rect x="49" y="57" width="22" height="9" rx="1.5" fill="#b3a48c"></rect><path d="M54 61.5 h12" stroke="#5b4a36" stroke-width="1.4"></path></svg>
+          </span>
+        </span>
+        <button type="button" onClick="{{ close }}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid #3a3027; border-radius: 12px; background: #211b15; color: #efe6d6; font-size: 14px; font-weight: 700">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          Fechar
+        </button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"moldura":{"editor":"enum","options":["Retrato","Arredondada"],"default":"Retrato"},"$preview":{"width":960,"height":640}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { big: false };
+  }
+  renderVals() {
+    var round = (this.props.moldura ?? 'Retrato') === 'Arredondada';
+    return {
+      outer: round ? '18px' : '2px',
+      inner: round ? '13px' : '0',
+      big: this.state.big,
+      open: () => this.setState({ big: true }),
+      close: () => this.setState({ big: false }),
+      attrs: [
+        { k: 'FOR', v: 2 }, { k: 'DES', v: 4 }, { k: 'AGI', v: 5 }, { k: 'PER', v: 3 },
+        { k: 'INT', v: 4 }, { k: 'VIG', v: 3 }, { k: 'ESP', v: 6 }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

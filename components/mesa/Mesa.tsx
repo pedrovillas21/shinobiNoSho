@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { playView, withLog } from "@/lib/play";
-import { originKanji, originName, rankLabel } from "@/lib/rules";
+import { originName, rankLabel } from "@/lib/rules";
 import { useMesa } from "@/lib/sala";
 import { downloadJSON } from "@/lib/store";
 import type { Character, PlayState } from "@/lib/types";
+import { RetratoMesa } from "../Retrato";
 import { AnimatedNumber, IconDownload, IconInfo, IconLeft } from "../ui";
 import { Ataques } from "./Ataques";
 import { CombateAviso, CombateBotoes, CombateErro, Rodada, useCombate } from "./Combate";
@@ -108,7 +109,7 @@ function MesaView({ c, p, room, switcher }: { c: Character; p: PlayState; room: 
           <Link href="/" className="btn-ghost size-11 shrink-0 px-0" aria-label="Voltar ao início">
             <IconLeft />
           </Link>
-          <span className="hidden size-11 shrink-0 place-items-center rounded-xl bg-seal font-display text-2xl font-extrabold text-white sm:grid">{originKanji(c)}</span>
+          <RetratoMesa c={c} />
           <div className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate font-display text-lg font-extrabold text-paper sm:text-xl">{c.name || "Shinobi sem nome"}</span>
             <span className="truncate text-xs text-muted">

@@ -242,6 +242,13 @@ export interface ContratoKuchiyose {
   criaturas: Invocacao[];
 }
 
+/** Enquadramento do retrato: zoom (1 = cobre o quadro) e ponto focal em % da imagem. */
+export interface PortraitFrame {
+  zoom: number;
+  x: number;
+  y: number;
+}
+
 export interface Character {
   id: string;
   createdAt: number;
@@ -258,7 +265,9 @@ export interface Character {
   personality: string;
   history: string;
   goals: string;
+  /** Retrato (data URL já reduzida, ver lib/retrato.ts) e o enquadramento escolhido. */
   portrait?: string;
+  portraitFrame?: PortraitFrame;
   // mesa
   nc: number;
   optionals: Optionals;

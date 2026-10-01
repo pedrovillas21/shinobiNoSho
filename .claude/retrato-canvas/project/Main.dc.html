@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Criação · História com retrato</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0;background:#16120e}
+a{color:#f0892a}a:hover{color:#ffd3a8}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+input[type="range"]{accent-color:#f0892a}
+</style>
+</helmet>
+<div style="width: 1280px; height: 1040px; box-sizing: border-box; background: #16120e; color: #efe6d6; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; display: flex; justify-content: center; padding: 48px 32px">
+  <div style="width: 820px; display: flex; flex-direction: column; gap: 24px">
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #f0892a">Passo 9 de 10</span>
+      <h1 style="margin: 0; font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 40px; font-weight: 800; color: #f3e9d6; line-height: 1.1">História</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #b3a48c">Não são regras, mas é o que torna o personagem único. Qual a personalidade? Como é a família? Ele tem objetivos?</p>
+    </div>
+
+    <section style="display: flex; gap: 24px; padding: 20px; border: 1px solid #2e261e; border-radius: 16px; background: #211b15">
+
+      <sc-if value="{{ has }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0">
+          <div style="position: relative; width: 216px; height: 288px; border-radius: 12px; overflow: hidden; background: #2a221a; cursor: grab">
+            <div style="width: 100%; height: 100%; transform-origin: 50% 40%; transform: {{ tf }}">
+              <svg viewBox="0 0 120 160" width="216" height="288" aria-hidden="true" style="display: block"><rect width="120" height="160" fill="#2a221a"></rect><circle cx="92" cy="34" r="30" fill="#c2381b" opacity="0.45"></circle><path d="M6 160 C10 122 32 108 60 108 C88 108 110 122 114 160 Z" fill="#0f0c09"></path><path d="M46 104 L60 122 L74 104 Z" fill="#3a3027"></path><path d="M30 64 L26 40 L40 50 L44 28 L54 44 L62 24 L68 44 L80 30 L80 50 L94 42 L88 66 Z" fill="#0f0c09"></path><circle cx="60" cy="72" r="26" fill="#0f0c09"></circle><rect x="33" y="56" width="54" height="11" rx="2" fill="#5b4a36"></rect><rect x="49" y="57" width="22" height="9" rx="1.5" fill="#b3a48c"></rect><path d="M54 61.5 h12" stroke="#5b4a36" stroke-width="1.4"></path></svg>
+            </div>
+            <span style="position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 99px; background: rgba(22,18,14,0.82); font-size: 11px; font-weight: 700; color: #efe6d6">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path></svg>
+              Arraste para enquadrar
+            </span>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; color: #b3a48c">
+            <span style="display: flex; justify-content: space-between"><span>Zoom</span><span style="color: #efe6d6">{{ zoomText }}</span></span>
+            <input type="range" min="100" max="250" step="5" value="{{ zoom }}" onInput="{{ setZoom }}" aria-label="Zoom do retrato" style="width: 216px; margin: 0">
+          </label>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ upload }}" style="flex-shrink: 0; width: 216px; height: 288px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; border: 2px dashed #3a3027; border-radius: 12px; background: #1b1612; color: #b3a48c; text-align: center">
+          <span style="display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: #2a221a; color: #f0892a">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"></path></svg>
+          </span>
+          <span style="font-size: 15px; font-weight: 700; color: #f3e9d6">Enviar retrato</span>
+          <span style="font-size: 13px; line-height: 1.5">Arraste a imagem aqui, clique para escolher ou cole com Ctrl+V</span>
+        </button>
+      </sc-if>
+
+      <div style="display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #b3a48c">Retrato</span>
+          <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #b3a48c">Aparece no topo da ficha e na mesa de batalha. PNG, JPG ou WebP até 2 MB; a imagem é reduzida para 600 × 800 ao salvar.</p>
+        </div>
+
+        <sc-if value="{{ has }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap">
+              <button type="button" onClick="{{ upload }}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid #3a3027; border-radius: 12px; background: transparent; color: #efe6d6; font-size: 14px; font-weight: 700">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"></path></svg>
+                Trocar imagem
+              </button>
+              <button type="button" onClick="{{ reset }}" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid #3a3027; border-radius: 12px; background: transparent; color: #efe6d6; font-size: 14px; font-weight: 700">Centralizar</button>
+              <button type="button" onClick="{{ remove }}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid #3a3027; border-radius: 12px; background: transparent; color: #e0573a; font-size: 14px; font-weight: 700">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
+                Remover
+              </button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #b3a48c">Como fica</span>
+              <div style="display: flex; gap: 12px">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #f3e9d6; color: #231b13">
+                  <span style="display: block; width: 54px; height: 72px; padding: 3px; border: 1px solid #231b13; background: #e7d8bc">
+                    <span style="display: block; width: 100%; height: 100%; overflow: hidden">
+                      <span style="display: block; width: 100%; height: 100%; transform-origin: 50% 40%; transform: {{ tf }}">
+                        <svg viewBox="0 0 120 160" width="46" height="64" aria-hidden="true" style="display: block"><rect width="120" height="160" fill="#2a221a"></rect><circle cx="92" cy="34" r="30" fill="#c2381b" opacity="0.45"></circle><path d="M6 160 C10 122 32 108 60 108 C88 108 110 122 114 160 Z" fill="#0f0c09"></path><path d="M30 64 L26 40 L40 50 L44 28 L54 44 L62 24 L68 44 L80 30 L80 50 L94 42 L88 66 Z" fill="#0f0c09"></path><circle cx="60" cy="72" r="26" fill="#0f0c09"></circle><rect x="33" y="56" width="54" height="11" rx="2" fill="#5b4a36"></rect><rect x="49" y="57" width="22" height="9" rx="1.5" fill="#b3a48c"></rect></svg>
+                      </span>
+                    </span>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #a12f16">Ficha</span>
+                    <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 18px; font-weight: 800">Ashihira Senju</span>
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #2e261e; border-radius: 12px; background: #16120e">
+                  <span style="position: relative; display: block; width: 44px; height: 44px">
+                    <span style="display: block; width: 44px; height: 44px; border-radius: 12px; overflow: hidden">
+                      <span style="display: block; width: 100%; height: 100%; transform-origin: 50% 40%; transform: {{ tfMesa }}">
+                        <svg viewBox="0 20 120 120" width="44" height="44" aria-hidden="true" style="display: block"><rect y="0" width="120" height="160" fill="#2a221a"></rect><circle cx="92" cy="34" r="30" fill="#c2381b" opacity="0.45"></circle><path d="M6 160 C10 122 32 108 60 108 C88 108 110 122 114 160 Z" fill="#0f0c09"></path><path d="M30 64 L26 40 L40 50 L44 28 L54 44 L62 24 L68 44 L80 30 L80 50 L94 42 L88 66 Z" fill="#0f0c09"></path><circle cx="60" cy="72" r="26" fill="#0f0c09"></circle><rect x="33" y="56" width="54" height="11" rx="2" fill="#5b4a36"></rect><rect x="49" y="57" width="22" height="9" rx="1.5" fill="#b3a48c"></rect></svg>
+                      </span>
+                    </span>
+                    <span style="position: absolute; right: -5px; bottom: -5px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 99px; border: 2px solid #16120e; background: #c2381b; font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 11px; font-weight: 800; color: #fff">千</span>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #f0892a">Mesa</span>
+                    <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 18px; font-weight: 800; color: #f3e9d6">Ashihira Senju</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; padding: 12px 14px; border-radius: 12px; background: #1b1612; font-size: 13px; line-height: 1.55; color: #8f8170">Sem retrato, a ficha e a mesa mostram o símbolo do clã ou hijutsu, como hoje.</p>
+        </sc-if>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="apar" style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #b3a48c">Aparência</label>
+      <textarea id="apar" rows="3" placeholder="Rosto, roupas, marcas, bandana…" style="box-sizing: border-box; width: 100%; resize: vertical; border: 1px solid #3a3027; border-radius: 12px; background: #1b1612; padding: 10px 14px; color: #efe6d6; line-height: 1.6"></textarea>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="pers" style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #b3a48c">Personalidade</label>
+      <textarea id="pers" rows="3" placeholder="Jeito de agir, manias, medos, hobbies." style="box-sizing: border-box; width: 100%; resize: vertical; border: 1px solid #3a3027; border-radius: 12px; background: #1b1612; padding: 10px 14px; color: #efe6d6; line-height: 1.6"></textarea>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="obj" style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #b3a48c">Objetivos</label>
+      <textarea id="obj" rows="2" placeholder="O que move o seu shinobi?" style="box-sizing: border-box; width: 100%; resize: vertical; border: 1px solid #3a3027; border-radius: 12px; background: #1b1612; padding: 10px 14px; color: #efe6d6; line-height: 1.6"></textarea>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { has: true, zoom: 115 };
+  }
+  renderVals() {
+    var z = this.state.zoom / 100;
+    return {
+      has: this.state.has,
+      empty: !this.state.has,
+      zoom: this.state.zoom,
+      zoomText: this.state.zoom + '%',
+      tf: 'scale(' + z + ')',
+      tfMesa: 'scale(' + (z * 1.1).toFixed(2) + ')',
+      setZoom: (e) => this.setState({ zoom: Number(e.target.value) }),
+      upload: () => this.setState({ has: true }),
+      reset: () => this.setState({ zoom: 100 }),
+      remove: () => this.setState({ has: false, zoom: 100 })
+    };
+  }
+}
+</script>
+</body>
+</html>
