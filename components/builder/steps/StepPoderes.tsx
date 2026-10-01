@@ -1,52 +1,60 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
 import { allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, firstEvolution, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
-import type { Efeito, Poder, PowerEntry } from "@/lib/types";
-import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, IconX, Stepper, StepHeader, Toggle } from "../../ui";
+import type { Character, Efeito, Poder, PowerEntry } from "@/lib/types";
+import { Badge, IconCheck, IconLeft, IconPlus, IconRight, IconSearch, IconTrash, IconX, RulesNote, Sheet, Stepper, StepHeader, Toggle, corPoder, tintPoder } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
 import { norm, stepKicker, type StepProps } from "../shared";
 
+/**
+ * Poderes: a lista das compras de um lado e o editor da compra escolhida do outro (no celular, uma tela de cada vez).
+ * Builds grandes (várias Versatilidades no nível 10) ficam numa linha por compra em vez de um card enorme por compra.
+ */
 export function StepPoderes({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
   const s = spent(c);
   const left = b.power - s.power;
   const allowed = useMemo(() => allowedRestricted(c), [c]);
-  const [custom, setCustom] = useState("");
-  const [showOthers, setShowOthers] = useState(false);
-  const [pq, setPq] = useState("");
-  const [pf, setPf] = useState<PowerFilter>("todos");
-  // Controle Perfeito: Inteligência no lugar do Espírito.
-  const halfEsp = Math.ceil(espParam(c).val / 2);
-  const pular = c.optionals.pularEvolucoes;
+  // null = lista (no celular); no computador o editor mostra a 1ª compra quando nada foi escolhido.
+  const [sel, setSel] = useState<number | null>(null);
+  const [catOpen, setCatOpen] = useState(false);
+  const [lq, setLq] = useState("");
+  const cur = c.poderes.length ? Math.min(sel ?? 0, c.poderes.length - 1) : -1;
 
   const blocked = (p: Poder) => (p.restricted ? !allowed.powers.has(p.id) : c.originId === "samurai");
-  const available = PODERES.filter((p) => showOthers || !blocked(p) || c.poderes.some((x) => x.id === p.id));
-  // Busca no nome, na descrição e nos efeitos/técnicas do poder (ex.: "Meteoros" acha Katon e Raiton).
-  const searched = available.map((p) => ({ p, hit: searchHit(p, pq) })).filter((x): x is { p: Poder; hit: string } => x.hit !== null);
-  const shown = searched.filter((x) => POWER_FILTERS.find((f) => f.key === pf)!.match(x.p));
-  const owned = new Set(c.poderes.map((p) => p.id));
+  const warn = (p: PowerEntry) => {
+    const def = PODER_BY_ID[p.id];
+    return p.level > b.cap || (!!def && (!reqsMet(c, def.req) || blocked(def)));
+  };
 
-  const add = (p: Poder) =>
+  const add = (p: Poder) => {
+    const n = c.poderes.length;
     set((d) => void d.poderes.push({ id: p.id, level: 1, effects: [null], techniques: [""], ...(p.id === "versatilidade" ? { versatile: ["", ""], owner: [null] } : {}) }));
+    setSel(n);
+    setCatOpen(false);
+  };
+  const addCustom = (name: string) => {
+    const n = c.poderes.length;
+    set((d) => void d.poderes.push({ id: `custom:${uid()}`, customName: name, level: 1, effects: [null], techniques: [""] }));
+    setSel(n);
+    setCatOpen(false);
+  };
+  const remove = (idx: number) => {
+    set((d) => void d.poderes.splice(idx, 1));
+    setSel(null);
+  };
 
-  const edit = (idx: number, fn: (p: PowerEntry) => void) => set((d) => fn(d.poderes[idx]));
+  const listed = c.poderes.map((p, idx) => ({ p, idx })).filter(({ p }) => !lq.trim() || norm(powerText(p)).includes(norm(lq.trim())));
 
   return (
-    <div className="flex flex-col gap-8">
-      <StepHeader kicker={stepKicker(c, "poderes")} title="Poderes">
+    <div className="flex flex-col gap-5">
+      <StepHeader kicker={stepKicker(c, "poderes")} title="Poderes" />
+      <RulesNote>
         Cada nível custa 1 ponto de poder e, pela regra, o nível máximo é {b.cap} (metade do NC). Poderes de efeitos ganham um efeito novo a cada nível, de nível igual ou menor, ou evoluem um efeito que já têm (ex.: Raio escolhido de novo com o poder no nível 5 vira Raio Nv 5). A ordem das escolhas não importa: qualquer efeito até o nível do poder pode ir em qualquer escolha. Dá para comprar o mesmo poder outra vez para ter mais efeitos: o nível 1 da nova compra é grátis e vale o nível mais alto. No NC estendido, poderes passam do nível 10. Nada é travado: o que sair da regra vira observação.
-      </StepHeader>
-      <div className="flex flex-wrap gap-2">
-        <span className={`rounded-xl px-3 py-2 text-sm font-bold ${left < 0 ? "bg-bad/15 text-bad" : left === 0 ? "bg-ok/15 text-ok" : "bg-chakra/15 text-chakra"}`}>
-          {left >= 0 ? `${left} ponto(s) de poder restantes` : `${-left} ponto(s) a mais`}
-        </span>
-        <span className="rounded-xl bg-panel px-3 py-2 text-sm text-muted">
-          {s.powerLevels} em poderes · {s.paidApts} em aptidões
-        </span>
-      </div>
+      </RulesNote>
 
       {kekkeiGratis(c).length > 0 && (
         <p className="rounded-xl border border-ok/40 bg-ok/10 px-4 py-3 text-sm leading-relaxed text-text">
@@ -58,294 +66,376 @@ export function StepPoderes({ c, set }: StepProps) {
         </p>
       )}
 
-      <motion.ul layout className="flex flex-col gap-4">
-        <AnimatePresence initial={false}>
-          {c.poderes.map((p, idx) => {
-            const def = PODER_BY_ID[p.id];
-            const name = def?.name ?? p.customName ?? "Poder";
-            const met = def ? reqsMet(c, def.req) : true;
-            const again = isRepurchase(c, idx);
-            const gratis = nivelGratis(c, idx);
-            const nth = c.poderes.slice(0, idx + 1).filter((x) => x.id === p.id).length;
-            const top = powerLevel(c, p.id);
-            return (
-              <motion.li layout key={`${p.id}-${idx}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} className="overflow-hidden rounded-2xl border border-line bg-panel">
-                <div className="flex flex-col gap-3 bg-paper p-4 text-paper-ink sm:flex-row sm:items-center">
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-display text-xl font-extrabold">{name}</span>
-                      {def?.restricted && <span className="rounded-full bg-seal px-2 py-0.5 text-[11px] font-bold text-white">restrito</span>}
-                      {def?.element && <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-bold text-paper-muted">elemento</span>}
-                      {def && blocked(def) && (
-                        <span className="rounded-full bg-seal-dark px-2 py-0.5 text-[11px] font-bold text-white">
-                          {def.restricted ? `restrito: ${ownersText("poderes", def.id)}` : "Samurai não compra poderes comuns"}
-                        </span>
-                      )}
-                      {again && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">{nth}ª compra · nível 1 grátis</span>}
-                      {gratis && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">nível 1 grátis pelo {PODER_BY_ID[gratis].name.split(" (")[0]}</span>}
-                      {p.level > b.cap && <span className="rounded-full bg-seal-dark px-2 py-0.5 text-[11px] font-bold text-white">acima do limite {b.cap}</span>}
-                    </div>
-                    {def?.reqText && <span className={`text-xs ${met ? "text-paper-muted" : "font-bold text-seal-dark"}`}>Pré-requisito: {def.reqText}</span>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[11px] text-paper-muted">nível</span>
-                      <Stepper
-                        tone="paper"
-                        size="sm"
-                        label={`nível de ${name}`}
-                        value={p.level}
-                        min={1}
-                        onChange={(n) =>
-                          edit(idx, (x) => {
-                            x.level = n;
-                            while (x.effects.length < n) x.effects.push(null);
-                            while (x.techniques.length < n) x.techniques.push("");
-                          })
-                        }
-                      />
-                    </div>
-                    <button type="button" onClick={() => set((d) => void d.poderes.splice(idx, 1))} className="grid size-10 place-items-center rounded-xl border border-[#cdbb9c] text-paper-ink" aria-label={`Remover ${name}`}>
-                      <IconTrash className="size-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-4 p-4">
-                  {(p.id === "ninpou" || p.id === "hibon" || !def) && (
-                    <label className="flex flex-col gap-1.5">
-                      <span className="label">{def ? "Nome / estilo do poder" : "Nome do poder"}</span>
-                      <input className="field" value={p.customName ?? ""} placeholder="Ex.: Ninpou: Hari Jizou" onChange={(e) => edit(idx, (x) => void (x.customName = e.target.value))} />
-                    </label>
-                  )}
-
-                  {def?.mode === "efeitos" && top > p.level && (
-                    <p className="text-xs text-muted">Os parâmetros usam o nível mais alto entre as compras de {name}: {top}.</p>
-                  )}
-                  {def?.mode === "efeitos" && (
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      {[
-                        ["Dano base", `${top} + ${halfEsp}`, top + halfEsp],
-                        ["Dif. padrão", `9 + ${top} + ${halfEsp}`, 9 + top + halfEsp],
-                        ["Custo máx.", "chakra = nível", `${top} PC`],
-                      ].map(([k, f, v]) => (
-                        <div key={k as string} className="rounded-xl bg-ink-2 px-2 py-2">
-                          <div className="text-[11px] text-faint">{k}</div>
-                          <div className="font-display text-xl font-extrabold text-paper">{v}</div>
-                          <div className="text-[10px] text-faint">{f}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {p.id === "versatilidade" && (
-                    <VersatileEditor
-                      p={p}
-                      slots={versatileSlots(c, idx)}
-                      taken={c.poderes.flatMap((x, j) => (j !== idx && x.id === "versatilidade" ? (x.versatile ?? []) : []))}
-                      lista={c.optionals.fuuinjutsuLista}
-                      pular={pular}
-                      edit={(fn) => edit(idx, fn)}
-                    />
-                  )}
-
-                  {def?.mode === "efeitos" && p.id !== "versatilidade" && (
-                    <ol className="flex flex-col gap-2">
-                      {Array.from({ length: p.level }, (_, i) => {
-                        const chosen = p.effects[i];
-                        // A ordem das escolhas não importa: qualquer efeito do poder cabe em qualquer escolha.
-                        const others = p.effects.slice(0, p.level).filter((x, j): x is string => j !== i && !!x);
-                        // Efeitos novos: ainda não escolhidos nas outras escolhas desta compra.
-                        const fresh = (def.effects ?? [])
-                          .map((id) => EFEITO_BY_ID[id])
-                          .filter((e) => e && !others.includes(e.id))
-                          .sort((a, b) => a.level - b.level);
-                        // Evoluções: efeitos já escolhidos em outra escolha que ainda têm evolução.
-                        // Pular evoluções (regra opcional): vai direto à mais alta que o nível desta escolha permite.
-                        const evoAt = (id: string) => {
-                          const hyp = p.effects.slice();
-                          hyp[i] = id;
-                          return evolutionIndex(hyp, i, pular) || nextEvolution(id, others.filter((x) => x === id).length - 1, i + 1, pular);
-                        };
-                        const evos = [...new Set(others)]
-                          .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)) }))
-                          .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null);
-                        const k = evolutionIndex(p.effects, i, pular);
-                        const need = chosen && k ? evolutionLevel(chosen, k) : null;
-                        const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
-                        return (
-                          <li key={i} className="grid items-center gap-2 sm:grid-cols-[3.5rem_1fr_1fr]">
-                            <span className="text-sm font-bold text-chakra">{i + 1}º</span>
-                            <EffectPicker
-                              label={`${i + 1}º efeito`}
-                              context={`${name.split(" (")[0]} nível ${top}`}
-                              value={chosen ?? null}
-                              {...effectChoices(p.id, top, fresh, evos, stale ? chosen : null, (id) => firstEvolution(id, i + 1, pular))}
-                              onChange={(v) => edit(idx, (x) => void (x.effects[i] = v))}
-                            />
-                            <input
-                              aria-label={`Nome da técnica do ${i + 1}º efeito`}
-                              className="field py-2"
-                              placeholder="Nome da técnica (opcional)"
-                              value={p.techniques[i] ?? ""}
-                              onChange={(e) => edit(idx, (x) => void (x.techniques[i] = e.target.value))}
-                            />
-                            {chosen && (
-                              <span className="text-xs text-faint sm:col-start-2 sm:col-end-4">
-                                {k ? (
-                                  <>
-                                    <span className="font-bold text-ok">
-                                      Evolução {EFEITO_BY_ID[chosen]?.name} Nv {need ?? "?"}
-                                    </span>{" "}
-                                    · ganha o melhoramento dessa evolução descrito no livro.
-                                  </>
-                                ) : (
-                                  <>
-                                    {EFEITO_BY_ID[chosen]?.desc}
-                                    {EFEITO_BY_ID[chosen]?.evolves && <span className="text-muted"> Evolui no Nv {EFEITO_BY_ID[chosen].evolves!.join(" e ")}.</span>}
-                                  </>
-                                )}
-                              </span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  )}
-
-                  {def?.mode === "tecnicas" && (
-                    <ul className="grid gap-2 sm:grid-cols-2">
-                      {def.techniques!.map((t) => {
-                        const on = t.level <= p.level;
-                        return (
-                          <li key={t.name} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${on ? "bg-ok/10 text-text" : "bg-ink-2 text-faint"}`}>
-                            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${on ? "bg-ok text-paper-ink" : "bg-line-2"}`}>{on ? <IconCheck className="size-3.5" /> : t.level}</span>
-                            <span>
-                              <span className="text-xs text-faint">Nv {t.level} · </span>
-                              {t.name}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="label">Anotações</span>
-                    <textarea rows={2} className="field resize-y" value={p.note ?? ""} placeholder={def?.mode === "livre" ? "Técnicas, invocações, benefícios por nível…" : "Detalhes, visual, combinações…"} onChange={(e) => edit(idx, (x) => void (x.note = e.target.value))} />
-                  </label>
-                  {def && <p className="text-xs leading-relaxed text-faint">{def.desc}</p>}
-                </div>
-              </motion.li>
-            );
-          })}
-        </AnimatePresence>
-      </motion.ul>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-display text-2xl font-extrabold text-paper">Adicionar poder</h3>
-          <div className="w-full sm:w-80">
-            <Toggle checked={showOthers} onChange={setShowOthers} label="Mostrar restritos de outros clãs" />
+      <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start xl:grid-cols-[19rem_minmax(0,1fr)]">
+        <section aria-label="Seus poderes" className={`${sel !== null ? "hidden lg:flex" : "flex"} flex-col gap-3 lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:pr-1`}>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className={`rounded-xl px-3 py-1.5 font-bold ${left < 0 ? "bg-bad/15 text-bad" : left === 0 ? "bg-ok/15 text-ok" : "bg-chakra/15 text-chakra"}`}>
+              {left >= 0 ? `${left} ponto(s) restantes` : `${-left} ponto(s) a mais`}
+            </span>
+            <span className="rounded-xl bg-panel px-3 py-1.5 text-muted">
+              {s.powerLevels} em poderes · {s.paidApts} em aptidões
+            </span>
           </div>
-        </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label className="flex h-12 flex-1 items-center gap-3 rounded-xl border border-line-2 bg-panel pr-1.5 pl-4 focus-within:border-chakra">
-            <IconSearch className="size-5 shrink-0 text-muted" />
-            <span className="sr-only">Buscar poder</span>
-            <input value={pq} onChange={(e) => setPq(e.target.value)} placeholder="Buscar poder, elemento ou efeito (ex.: Meteoros, cura, sombra)" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint" />
-            {pq && (
-              <button type="button" onClick={() => setPq("")} aria-label="Limpar busca de poder" className="grid size-9 place-items-center rounded-lg bg-panel-2">
-                <IconX className="size-4" />
-              </button>
+          <button type="button" className="btn-primary" onClick={() => setCatOpen(true)}>
+            <IconPlus className="size-4" /> Adicionar poder
+          </button>
+          {c.poderes.length > 5 && (
+            <label className="flex h-11 items-center gap-2.5 rounded-xl border border-line-2 bg-ink-2 px-3 focus-within:border-chakra">
+              <IconSearch className="size-4 shrink-0 text-muted" />
+              <span className="sr-only">Filtrar seus poderes</span>
+              <input value={lq} onChange={(e) => setLq(e.target.value)} placeholder="Filtrar por poder, efeito ou técnica" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-faint" />
+            </label>
+          )}
+          {c.poderes.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-line-2 p-5 text-center text-sm text-muted">Nenhum poder ainda. Toque em “Adicionar poder”.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {listed.map(({ p, idx }) => (
+                <PowerRow key={`${p.id}-${idx}`} c={c} idx={idx} on={idx === cur} warn={warn(p)} onPick={() => setSel(idx)} />
+              ))}
+              {listed.length === 0 && <li className="rounded-2xl border border-dashed border-line-2 p-4 text-center text-sm text-muted">Nenhum poder com “{lq}”.</li>}
+            </ul>
+          )}
+        </section>
+
+        <section aria-label="Editar poder" className={`${sel === null ? "hidden lg:block" : "block"} min-w-0`}>
+          <button type="button" className="btn-ghost mb-3 lg:hidden" onClick={() => setSel(null)}>
+            <IconLeft className="size-4" /> Poderes
+          </button>
+          {cur >= 0 ? (
+            <PowerEditor key={cur} c={c} set={set} idx={cur} blocked={blocked} onRemove={() => remove(cur)} />
+          ) : (
+            <p className="card hidden px-6 py-10 text-center text-sm text-muted lg:block">Os poderes que você adicionar aparecem aqui para editar, um de cada vez.</p>
+          )}
+        </section>
+      </div>
+
+      <Sheet open={catOpen} onClose={() => setCatOpen(false)} title="Adicionar poder">
+        <PowerCatalog c={c} blocked={blocked} onAdd={add} onAddCustom={addCustom} />
+      </Sheet>
+    </div>
+  );
+}
+
+/** Texto de busca de uma compra: nome, poderes versáteis, efeitos e técnicas. */
+function powerText(p: PowerEntry) {
+  const def = PODER_BY_ID[p.id];
+  return [
+    def?.name ?? "",
+    p.customName ?? "",
+    ...(p.versatile ?? []).map((id) => (id ? versatileName(id) : "")),
+    ...p.effects.map((e) => (e ? (EFEITO_BY_ID[e]?.name ?? "") : "")),
+    ...p.techniques,
+  ].join(" ");
+}
+
+const shortName = (id: string) => (PODER_BY_ID[id]?.name ?? id).split(" (")[0];
+const kanjiOf = (id: string) => KANJI_PODER[id] ?? shortName(id).charAt(0);
+
+/** Ordem dos níveis da Versatilidade: o poder versátil de cada nível (-1 = nível 1, de todos). */
+function owners(p: PowerEntry) {
+  return Array.from({ length: p.level }, (_, i) => (i === 0 ? -1 : (p.owner?.[i] ?? null)));
+}
+/** Níveis que quebram a regra de no máximo 2 seguidos no mesmo poder versátil. */
+function brokenLevels(o: (number | null)[]) {
+  const out = new Set<number>();
+  o.forEach((k, i) => i >= 3 && k !== null && k >= 0 && k === o[i - 1] && k === o[i - 2] && out.add(i));
+  return out;
+}
+
+/* ---------------- lista ---------------- */
+
+function PowerRow({ c, idx, on, warn, onPick }: { c: Character; idx: number; on: boolean; warn: boolean; onPick: () => void }) {
+  const p = c.poderes[idx];
+  const def = PODER_BY_ID[p.id];
+  const name = p.customName && (!def || p.id === "ninpou" || p.id === "hibon") ? p.customName : def ? shortName(p.id) : "Poder";
+  const nth = c.poderes.slice(0, idx + 1).filter((x) => x.id === p.id).length;
+  const many = c.poderes.filter((x) => x.id === p.id).length > 1;
+  const isV = p.id === "versatilidade";
+  const vv = (p.versatile ?? []).filter(Boolean);
+  const done = isV ? (vv.length ? 1 : 0) + Array.from({ length: Math.max(0, p.level - 1) }, (_, j) => j + 1).filter((i) => p.owner?.[i] != null && p.effects[i]).length : p.effects.slice(0, p.level).filter(Boolean).length;
+  const hasProgress = isV || def?.mode === "efeitos";
+  const o = owners(p);
+  const broken = brokenLevels(o);
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onPick}
+        aria-current={on ? "true" : undefined}
+        className={`flex w-full flex-col gap-2 rounded-2xl border p-3 text-left transition ${on ? "border-chakra bg-panel-2" : "border-line bg-panel hover:border-line-2"}`}
+      >
+        <span className="flex w-full items-center gap-2">
+          {!isV && KANJI_PODER[p.id] && (
+            <span className="font-display font-extrabold" style={{ color: corPoder(p.id) }} aria-hidden="true">
+              {KANJI_PODER[p.id]}
+            </span>
+          )}
+          <span className="min-w-0 truncate font-bold text-paper">{name}</span>
+          {many && <span className="shrink-0 rounded-full bg-ink-2 px-2 py-0.5 text-[11px] font-bold text-muted">{nth}ª</span>}
+          {warn && (
+            <span className="size-2 shrink-0 rounded-full bg-bad">
+              <span className="sr-only">fora da regra</span>
+            </span>
+          )}
+          <span className="ml-auto shrink-0 text-sm font-bold text-chakra">Nv {p.level}</span>
+          <IconRight className="size-4 shrink-0 text-faint lg:hidden" />
+        </span>
+        {(vv.length > 0 || hasProgress) && (
+          <span className="flex w-full flex-wrap items-center gap-1.5">
+            {vv.map((id) => (
+              <span key={id} className="inline-flex h-6 items-center gap-1 rounded-lg px-2 text-xs font-bold text-text" style={{ background: tintPoder(id) }}>
+                <span style={{ color: corPoder(id) }}>{kanjiOf(id)}</span>
+                {shortName(id)}
+              </span>
+            ))}
+            {hasProgress && (
+              <span className={`ml-auto inline-flex items-center gap-1 text-xs ${done >= p.level ? "text-ok" : "text-muted"}`}>
+                {done >= p.level && <IconCheck className="size-3.5" />}
+                {done}/{p.level}
+              </span>
             )}
+          </span>
+        )}
+        {isV && vv.length > 0 && p.level > 1 && (
+          <span className="flex w-full gap-0.5" aria-hidden="true">
+            {o.map((k, i) => (
+              <SeqCell key={i} p={p} k={k} broken={broken.has(i)} small />
+            ))}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
+
+/** Um nível na barra de ordem da Versatilidade. */
+function SeqCell({ p, k, broken, small }: { p: PowerEntry; k: number | null; broken: boolean; small?: boolean }) {
+  const id = k !== null && k >= 0 ? p.versatile?.[k] : undefined;
+  const label = k === -1 ? "∗" : id ? kanjiOf(id) : "·";
+  return (
+    <span
+      className={`grid flex-1 place-items-center rounded-md font-bold ${small ? "h-5 text-[11px]" : "h-7 text-xs"} ${broken ? "ring-2 ring-bad" : ""}`}
+      style={{ background: id ? tintPoder(id, 20) : "var(--color-ink-2)", color: id ? corPoder(id) : "var(--color-faint)" }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ---------------- editor ---------------- */
+
+function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: number; blocked: (p: Poder) => boolean; onRemove: () => void }) {
+  const b = budgetFor(c.nc, c.optionals);
+  // Controle Perfeito: Inteligência no lugar do Espírito.
+  const halfEsp = Math.ceil(espParam(c).val / 2);
+  const pular = c.optionals.pularEvolucoes;
+  const [showDesc, setShowDesc] = useState(false);
+  const p = c.poderes[idx];
+  const def = PODER_BY_ID[p.id];
+  const name = def?.name ?? p.customName ?? "Poder";
+  const met = def ? reqsMet(c, def.req) : true;
+  const again = isRepurchase(c, idx);
+  const gratis = nivelGratis(c, idx);
+  const nth = c.poderes.slice(0, idx + 1).filter((x) => x.id === p.id).length;
+  const top = powerLevel(c, p.id);
+  const edit = (fn: (p: PowerEntry) => void) => set((d) => fn(d.poderes[idx]));
+
+  return (
+    <motion.article initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-2xl border border-line bg-panel">
+      <div className="flex flex-col gap-3 bg-paper p-3.5 text-paper-ink sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-display text-xl font-extrabold">{name}</span>
+            {def?.restricted && <span className="rounded-full bg-seal px-2 py-0.5 text-[11px] font-bold text-white">restrito</span>}
+            {def?.element && <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-bold text-paper-muted">elemento</span>}
+            {def && blocked(def) && (
+              <span className="rounded-full bg-seal-dark px-2 py-0.5 text-[11px] font-bold text-white">
+                {def.restricted ? `restrito: ${ownersText("poderes", def.id)}` : "Samurai não compra poderes comuns"}
+              </span>
+            )}
+            {again && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">{nth}ª compra · nível 1 grátis</span>}
+            {gratis && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">nível 1 grátis pelo {PODER_BY_ID[gratis].name.split(" (")[0]}</span>}
+            {p.level > b.cap && <span className="rounded-full bg-seal-dark px-2 py-0.5 text-[11px] font-bold text-white">acima do limite {b.cap}</span>}
+          </div>
+          {def?.reqText && <span className={`text-xs ${met ? "text-paper-muted" : "font-bold text-seal-dark"}`}>Pré-requisito: {def.reqText}</span>}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center">
+            <span className="text-[11px] text-paper-muted">nível</span>
+            <Stepper
+              tone="paper"
+              size="sm"
+              label={`nível de ${name}`}
+              value={p.level}
+              min={1}
+              onChange={(n) =>
+                edit((x) => {
+                  x.level = n;
+                  while (x.effects.length < n) x.effects.push(null);
+                  while (x.techniques.length < n) x.techniques.push("");
+                })
+              }
+            />
+          </div>
+          <button type="button" onClick={onRemove} className="grid size-11 place-items-center rounded-xl border border-[#cdbb9c] text-paper-ink" aria-label={`Remover ${name}`}>
+            <IconTrash className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 p-3.5 sm:p-4">
+        {(p.id === "ninpou" || p.id === "hibon" || !def) && (
+          <label className="flex flex-col gap-1.5">
+            <span className="label">{def ? "Nome / estilo do poder" : "Nome do poder"}</span>
+            <input className="field" value={p.customName ?? ""} placeholder="Ex.: Ninpou: Hari Jizou" onChange={(e) => edit((x) => void (x.customName = e.target.value))} />
           </label>
-          <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
-            {POWER_FILTERS.map((f) => {
-              const on = pf === f.key;
+        )}
+
+        {def?.mode === "efeitos" && top > p.level && <p className="text-xs text-muted">Os parâmetros usam o nível mais alto entre as compras de {name}: {top}.</p>}
+        {def?.mode === "efeitos" && (
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["Dano base", `${top} + ${halfEsp}`, top + halfEsp],
+              ["Dif. padrão", `9 + ${top} + ${halfEsp}`, 9 + top + halfEsp],
+              ["Custo máx.", "chakra = nível", `${top} PC`],
+            ].map(([k, f, v]) => (
+              <div key={k as string} className="flex flex-col items-center gap-0.5 rounded-xl bg-ink-2 px-2 py-1.5 sm:flex-row sm:gap-2.5 sm:px-3">
+                <span className="font-display text-xl font-extrabold text-paper">{v}</span>
+                <span className="flex flex-col items-center leading-tight sm:items-start">
+                  <span className="text-[11px] font-bold text-text">{k}</span>
+                  <span className="hidden text-[10px] text-faint sm:block">{f}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {p.id === "versatilidade" && (
+          <VersatileEditor
+            p={p}
+            slots={versatileSlots(c, idx)}
+            taken={c.poderes.flatMap((x, j) => (j !== idx && x.id === "versatilidade" ? (x.versatile ?? []) : []))}
+            lista={c.optionals.fuuinjutsuLista}
+            pular={pular}
+            edit={edit}
+          />
+        )}
+
+        {def?.mode === "efeitos" && p.id !== "versatilidade" && (
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-end">
+              <button type="button" aria-pressed={showDesc} onClick={() => setShowDesc(!showDesc)} className={`chip min-h-9 text-xs ${showDesc ? "border-chakra text-[#ffd3a8]" : "text-muted hover:border-muted"}`}>
+                {showDesc ? "Esconder descrições" : "Mostrar descrições"}
+              </button>
+            </div>
+            <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-xl border border-line">
+              {Array.from({ length: p.level }, (_, i) => {
+                const chosen = p.effects[i];
+                // A ordem das escolhas não importa: qualquer efeito do poder cabe em qualquer escolha.
+                const others = p.effects.slice(0, p.level).filter((x, j): x is string => j !== i && !!x);
+                // Efeitos novos: ainda não escolhidos nas outras escolhas desta compra.
+                const fresh = (def.effects ?? [])
+                  .map((id) => EFEITO_BY_ID[id])
+                  .filter((e) => e && !others.includes(e.id))
+                  .sort((a, b) => a.level - b.level);
+                // Evoluções: efeitos já escolhidos em outra escolha que ainda têm evolução.
+                // Pular evoluções (regra opcional): vai direto à mais alta que o nível desta escolha permite.
+                const evoAt = (id: string) => {
+                  const hyp = p.effects.slice();
+                  hyp[i] = id;
+                  return evolutionIndex(hyp, i, pular) || nextEvolution(id, others.filter((x) => x === id).length - 1, i + 1, pular);
+                };
+                const evos = [...new Set(others)]
+                  .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)) }))
+                  .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null);
+                const k = evolutionIndex(p.effects, i, pular);
+                const need = chosen && k ? evolutionLevel(chosen, k) : null;
+                const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
+                return (
+                  <li key={i} className="grid items-center gap-x-2 gap-y-1.5 px-2.5 py-2 grid-cols-[2rem_minmax(0,1fr)] sm:grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,14rem)]">
+                    <span className="text-sm font-bold text-chakra">{i + 1}º</span>
+                    <EffectPicker
+                      compact
+                      label={`${i + 1}º efeito`}
+                      context={`${name.split(" (")[0]} nível ${top}`}
+                      value={chosen ?? null}
+                      {...effectChoices(p.id, top, fresh, evos, stale ? chosen : null, (id) => firstEvolution(id, i + 1, pular))}
+                      onChange={(v) => edit((x) => void (x.effects[i] = v))}
+                    />
+                    <input
+                      aria-label={`Nome da técnica do ${i + 1}º efeito`}
+                      className="field col-start-2 py-1.5 text-sm sm:col-start-auto"
+                      placeholder="Nome da técnica (opcional)"
+                      value={p.techniques[i] ?? ""}
+                      onChange={(e) => edit((x) => void (x.techniques[i] = e.target.value))}
+                    />
+                    {chosen && k && (
+                      <span className="col-start-2 text-xs font-bold text-ok sm:col-end-4">
+                        Evolução {EFEITO_BY_ID[chosen]?.name} Nv {need ?? "?"}
+                      </span>
+                    )}
+                    {chosen && !k && showDesc && (
+                      <span className="col-start-2 text-xs text-faint sm:col-end-4">
+                        {EFEITO_BY_ID[chosen]?.desc}
+                        {EFEITO_BY_ID[chosen]?.evolves && <span className="text-muted"> Evolui no Nv {EFEITO_BY_ID[chosen].evolves!.join(" e ")}.</span>}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
+
+        {def?.mode === "tecnicas" && (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {def.techniques!.map((t) => {
+              const on = t.level <= p.level;
               return (
-                <button key={f.key} type="button" aria-pressed={on} onClick={() => setPf(f.key)} className={`chip shrink-0 font-bold ${on ? "border-paper bg-paper text-paper-ink" : "text-text hover:border-muted"}`}>
-                  {f.label}
-                  <span className={`text-[11px] ${on ? "text-paper-muted" : "text-muted"}`}>{searched.filter((x) => f.match(x.p)).length}</span>
-                </button>
+                <li key={t.name} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${on ? "bg-ok/10 text-text" : "bg-ink-2 text-faint"}`}>
+                  <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${on ? "bg-ok text-paper-ink" : "bg-line-2"}`}>{on ? <IconCheck className="size-3.5" /> : t.level}</span>
+                  <span>
+                    <span className="text-xs text-faint">Nv {t.level} · </span>
+                    {t.name}
+                  </span>
+                </li>
               );
             })}
-          </div>
-        </div>
-        <span className="text-sm text-muted">
-          {shown.length} de {available.length} poderes
-        </span>
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.map(({ p, hit }) => {
-            const has = owned.has(p.id);
-            const again = has && p.mode === "efeitos";
-            const met = reqsMet(c, p.req);
-            return (
-              <li key={p.id}>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  type="button"
-                  disabled={has && !again}
-                  onClick={() => add(p)}
-                  className={`flex h-full w-full items-start gap-3 rounded-2xl border p-3 text-left transition disabled:opacity-50 ${p.restricted ? "border-seal/50 bg-seal/10" : "border-line bg-panel hover:border-line-2"}`}
-                >
-                  <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${has ? "bg-ok/20 text-ok" : "bg-seal text-white"}`}>{has && !again ? <IconCheck className="size-4" /> : <IconPlus className="size-4" />}</span>
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="flex flex-wrap items-center gap-1.5 font-bold text-paper">
-                      {p.name} {p.restricted && <Badge tone="seal">restrito</Badge>}
-                      <Badge>{p.element ? "elemento" : MODE_LABEL[p.mode]}</Badge>
-                    </span>
-                    <span className="text-xs leading-snug text-muted">{p.desc}</span>
-                    {hit && <span className="text-xs font-bold text-chakra">Tem: {hit}</span>}
-                    {again && p.id === "versatilidade" ? (
-                      <span className="text-xs font-bold text-ok">
-                        Cada tabela extra pede uma Aprendizagem Rápida: {c.poderes.filter((x) => x.id === "versatilidade").length} de {1 + c.aptidoes.filter((x) => x.id === "aprendizagem-rapida").length} tabela(s) liberada(s). Comprar a aptidão já cria a tabela.
-                      </span>
-                    ) : (
-                      again && <span className="text-xs font-bold text-ok">Você já tem. Comprar de novo: nível 1 grátis, mais efeitos.</span>
-                    )}
-                    {p.reqText && <span className={`text-xs ${met ? "text-ok" : "text-bad"}`}>{met ? "✓" : "✗"} {p.reqText}</span>}
-                    {blocked(p) && <span className="text-xs text-bad">{p.restricted ? `Restrito a: ${ownersText("poderes", p.id)}.` : "Samurais não compram poderes comuns."} Pode pegar, mas fica como observação.</span>}
-                  </span>
-                </motion.button>
-              </li>
-            );
-          })}
-        </ul>
-        {shown.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-line-2 p-6 text-center text-sm text-muted">
-            {pq ? `Nenhum poder com “${pq}”.` : "Nenhum poder neste filtro."} Se for de outro livro, crie como poder personalizado abaixo.
-          </p>
+          </ul>
         )}
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!custom.trim()) return;
-            set((d) => void d.poderes.push({ id: `custom:${uid()}`, customName: custom.trim(), level: 1, effects: [null], techniques: [""] }));
-            setCustom("");
-          }}
-        >
-          <input className="field" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Poder personalizado ou de outro livro" aria-label="Nome do poder personalizado" />
-          <button type="submit" className="btn-ghost shrink-0" disabled={!custom.trim()}>
-            <IconPlus className="size-4" /> Adicionar
-          </button>
-        </form>
-        {c.originId === "samurai" && <p className="text-sm text-muted">Pela regra, Samurais não compram poderes comuns (ficam como observação).</p>}
-      </section>
-    </div>
+
+        <details className="group rounded-xl border border-line [&_summary::-webkit-details-marker]:hidden" open={def?.mode === "livre" || !!p.note}>
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-bold text-muted hover:text-text">
+            <IconRight className="size-4 shrink-0 transition group-open:rotate-90" />
+            Anotações e descrição do poder
+          </summary>
+          <div className="flex flex-col gap-3 px-3 pb-3">
+            <label className="flex flex-col gap-1.5">
+              <span className="sr-only">Anotações</span>
+              <textarea rows={2} className="field resize-y" value={p.note ?? ""} placeholder={def?.mode === "livre" ? "Técnicas, invocações, benefícios por nível…" : "Detalhes, visual, combinações…"} onChange={(e) => edit((x) => void (x.note = e.target.value))} />
+            </label>
+            {def && <p className="text-xs leading-relaxed text-faint">{def.desc}</p>}
+          </div>
+        </details>
+      </div>
+    </motion.article>
   );
 }
 
 /**
  * Versatilidade (Livro Básico, pág. 242–243): dois poderes versáteis (três na 4ª compra, regra da casa). O nível 1 dá o
  * efeito de nível 1 a todos; do 2º em diante, cada nível é de um deles, com no máximo 2 níveis seguidos no mesmo, e o
- * efeito tem nível igual ou menor.
+ * efeito tem nível igual ou menor. No computador vira uma matriz (níveis × poderes versáteis); no celular, cada nível
+ * escolhe o poder num seletor de kanjis.
  */
 function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntry; slots: number; taken: string[]; lista: boolean; pular: boolean; edit: (fn: (x: PowerEntry) => void) => void }) {
   const ks = Array.from({ length: slots }, (_, k) => k);
   const vv = ks.map((k) => p.versatile?.[k] ?? "");
+  const cols = ks.filter((k) => vv[k]);
   const fourth = slots === 3;
+  const o = owners(p);
+  const broken = brokenLevels(o);
   const setV = (k: number, id: string) =>
     edit((x) => {
       const cur = ks.map((j) => x.versatile?.[j] ?? "");
@@ -364,10 +454,47 @@ function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntr
       x.owner = o;
       x.effects[i] = v ? v.slice(cut + 1) : null;
     });
+  // Só o poder versátil do nível; o efeito é escolhido depois, na coluna dele.
+  const setOwner = (i: number, k: number) =>
+    edit((x) => {
+      const o = Array.from({ length: Math.max(x.level, i + 1) }, (_, j) => x.owner?.[j] ?? null);
+      if (o[i] === k) return;
+      o[i] = k;
+      x.owner = o;
+      x.effects[i] = null;
+    });
   const firstOf = (id: string) => (PODER_BY_ID[id]?.mode === "tecnicas" ? PODER_BY_ID[id].techniques?.[0]?.name : "Canhão");
+  const colChoices = (i: number, k: number) => {
+    const all = versatileChoices(p, vv, i, lista, pular);
+    const options = all.options.filter((x) => x.value.startsWith(`${k}|`));
+    const tabs: PickTab[] = [
+      { key: "excl", label: "Exclusivos", kanji: kanjiOf(vv[k]), match: (x: PickOption) => x.tone === "excl" },
+      { key: "evo", label: "Evoluir", match: (x: PickOption) => x.tone === "evo" },
+      { key: "geral", label: "Gerais", match: (x: PickOption) => x.tone === "geral" },
+    ].filter((t) => options.some(t.match));
+    return { options, groups: all.groups.filter((g) => g.key === "fora" || g.key === `v${k}`), tabs };
+  };
+  const picker = (i: number, k: number) => {
+    const has = !!p.effects[i];
+    return (
+      <EffectPicker
+        compact
+        label={`${i + 1}º nível · ${shortName(vv[k])}`}
+        context={`${versatileName(vv[k])} · nível ${i + 1}`}
+        placeholder={`Efeito de ${shortName(vv[k])}…`}
+        value={has ? `${k}|${p.effects[i]}` : null}
+        {...colChoices(i, k)}
+        onChange={(v) => setLevel(i, v)}
+      />
+    );
+  };
+  const techInput = (i: number, cls: string) => (
+    <input aria-label={`Nome da técnica do ${i + 1}º nível`} className={`field py-1.5 text-sm ${cls}`} placeholder="Nome da técnica (opcional)" value={p.techniques[i] ?? ""} onChange={(e) => edit((x) => void (x.techniques[i] = e.target.value))} />
+  );
+  const grid = { gridTemplateColumns: `2.25rem repeat(${Math.max(1, cols.length)}, minmax(0, 1fr)) minmax(8rem, 13rem)` };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="@container flex flex-col gap-3">
       {fourth && (
         <p className="rounded-xl bg-chakra/10 px-3 py-2 text-xs leading-relaxed text-text">
           <strong>Regra da casa:</strong> a 4ª Versatilidade traz 3 poderes versáteis e pode repetir os de outras compras.
@@ -375,7 +502,7 @@ function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntr
       )}
       <div className={`grid gap-2 ${fourth ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {ks.map((k) => (
-          <label key={k} className="flex flex-col gap-1.5">
+          <label key={k} className="flex flex-col gap-1">
             <span className="label">{k + 1}º poder versátil</span>
             <select className="field py-2" value={vv[k]} onChange={(e) => setV(k, e.target.value)}>
               <option value="">Escolher…</option>
@@ -389,49 +516,209 @@ function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntr
           </label>
         ))}
       </div>
-      <p className="text-xs leading-relaxed text-muted">
-        Cada poder versátil usa as regras do próprio poder (alcance, tamanho e bônus do elemento) com o nível da Versatilidade. Do 2º nível em diante, cada escolha é de um dos poderes: o seletor separa os efeitos por poder. Depois de 2
-        níveis seguidos no mesmo, o próximo é de outro. O efeito precisa ser do nível escolhido ou menor.
-      </p>
-      <ol className="flex flex-col gap-2">
-        <li className="grid items-center gap-2 sm:grid-cols-[3.5rem_1fr_1fr]">
-          <span className="text-sm font-bold text-chakra">1º</span>
-          <span className="text-sm text-text">
-            {vv.some(Boolean)
-              ? vv
-                  .filter(Boolean)
-                  .map((id) => `${firstOf(id)} (${versatileName(id)})`)
-                  .join(" e ")
-              : `Efeito de nível 1 dos ${fourth ? "três" : "dois"} poderes`}
-          </span>
-          <input aria-label="Nome da técnica do 1º nível" className="field py-2" placeholder="Nome da técnica (opcional)" value={p.techniques[0] ?? ""} onChange={(e) => edit((x) => void (x.techniques[0] = e.target.value))} />
-        </li>
-        {Array.from({ length: Math.max(0, p.level - 1) }, (_, j) => {
-          const i = j + 1;
-          const lvl = i + 1;
-          const k = p.owner?.[i];
-          const has = typeof k === "number" && k >= 0 && k < slots && !!vv[k] && !!p.effects[i];
+
+      {cols.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-line-2 p-4 text-center text-sm text-muted">Escolha os poderes versáteis acima para montar os níveis.</p>
+      ) : (
+        <>
+          {/* Editor largo: matriz níveis × poderes versáteis */}
+          <div className="hidden overflow-hidden rounded-xl border border-line @2xl:block">
+            <div className="grid items-center gap-2 bg-ink-2 px-3 py-2" style={grid}>
+              <span className="text-[11px] font-bold tracking-[0.14em] text-faint">NV</span>
+              {cols.map((k) => (
+                <span key={k} className="flex min-w-0 items-center gap-2">
+                  <span className="font-display text-lg font-extrabold" style={{ color: corPoder(vv[k]) }} aria-hidden="true">
+                    {kanjiOf(vv[k])}
+                  </span>
+                  <span className="truncate text-sm font-bold text-text">{shortName(vv[k])}</span>
+                  <span className="shrink-0 text-xs text-faint">{o.filter((x) => x === -1 || x === k).length} níveis</span>
+                </span>
+              ))}
+              <span className="text-[11px] font-bold tracking-[0.14em] text-faint">NOME DA TÉCNICA</span>
+            </div>
+            {o.map((own, i) => (
+              <div key={i} className="grid items-center gap-2 border-t border-line px-3 py-1.5" style={grid}>
+                <span className={`text-sm font-bold ${broken.has(i) ? "text-bad" : "text-chakra"}`}>{i + 1}º</span>
+                {cols.map((k) =>
+                  i === 0 ? (
+                    <span key={k} className="flex h-9 min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-bold text-text" style={{ background: tintPoder(vv[k]) }}>
+                      <span style={{ color: corPoder(vv[k]) }}>{kanjiOf(vv[k])}</span>
+                      <span className="truncate">{firstOf(vv[k])}</span>
+                    </span>
+                  ) : own === k ? (
+                    <div key={k} className="min-w-0">
+                      {picker(i, k)}
+                    </div>
+                  ) : (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setOwner(i, k)}
+                      aria-label={`Usar o ${i + 1}º nível em ${shortName(vv[k])}`}
+                      className="h-9 rounded-lg border border-dashed border-line-2 text-faint transition hover:border-muted hover:text-text"
+                    >
+                      +
+                    </button>
+                  ),
+                )}
+                {techInput(i, "")}
+              </div>
+            ))}
+          </div>
+
+          {/* Editor estreito (celular, notebook): cada nível escolhe o poder num seletor de kanjis e o efeito logo ao lado */}
+          <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-xl border border-line @2xl:hidden">
+            {o.map((own, i) => (
+              <li key={i} className="flex flex-col gap-1.5 px-2.5 py-2">
+                <div className="flex items-center gap-2">
+                  <span className={`w-7 shrink-0 text-sm font-bold ${broken.has(i) ? "text-bad" : "text-chakra"}`}>{i + 1}º</span>
+                  {i === 0 ? (
+                    <span className="min-w-0 flex-1 truncate text-sm text-text">{cols.map((k) => `${firstOf(vv[k])} (${shortName(vv[k])})`).join(" · ")}</span>
+                  ) : (
+                    <>
+                      <div role="group" aria-label={`Poder versátil do ${i + 1}º nível`} className="flex shrink-0 gap-0.5 rounded-lg border border-line-2 bg-ink-2 p-0.5">
+                        {cols.map((k) => {
+                          const on = own === k;
+                          return (
+                            <button
+                              key={k}
+                              type="button"
+                              aria-pressed={on}
+                              aria-label={shortName(vv[k])}
+                              onClick={() => setOwner(i, k)}
+                              className="grid size-10 place-items-center rounded-md font-display text-base font-extrabold transition"
+                              style={on ? { background: tintPoder(vv[k], 28), color: corPoder(vv[k]) } : { color: "var(--color-line-2)" }}
+                            >
+                              {kanjiOf(vv[k])}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="min-w-0 flex-1">{own !== null && own >= 0 && vv[own] ? picker(i, own) : <span className="text-xs text-muted">Escolha o poder deste nível</span>}</div>
+                    </>
+                  )}
+                </div>
+                {techInput(i, "ml-9 w-auto")}
+              </li>
+            ))}
+          </ol>
+
+          <div className="flex items-center gap-3">
+            <span className="hidden shrink-0 text-xs font-bold text-muted sm:block">Ordem dos níveis</span>
+            <div className="flex flex-1 gap-1" aria-hidden="true">
+              {o.map((k, i) => (
+                <SeqCell key={i} p={p} k={k} broken={broken.has(i)} />
+              ))}
+            </div>
+            <span className={`shrink-0 text-xs ${broken.size ? "font-bold text-bad" : "text-ok"}`}>{broken.size ? "3 seguidos no mesmo poder" : "máx. 2 seguidos · ok"}</span>
+          </div>
+          <p className="text-xs leading-relaxed text-faint">Cada poder versátil usa as regras do próprio poder (alcance, tamanho e bônus do elemento) com o nível da Versatilidade. O efeito precisa ser do nível escolhido ou menor.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- catálogo (gaveta) ---------------- */
+
+function PowerCatalog({ c, blocked, onAdd, onAddCustom }: { c: Character; blocked: (p: Poder) => boolean; onAdd: (p: Poder) => void; onAddCustom: (name: string) => void }) {
+  const [custom, setCustom] = useState("");
+  const [showOthers, setShowOthers] = useState(false);
+  const [pq, setPq] = useState("");
+  const [pf, setPf] = useState<PowerFilter>("todos");
+  const available = PODERES.filter((p) => showOthers || !blocked(p) || c.poderes.some((x) => x.id === p.id));
+  // Busca no nome, na descrição e nos efeitos/técnicas do poder (ex.: "Meteoros" acha Katon e Raiton).
+  const searched = available.map((p) => ({ p, hit: searchHit(p, pq) })).filter((x): x is { p: Poder; hit: string } => x.hit !== null);
+  const shown = searched.filter((x) => POWER_FILTERS.find((f) => f.key === pf)!.match(x.p));
+  const owned = new Set(c.poderes.map((p) => p.id));
+
+  return (
+    <section className="flex flex-col gap-3">
+      <label className="flex h-12 items-center gap-3 rounded-xl border border-line-2 bg-ink-2 pr-1.5 pl-4 focus-within:border-chakra">
+        <IconSearch className="size-5 shrink-0 text-muted" />
+        <span className="sr-only">Buscar poder</span>
+        <input value={pq} onChange={(e) => setPq(e.target.value)} placeholder="Buscar poder, elemento ou efeito (ex.: Meteoros, cura)" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint" />
+        {pq && (
+          <button type="button" onClick={() => setPq("")} aria-label="Limpar busca de poder" className="grid size-9 place-items-center rounded-lg bg-panel-2">
+            <IconX className="size-4" />
+          </button>
+        )}
+      </label>
+      <div className="-mx-5 flex gap-1.5 overflow-x-auto px-5 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
+        {POWER_FILTERS.map((f) => {
+          const on = pf === f.key;
           return (
-            <li key={i} className="grid items-start gap-2 sm:grid-cols-[3.5rem_1fr_1fr]">
-              <span className="pt-2.5 text-sm font-bold text-chakra">{lvl}º</span>
-              {vv.some(Boolean) ? (
-                <EffectPicker
-                  label={`${lvl}º nível`}
-                  context={`Versatilidade · nível ${lvl}`}
-                  placeholder="Escolher poder e efeito…"
-                  value={has ? `${k}|${p.effects[i]}` : null}
-                  {...versatileChoices(p, vv, i, lista, pular)}
-                  onChange={(v) => setLevel(i, v)}
-                />
-              ) : (
-                <span className="pt-2.5 text-xs text-muted">Escolha os poderes versáteis acima.</span>
-              )}
-              <input aria-label={`Nome da técnica do nível ${lvl}`} className="field py-2" placeholder="Nome da técnica (opcional)" value={p.techniques[i] ?? ""} onChange={(e) => edit((x) => void (x.techniques[i] = e.target.value))} />
+            <button key={f.key} type="button" aria-pressed={on} onClick={() => setPf(f.key)} className={`chip shrink-0 font-bold ${on ? "border-paper bg-paper text-paper-ink" : "text-text hover:border-muted"}`}>
+              {f.label}
+              <span className={`text-[11px] ${on ? "text-paper-muted" : "text-muted"}`}>{searched.filter((x) => f.match(x.p)).length}</span>
+            </button>
+          );
+        })}
+      </div>
+      <Toggle checked={showOthers} onChange={setShowOthers} label="Mostrar restritos de outros clãs" />
+      <span className="text-sm text-muted">
+        {shown.length} de {available.length} poderes
+      </span>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {shown.map(({ p, hit }) => {
+          const has = owned.has(p.id);
+          const again = has && p.mode === "efeitos";
+          const met = reqsMet(c, p.req);
+          return (
+            <li key={p.id}>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                type="button"
+                disabled={has && !again}
+                onClick={() => onAdd(p)}
+                className={`flex h-full w-full items-start gap-3 rounded-2xl border p-3 text-left transition disabled:opacity-50 ${p.restricted ? "border-seal/50 bg-seal/10" : "border-line bg-ink-2 hover:border-line-2"}`}
+              >
+                <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${has ? "bg-ok/20 text-ok" : "bg-seal text-white"}`}>{has && !again ? <IconCheck className="size-4" /> : <IconPlus className="size-4" />}</span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex flex-wrap items-center gap-1.5 font-bold text-paper">
+                    {p.name} {p.restricted && <Badge tone="seal">restrito</Badge>}
+                    <Badge>{p.element ? "elemento" : MODE_LABEL[p.mode]}</Badge>
+                  </span>
+                  <span className="line-clamp-2 text-xs leading-snug text-muted" title={p.desc}>
+                    {p.desc}
+                  </span>
+                  {hit && <span className="text-xs font-bold text-chakra">Tem: {hit}</span>}
+                  {again && p.id === "versatilidade" ? (
+                    <span className="text-xs font-bold text-ok">
+                      Cada tabela extra pede uma Aprendizagem Rápida: {c.poderes.filter((x) => x.id === "versatilidade").length} de {1 + c.aptidoes.filter((x) => x.id === "aprendizagem-rapida").length} tabela(s) liberada(s).
+                    </span>
+                  ) : (
+                    again && <span className="text-xs font-bold text-ok">Você já tem. Comprar de novo: nível 1 grátis, mais efeitos.</span>
+                  )}
+                  {p.reqText && <span className={`text-xs ${met ? "text-ok" : "text-bad"}`}>{met ? "✓" : "✗"} {p.reqText}</span>}
+                  {blocked(p) && <span className="text-xs text-bad">{p.restricted ? `Restrito a: ${ownersText("poderes", p.id)}.` : "Samurais não compram poderes comuns."} Pode pegar, mas fica como observação.</span>}
+                </span>
+              </motion.button>
             </li>
           );
         })}
-      </ol>
-    </div>
+      </ul>
+      {shown.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-line-2 p-6 text-center text-sm text-muted">
+          {pq ? `Nenhum poder com “${pq}”.` : "Nenhum poder neste filtro."} Se for de outro livro, crie como poder personalizado abaixo.
+        </p>
+      )}
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!custom.trim()) return;
+          onAddCustom(custom.trim());
+          setCustom("");
+        }}
+      >
+        <input className="field" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Poder personalizado ou de outro livro" aria-label="Nome do poder personalizado" />
+        <button type="submit" className="btn-ghost shrink-0" disabled={!custom.trim()}>
+          <IconPlus className="size-4" /> Adicionar
+        </button>
+      </form>
+      {c.originId === "samurai" && <p className="text-sm text-muted">Pela regra, Samurais não compram poderes comuns (ficam como observação).</p>}
+    </section>
   );
 }
 
@@ -459,9 +746,6 @@ function searchHit(p: Poder, q: string): string | null {
 
 /* ---------------- opções do seletor de efeito ---------------- */
 
-const shortName = (id: string) => (PODER_BY_ID[id]?.name ?? id).split(" (")[0];
-
-/** Seletor de um poder de efeitos: exclusivos do elemento, evoluções, gerais e o que passa do nível do poder. */
 /** Efeito novo no seletor. Pulando evoluções, ele já entra na evolução `ev` (ex.: Lâmina de Raios Nv 9). */
 function freshLabel(e: Efeito, ev: number) {
   const need = ev ? evolutionLevel(e.id, ev) : null;
@@ -469,6 +753,7 @@ function freshLabel(e: Efeito, ev: number) {
   return { name: `${e.name} Nv ${need}`, level: e.level, desc: `Pular evoluções: já entra como ${e.name} Nv ${need}, com as evoluções anteriores. ${e.desc}` };
 }
 
+/** Seletor de um poder de efeitos: exclusivos do elemento, evoluções, gerais e o que passa do nível do poder. */
 function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e: Efeito; need: number }[], stale: string | null, firstEv: (id: string) => number = () => 0) {
   const short = shortName(powerId);
   const kanji = KANJI_PODER[powerId];

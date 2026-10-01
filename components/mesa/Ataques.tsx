@@ -1,18 +1,55 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import { GRAU_2D8, ataques, graus, grupoBasico, outrosPoderes, partsText, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { GRAU_2D8, ataques, graus, grupoBasico, outrosPoderes, partsText, type AtkGroup, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
+import { KANJI_PODER } from "@/lib/data/poderes";
 import { podeEnergizar } from "@/lib/dano";
 import { checkChakra, olhoPendente, payChakra, sg, sharinganTravado, spendVisao } from "@/lib/play";
 import { hasApt, uid } from "@/lib/rules";
-import { AnimatedNumber, IconMinus, IconPlus, IconTrash } from "../ui";
+import { norm } from "../builder/shared";
+import { AnimatedNumber, IconMinus, IconPlus, IconRight, IconSearch, IconTrash, IconX, corPoder } from "../ui";
 import { SectionTitle, type MesaProps } from "./shared";
 
 /** Os três melhoramentos do Potencializar (Livro Básico, aptidões de técnica). */
 const POT_LABEL: Record<PotMode, string> = { dano: "+1 de dano base", alcance: "alcance ×2", area: "área ×2" };
 
-/** Colunas da tabela de dano (nome · 4 graus · usar), quando o painel tem largura para isso. */
-const COLS = "@2xl:grid-cols-[minmax(0,1fr)_repeat(4,3.75rem)_6.75rem]";
+/** Colunas da tabela (fixar · técnica · nível · base · 4 graus · usar), quando o painel tem largura para isso. */
+const COLS = "@2xl:grid-cols-[2rem_minmax(0,1fr)_7.5rem_3.75rem_repeat(4,3.5rem)_6.75rem]";
+
+/** Poder por trás de um grupo da mesa ("versatilidade:raiton" → raiton), para kanji e cor. */
+const groupPower = (id: string) => (id.startsWith("versatilidade:") ? id.split(":")[1] : id.split(":")[0]);
+const groupKanji = (g: { id: string; title: string }) => KANJI_PODER[groupPower(g.id)] ?? (g.id === "basico" ? "刃" : g.title.charAt(0));
+const shortTitle = (t: string) => t.split(" (")[0].replace(" Versátil", "");
+
+/** Técnicas fixadas: preferência de quem joga, guardada só neste navegador. */
+function usePins(id: string) {
+  const key = `shinobi:fixados:${id}`;
+  const [pins, setPins] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      setPins(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    } catch {
+      setPins(new Set());
+    }
+  }, [key]);
+  const toggle = (k: string) =>
+    setPins((prev) => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      try {
+        localStorage.setItem(key, JSON.stringify([...n]));
+      } catch {}
+      return n;
+    });
+  return [pins, toggle] as const;
+}
+
+/** Filtro da lista: tudo, os fixados, um grupo (id) ou os poderes sem cálculo. */
+type Filtro = "todos" | "fixados" | "outros" | (string & {});
+/** O filtro escolhido continua o mesmo quando o mestre troca de ficha e volta. */
+const lastFiltro: Record<string, Filtro> = {};
 
 export function Ataques(props: MesaProps) {
   const { c, p, v, commit, patch } = props;
@@ -43,6 +80,28 @@ export function Ataques(props: MesaProps) {
   const [adjust, setAdjust] = useState<string | null>(null);
   const custom = p.attacks ?? [];
 
+  // Lista compacta: busca, filtro por grupo, fixados e grupos recolhidos.
+  const [q, setQ] = useState("");
+  const [filtro, setFiltroState] = useState<Filtro>(() => lastFiltro[c.id] ?? "todos");
+  const setFiltro = (f: Filtro) => {
+    lastFiltro[c.id] = f;
+    setFiltroState(f);
+  };
+  const [soDano, setSoDano] = useState(false);
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [pins, togglePin] = usePins(c.id);
+
+  const t = norm(q.trim());
+  const match = (row: AtkRow) => (!t || norm(`${row.name} ${row.sub}`).includes(t)) && (!soDano || !row.util);
+  const allRows = groups.flatMap((g) => g.rows.map((row) => ({ g, row })));
+  const pinned = allRows.filter((x) => pins.has(x.row.key));
+  // Um grupo que sumiu (poder removido) volta o filtro para "todos".
+  const f: Filtro = filtro === "todos" || filtro === "fixados" || (filtro === "outros" && outros.length) || groups.some((g) => g.id === filtro) ? filtro : "todos";
+  const shownGroups = f === "todos" ? groups : groups.filter((g) => g.id === f);
+  const showOutros = (f === "todos" || f === "outros") && !soDano;
+  const forceOpen = !!t || f !== "todos";
+
   const use = (row: AtkRow, lvl: number, r: Calc) => {
     const withMeta = row.meta && r.cost > 0;
     const metas = [withMeta && pot && `Potencializar (${POT_LABEL[pot]})`, withMeta && tp && "Técnica Poderosa"].filter(Boolean);
@@ -69,14 +128,111 @@ export function Ataques(props: MesaProps) {
     }
   };
 
+  const renderRow = (g: AtkGroup, row: AtkRow, ri: number, withKanji: boolean) => {
+    const divider = !withKanji && row.util && !g.rows[ri - 1]?.util;
+    const lvl = Math.min(row.max, Math.max(row.min, lvls[row.key] ?? row.max));
+    const isFree = !!free[row.key] && row.free && lvl >= 2;
+    const r = row.calc(lvl, { free: isFree, pot: pot && row.meta && !isFree ? pot : undefined });
+    const half = row.plusHalf || (tp && row.meta && r.cost > 0);
+    return (
+      <Fragment key={row.key}>
+        {divider && (
+          <li className="flex items-center gap-2 pt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-faint" aria-hidden="true">
+            Sem dano <span className="h-px flex-1 bg-line" />
+          </li>
+        )}
+        <AttackRow
+          name={row.name}
+          sub={row.sub}
+          note={row.note}
+          r={r}
+          short={r.cost > p.chk}
+          halfGrade={!!half}
+          minGrau={row.minGrau}
+          kanji={withKanji ? { k: groupKanji(g), color: corPoder(groupPower(g.id)) } : undefined}
+          pinned={pins.has(row.key)}
+          onPin={() => togglePin(row.key)}
+          open={openRow === row.key}
+          onToggle={() => setOpenRow(openRow === row.key ? null : row.key)}
+          level={
+            row.tags && row.min === row.max ? (
+              <span className="block max-w-[6.5rem] truncate text-xs text-muted @2xl:max-w-none @2xl:whitespace-normal @2xl:text-center" title={row.tags.join(" · ")}>
+                {row.tags.join(" · ")}
+              </span>
+            ) : row.min === row.max ? (
+              <span className="text-xs font-bold text-chakra">Nv {lvl}</span>
+            ) : (
+              <MiniStepper label={`Nível usado de ${row.name}`} value={lvl} min={row.min} max={row.max} prefix="Nv" onChange={(n) => setLvls((s) => ({ ...s, [row.key]: n }))} />
+            )
+          }
+          extra={
+            row.free && lvl >= 2 ? (
+              <button
+                type="button"
+                aria-pressed={isFree}
+                className={`rounded-full border px-2.5 py-1 text-xs font-bold transition ${isFree ? "border-chakra bg-chakra/15 text-[#ffd3a8]" : "border-line-2 text-faint hover:text-text"}`}
+                onClick={() => setFree((s) => ({ ...s, [row.key]: !s[row.key] }))}
+              >
+                Sem chakra (½ dano)
+              </button>
+            ) : null
+          }
+          onUse={() => use(row, lvl, r)}
+        />
+      </Fragment>
+    );
+  };
+
+  const chips: { k: Filtro; label: string; n: number; kanji?: string; color?: string }[] = [
+    { k: "fixados", label: "Fixados", n: pinned.length, kanji: "★", color: "var(--color-chakra)" },
+    { k: "todos", label: "Todas", n: allRows.length },
+    ...groups.map((g) => ({ k: g.id, label: shortTitle(g.title), n: g.rows.length, kanji: groupKanji(g), color: corPoder(groupPower(g.id)) })),
+    ...(outros.length ? [{ k: "outros", label: "Outros poderes", n: outros.length }] : []),
+  ];
+
   return (
     <section aria-labelledby="h-atk" className="@container card flex flex-col gap-4 p-4 sm:p-5">
       <SectionTitle id="h-atk" title="Técnicas e ataques">
-        Tudo o que a ficha tem para usar em combate. Dano final = dano base × grau; o grau sai do 2d8 do teste de ataque e 15 ou 16 é acerto crítico (grau 4, alvo sangrando).
+        Dano final = dano base × grau; o grau sai do 2d8 do teste de ataque e 15 ou 16 é acerto crítico (grau 4, alvo sangrando). Fixe com a ☆ as técnicas que você mais usa.
       </SectionTitle>
 
+      {/* Busca e filtros */}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex gap-2">
+          <label className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-line-2 bg-ink-2 pr-1.5 pl-3 focus-within:border-chakra">
+            <IconSearch className="size-4 shrink-0 text-muted" />
+            <span className="sr-only">Buscar técnica</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar técnica (ex.: Chidori, Canhão)" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-faint" />
+            {q && (
+              <button type="button" onClick={() => setQ("")} aria-label="Limpar busca" className="grid size-8 place-items-center rounded-lg bg-panel-2">
+                <IconX className="size-3.5" />
+              </button>
+            )}
+          </label>
+          <button type="button" aria-pressed={soDano} onClick={() => setSoDano(!soDano)} className={`chip min-h-11 shrink-0 font-bold ${soDano ? "border-chakra bg-chakra text-paper-ink" : "text-text hover:border-muted"}`}>
+            Só com dano
+          </button>
+        </div>
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 scrollbar-none sm:-mx-5 sm:px-5 @3xl:mx-0 @3xl:flex-wrap @3xl:px-0">
+          {chips.map((x) => {
+            const on = f === x.k;
+            return (
+              <button key={x.k} type="button" aria-pressed={on} onClick={() => setFiltro(x.k)} className={`chip shrink-0 font-bold whitespace-nowrap ${on ? "border-paper bg-paper text-paper-ink" : "text-text hover:border-muted"}`}>
+                {x.kanji && (
+                  <span className="font-display" style={{ color: on ? undefined : x.color }} aria-hidden="true">
+                    {x.kanji}
+                  </span>
+                )}
+                {x.label}
+                <span className={`text-[11px] ${on ? "text-paper-muted" : "text-muted"}`}>{x.n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {(canPot || canTP || canEnerg || canPoderoso || v.dano !== 0) && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 scrollbar-none sm:-mx-5 sm:px-5 @3xl:mx-0 @3xl:flex-wrap @3xl:px-0">
           {v.dano !== 0 && <span className="chip border-chakra text-[#ffd3a8]">Estados: dano base {sg(v.dano)}</span>}
           {canEnerg && <MetaChip on={energ} onClick={() => setEnerg(!energ)} label="Golpe energizado" hint="Espírito no dano" />}
           {canPoderoso && <MetaChip on={poderoso} onClick={() => setPoderoso(!poderoso)} label="Ataque Poderoso" hint="+1 dano, −1 acerto" />}
@@ -85,175 +241,171 @@ export function Ataques(props: MesaProps) {
               <MetaChip key={m} on={pot === m} onClick={() => setPot(pot === m ? null : m)} label="Potencializar" hint={POT_LABEL[m]} />
             ))}
           {canTP && <MetaChip on={tp} onClick={() => setTp(!tp)} label="Técnica Poderosa" hint="+0,5 de grau" />}
-          {(canPot || canTP) && <span className="text-xs text-faint">Meta-aptidão: ação de movimento, uma por técnica, vale para o próximo ataque.</span>}
+          {(canPot || canTP) && <span className="hidden text-xs text-faint @3xl:inline">Meta-aptidão: ação de movimento, uma por técnica, vale para o próximo ataque.</span>}
         </div>
       )}
 
-      <div className="flex flex-col gap-5">
-        {/* Cabeçalho dos graus (no celular, cada célula traz o próprio rótulo) */}
-        <div className={`hidden items-end gap-2 px-3 @2xl:grid ${COLS}`} aria-hidden="true">
+      <div className="flex flex-col gap-3">
+        {/* Celular: legenda da linha de números */}
+        <p className="flex items-center gap-1.5 px-1 text-[11px] text-faint @2xl:hidden" aria-hidden="true">
+          Nível · <span className="rounded border border-chakra/60 px-1 text-chakra">base</span> · G1 · G2 · G3 · <span className="rounded bg-[#3d1f18] px-1 text-[#ff9a80]">G4 crítico</span>
+        </p>
+        {/* Cabeçalho das colunas na tabela larga */}
+        <div className={`hidden items-end gap-2 pr-[9px] pl-[5px] @2xl:grid ${COLS}`} aria-hidden="true">
+          <span />
           <span className="label">Técnica</span>
+          <span className="label text-center">Nível</span>
+          <span className="label text-center text-chakra">Base</span>
           {GRAU_2D8.map((r, i) => (
             <span key={r} className={`flex flex-col items-center leading-tight ${i === 3 ? "text-[#ff9a80]" : "text-muted"}`}>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Grau {i + 1}</span>
-              <span className="text-[10px] text-faint">{i === 0 ? `${r} · base` : r}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">G{i + 1}</span>
+              <span className="text-[10px] text-faint">{r}</span>
             </span>
           ))}
           <span />
         </div>
 
-        {groups.map((g) => (
-          <div key={g.id} className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line-2 pb-2">
-              <h3 className="font-display text-lg font-extrabold text-paper">
-                {g.title} {g.level > 0 && <span className="text-sm font-bold text-chakra">Nv {g.level}</span>}
-              </h3>
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
-                <span>{g.info ?? `${g.keyLabel} ${g.keyVal}`}</span>
-                {g.alcance !== undefined && (
-                  <span title="Alcance e tamanho comuns do poder (dá para usar menos, trocando o atributo pelo nível usado)">
-                    Alcance {g.alcance}m · Tamanho {g.tamanho}m
-                  </span>
-                )}
-                {g.bonus.map((b) => (
-                  <span key={b.label} className="text-[#ffd3a8]">
-                    {b.label} +{b.v}
-                  </span>
-                ))}
-                {g.extra !== 0 && <span className="text-[#ffd3a8]">extra {sg(g.extra)}</span>}
-                <button type="button" className="font-bold text-faint underline-offset-2 hover:text-text hover:underline" aria-expanded={adjust === g.id} onClick={() => setAdjust(adjust === g.id ? null : g.id)}>
-                  Ajustar
-                </button>
-              </div>
-            </div>
-            {g.notice && <p className="rounded-xl border border-chakra/40 bg-chakra/10 px-3 py-2 text-xs leading-snug text-[#ffd3a8]">{g.notice}</p>}
-            {adjust === g.id && (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink-2 px-3 py-2.5">
-                <span className="flex-1 text-xs leading-snug text-muted">
-                  Bônus de dano que a ficha não calcula (Hibon, Satetsu, Domínio Simples, item…). Soma em todos os ataques de {g.title}.
-                </span>
-                <MiniStepper
-                  label={`Bônus extra de ${g.title}`}
-                  value={g.extra}
-                  onChange={(n) => patch((pl) => void (pl.dmgExtra = { ...pl.dmgExtra, [g.id]: n }))}
-                  min={-20}
-                  max={20}
-                  signed
-                />
-              </div>
-            )}
-            <ul className="flex flex-col gap-2">
-              {g.rows.map((row, ri) => {
-                const divider = row.util && !g.rows[ri - 1]?.util;
-                const lvl = Math.min(row.max, Math.max(row.min, lvls[row.key] ?? row.max));
-                const isFree = !!free[row.key] && row.free && lvl >= 2;
-                const r = row.calc(lvl, { free: isFree, pot: pot && row.meta && !isFree ? pot : undefined });
-                const half = row.plusHalf || (tp && row.meta && r.cost > 0);
-                return (
-                  <Fragment key={row.key}>
-                    {divider && (
-                      <li className="flex items-center gap-2 pt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-faint" aria-hidden="true">
-                        Sem dano <span className="h-px flex-1 bg-line" />
-                      </li>
+        {f === "fixados" ? (
+          pinned.filter((x) => match(x.row)).length ? (
+            <ul className="flex flex-col gap-1.5">{pinned.filter((x) => match(x.row)).map((x, i) => renderRow(x.g, x.row, i, true))}</ul>
+          ) : (
+            <p className="rounded-xl border border-dashed border-line-2 p-5 text-center text-sm text-muted">{pins.size ? "Nenhuma técnica fixada com esse filtro." : "Toque na ☆ de uma técnica para fixá-la aqui. Ótimo para builds grandes: só o que você usa no combate."}</p>
+          )
+        ) : (
+          shownGroups.map((g) => {
+            const rows = g.rows.filter(match);
+            if (!rows.length && (t || soDano)) return null;
+            const open = forceOpen || !closed[g.id];
+            return (
+              <div key={g.id} className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-2 pb-1.5">
+                  <button type="button" aria-expanded={open} onClick={() => setClosed((s) => ({ ...s, [g.id]: open }))} disabled={forceOpen} className="flex min-h-10 min-w-0 items-center gap-2 text-left disabled:cursor-default">
+                    <IconRight className={`size-4 shrink-0 text-faint transition ${open ? "rotate-90" : ""} ${forceOpen ? "opacity-0" : ""}`} />
+                    <span className="font-display text-lg font-extrabold" style={{ color: corPoder(groupPower(g.id)) }} aria-hidden="true">
+                      {groupKanji(g)}
+                    </span>
+                    <span className="font-display text-lg font-extrabold text-paper">{g.title}</span>
+                    {g.level > 0 && <span className="text-sm font-bold text-chakra">Nv {g.level}</span>}
+                    <span className="rounded-full bg-panel-2 px-2 text-[11px] font-bold text-muted">{rows.length}</span>
+                  </button>
+                  <div className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
+                    <span>{g.info ?? `${g.keyLabel} ${g.keyVal}`}</span>
+                    {g.alcance !== undefined && (
+                      <span title="Alcance e tamanho comuns do poder (dá para usar menos, trocando o atributo pelo nível usado)">
+                        Alcance {g.alcance}m · Tamanho {g.tamanho}m
+                      </span>
                     )}
-                  <AttackRow
-                    name={row.name}
-                    sub={row.sub}
-                    note={row.note}
-                    r={r}
-                    short={r.cost > p.chk}
-                    halfGrade={!!half}
-                    minGrau={row.minGrau}
-                    level={
-                      row.tags && row.min === row.max ? (
-                        <span className="text-xs text-muted">{row.tags.join(" · ")}</span>
-                      ) : row.min === row.max ? (
-                        <span className="text-xs font-bold text-chakra">Nv {lvl}</span>
+                    {g.bonus.map((b) => (
+                      <span key={b.label} className="text-[#ffd3a8]">
+                        {b.label} +{b.v}
+                      </span>
+                    ))}
+                    {g.extra !== 0 && <span className="text-[#ffd3a8]">extra {sg(g.extra)}</span>}
+                    <button type="button" className="min-h-8 font-bold text-faint underline-offset-2 hover:text-text hover:underline" aria-expanded={adjust === g.id} onClick={() => setAdjust(adjust === g.id ? null : g.id)}>
+                      Ajustar
+                    </button>
+                  </div>
+                </div>
+                {g.notice && <p className="rounded-xl border border-chakra/40 bg-chakra/10 px-3 py-2 text-xs leading-snug text-[#ffd3a8]">{g.notice}</p>}
+                {adjust === g.id && (
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink-2 px-3 py-2.5">
+                    <span className="flex-1 text-xs leading-snug text-muted">
+                      Bônus de dano que a ficha não calcula (Hibon, Satetsu, Domínio Simples, item…). Soma em todos os ataques de {g.title}.
+                    </span>
+                    <MiniStepper
+                      label={`Bônus extra de ${g.title}`}
+                      value={g.extra}
+                      onChange={(n) => patch((pl) => void (pl.dmgExtra = { ...pl.dmgExtra, [g.id]: n }))}
+                      min={-20}
+                      max={20}
+                      signed
+                    />
+                  </div>
+                )}
+                {open && <ul className="flex flex-col gap-1.5">{rows.map((row, ri) => renderRow(g, row, ri, false))}</ul>}
+              </div>
+            );
+          })
+        )}
+
+        {showOutros &&
+          outros
+            .filter((o) => !t || norm(`${o.title} ${o.items.join(" ")}`).includes(t))
+            .map((o) => {
+              const open = forceOpen || !closed[o.id];
+              return (
+                <div key={o.id} className="flex flex-col gap-2">
+                  <button type="button" aria-expanded={open} onClick={() => setClosed((s) => ({ ...s, [o.id]: open }))} disabled={forceOpen} className="flex min-h-10 items-center gap-2 border-b border-line-2 pb-1.5 text-left disabled:cursor-default">
+                    <IconRight className={`size-4 shrink-0 text-faint transition ${open ? "rotate-90" : ""} ${forceOpen ? "opacity-0" : ""}`} />
+                    <span className="font-display text-lg font-extrabold" style={{ color: corPoder(groupPower(o.id)) }} aria-hidden="true">
+                      {KANJI_PODER[groupPower(o.id)] ?? ""}
+                    </span>
+                    <span className="font-display text-lg font-extrabold text-paper">{o.title}</span>
+                    {o.level > 0 && <span className="text-sm font-bold text-chakra">Nv {o.level}</span>}
+                    <span className="rounded-full bg-panel-2 px-2 text-[11px] font-bold text-muted">{o.items.length}</span>
+                  </button>
+                  {open && (
+                    <>
+                      {o.items.length > 0 ? (
+                        <ul className="flex flex-wrap gap-2">
+                          {o.items.map((it) => (
+                            <li key={it} className="rounded-lg border border-line bg-ink-2 px-2.5 py-1.5 text-sm text-text">
+                              {it}
+                            </li>
+                          ))}
+                        </ul>
                       ) : (
-                        <MiniStepper label={`Nível usado de ${row.name}`} value={lvl} min={row.min} max={row.max} prefix="Nv" onChange={(n) => setLvls((s) => ({ ...s, [row.key]: n }))} />
-                      )
-                    }
-                    extra={
-                      row.free && lvl >= 2 ? (
-                        <button
-                          type="button"
-                          aria-pressed={isFree}
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold transition ${isFree ? "border-chakra bg-chakra/15 text-[#ffd3a8]" : "border-line-2 text-faint hover:text-text"}`}
-                          onClick={() => setFree((s) => ({ ...s, [row.key]: !s[row.key] }))}
-                        >
-                          Sem chakra (½ dano)
-                        </button>
-                      ) : null
-                    }
-                    onUse={() => use(row, lvl, r)}
-                  />
-                  </Fragment>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+                        !o.note && <p className="text-xs text-faint">Técnicas deste poder ficam no livro; anote custos e danos em “Anotar ataque”.</p>
+                      )}
+                      {o.note && <p className="whitespace-pre-line text-xs leading-snug text-muted">{o.note}</p>}
+                    </>
+                  )}
+                </div>
+              );
+            })}
 
-        {outros.map((o) => (
-          <div key={o.id} className="flex flex-col gap-2">
-            <div className="border-b border-line-2 pb-2">
-              <h3 className="font-display text-lg font-extrabold text-paper">
-                {o.title} {o.level > 0 && <span className="text-sm font-bold text-chakra">Nv {o.level}</span>}
-              </h3>
-            </div>
-            {o.items.length > 0 ? (
-              <ul className="flex flex-wrap gap-2">
-                {o.items.map((t) => (
-                  <li key={t} className="rounded-lg border border-line bg-ink-2 px-2.5 py-1.5 text-sm text-text">
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              !o.note && <p className="text-xs text-faint">Técnicas deste poder ficam no livro; anote custos e danos em “Anotar ataque”.</p>
-            )}
-            {o.note && <p className="whitespace-pre-line text-xs leading-snug text-muted">{o.note}</p>}
-          </div>
-        ))}
-
-        {custom.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <div className="border-b border-line-2 pb-2">
+        {f === "todos" && custom.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <div className="border-b border-line-2 pb-1.5">
               <h3 className="font-display text-lg font-extrabold text-paper">Anotados</h3>
             </div>
-            <ul className="flex flex-col gap-2">
-              {custom.map((a) => {
-                const r: Calc = { base: Math.max(0, a.base + v.dano), cost: a.cost, dif: 0, parts: v.dano ? [`${a.base}`, `estado ${v.dano}`] : [`${a.base}`] };
-                return (
-                  <AttackRow
-                    key={a.id}
-                    name={a.name}
-                    sub="Anotado na mesa"
-                    note={a.note}
-                    r={r}
-                    short={a.cost > p.chk}
-                    halfGrade={false}
-                    noDif
-                    level={
-                      <button
-                        type="button"
-                        className="grid size-7 place-items-center rounded-lg text-faint hover:text-bad"
-                        aria-label={`Apagar ataque ${a.name}`}
-                        onClick={() => patch((pl) => void (pl.attacks = (pl.attacks ?? []).filter((x) => x.id !== a.id)))}
-                      >
-                        <IconTrash className="size-4" />
-                      </button>
-                    }
-                    onUse={() =>
-                      commit((pl, log) => {
-                        if (!payChakra(pl, a.cost, a.name, log)) return;
-                        log(`${a.name} · base ${r.base}${a.cost ? ` · −${a.cost} chakra` : ""}`, a.cost ? "chk" : "n");
-                        checkChakra(pl, log);
-                      })
-                    }
-                  />
-                );
-              })}
+            <ul className="flex flex-col gap-1.5">
+              {custom
+                .filter((a) => !t || norm(a.name).includes(t))
+                .map((a) => {
+                  const r: Calc = { base: Math.max(0, a.base + v.dano), cost: a.cost, dif: 0, parts: v.dano ? [`${a.base}`, `estado ${v.dano}`] : [`${a.base}`] };
+                  return (
+                    <AttackRow
+                      key={a.id}
+                      name={a.name}
+                      sub="Anotado na mesa"
+                      note={a.note}
+                      r={r}
+                      short={a.cost > p.chk}
+                      halfGrade={false}
+                      noDif
+                      open={openRow === a.id}
+                      onToggle={() => setOpenRow(openRow === a.id ? null : a.id)}
+                      level={
+                        <button
+                          type="button"
+                          className="grid size-8 place-items-center rounded-lg text-faint hover:text-bad"
+                          aria-label={`Apagar ataque ${a.name}`}
+                          onClick={() => patch((pl) => void (pl.attacks = (pl.attacks ?? []).filter((x) => x.id !== a.id)))}
+                        >
+                          <IconTrash className="size-4" />
+                        </button>
+                      }
+                      onUse={() =>
+                        commit((pl, log) => {
+                          if (!payChakra(pl, a.cost, a.name, log)) return;
+                          log(`${a.name} · base ${r.base}${a.cost ? ` · −${a.cost} chakra` : ""}`, a.cost ? "chk" : "n");
+                          checkChakra(pl, log);
+                        })
+                      }
+                    />
+                  );
+                })}
             </ul>
           </div>
         )}
@@ -264,6 +416,10 @@ export function Ataques(props: MesaProps) {
   );
 }
 
+/**
+ * Uma técnica: uma linha densa (fixar, nome, nível, base, 4 graus, usar). No celular, nome e "Usar" em cima e os
+ * números embaixo. Observação, parcelas do dano e área abrem ao tocar no nome.
+ */
 function AttackRow({
   name,
   sub,
@@ -276,6 +432,11 @@ function AttackRow({
   extra,
   onUse,
   short,
+  kanji,
+  pinned,
+  onPin,
+  open,
+  onToggle,
 }: {
   name: string;
   sub: string;
@@ -289,90 +450,109 @@ function AttackRow({
   onUse: () => void;
   /** Chakra insuficiente para usar. */
   short?: boolean;
+  /** Kanji do grupo, quando a linha aparece fora dele (lista de fixados). */
+  kanji?: { k: string; color: string };
+  pinned?: boolean;
+  onPin?: () => void;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const cells = graus(r.base, halfGrade, minGrau);
+  const resumo = [sub, !noDif && !r.noDif ? `Dif ${r.dif}` : "", r.geo?.alcance, halfGrade ? "grau +0,5" : ""].filter(Boolean).join(" · ");
+  const temDetalhe = !!(note || r.info?.txt || r.geo?.area || extra || (!r.fixed && !r.info && r.parts.length > 1));
   return (
-    <li className={`grid grid-cols-4 items-center gap-2 rounded-xl border border-line bg-ink-2 p-3 ${COLS}`}>
-      {/* Nome, nível e observações */}
-      <div className={`col-span-4 flex min-w-0 flex-col gap-1 ${r.info && r.info.v === undefined ? "@2xl:col-span-5" : "@2xl:col-span-1"}`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 flex-col leading-tight">
+    <li className={`rounded-xl border bg-ink-2 ${open ? "border-line-2" : "border-line"}`}>
+      <div className={`grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 py-1.5 pr-2 pl-1 ${COLS}`}>
+        {onPin ? (
+          <button type="button" onClick={onPin} aria-pressed={!!pinned} aria-label={`${pinned ? "Desafixar" : "Fixar"} ${name}`} className={`grid size-8 place-items-center rounded-lg text-base transition ${pinned ? "text-chakra" : "text-line-2 hover:text-muted"}`}>
+            {pinned ? "★" : "☆"}
+          </button>
+        ) : (
+          <span />
+        )}
+        <button type="button" onClick={onToggle} aria-expanded={open} disabled={!temDetalhe} className="flex min-h-10 min-w-0 flex-col justify-center text-left disabled:cursor-default">
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            {kanji && (
+              <span className="shrink-0 font-display text-sm font-extrabold" style={{ color: kanji.color }} aria-hidden="true">
+                {kanji.k}
+              </span>
+            )}
             <span className="truncate font-bold text-paper" title={name}>
               {name}
             </span>
-            {sub && <span className="truncate text-xs text-muted">{sub}</span>}
-          </div>
-          <UseButton cost={r.cost} vis={r.vis} short={short} onUse={onUse} className="@2xl:hidden" />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          {!r.fixed && !r.info && (
-            <span className="inline-flex items-baseline gap-1 rounded-md border border-chakra/60 bg-chakra/10 px-1.5 py-0.5" title={`Dano base = ${partsText(r.parts)}`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-chakra">Base</span>
-              <AnimatedNumber value={r.base} className="text-sm font-extrabold text-[#ffd3a8]" />
-            </span>
-          )}
-          {level}
-          {!noDif && !r.noDif && <span className="text-xs text-muted">Dif {r.dif}</span>}
-          {halfGrade && <span className="text-[11px] font-bold text-[#ffd3a8]">grau +0,5</span>}
-          {extra}
-        </div>
-        {r.geo && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
-              <IconAlcance />
-              <span className="sr-only">Alcance:</span>
-              {r.geo.alcance}
-            </span>
-            {r.geo.area && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
-                <IconArea />
-                <span className="sr-only">Área ou alvo:</span>
-                {r.geo.area}
+            {temDetalhe && <IconRight className={`size-3.5 shrink-0 self-center text-faint transition ${open ? "rotate-90" : ""}`} />}
+          </span>
+          {resumo && <span className="truncate text-xs text-muted">{resumo}</span>}
+        </button>
+        <UseButton cost={r.cost} vis={r.vis} short={short} onUse={onUse} className="@2xl:order-last" />
+
+        {/* Celular: segunda linha com nível e números; na tabela larga, cada um vira uma coluna */}
+        <div className="col-span-3 flex items-center gap-1 pl-1 @2xl:contents">
+          <span className="flex shrink-0 items-center @2xl:justify-center">{level}</span>
+          {r.info ? (
+            r.info.v !== undefined ? (
+              <span className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#2d5577] bg-chk-bg px-2.5 py-1 @2xl:col-span-5 @2xl:justify-center">
+                <span className="font-display text-lg font-extrabold leading-none tabular-nums text-chk @2xl:text-2xl">{r.info.v}</span>
+                <span className="truncate text-[11px] font-bold uppercase leading-tight tracking-wider text-chk-muted">{r.info.label}</span>
               </span>
-            )}
-          </div>
-        )}
-        {note && <p className="text-xs leading-snug text-faint">{note}</p>}
-        {r.info && <p className="text-xs leading-snug text-muted">{r.info.txt}</p>}
-        {!r.fixed && !r.info && r.parts.length > 1 && (
-          <p className="text-[11px] leading-snug text-faint">
-            <span className="font-bold text-chakra/80">Base</span> = {partsText(r.parts)}
-          </p>
-        )}
+            ) : (
+              <span className="min-w-0 truncate text-xs text-muted @2xl:col-span-5">{r.info.txt}</span>
+            )
+          ) : r.fixed ? (
+            <span className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-line-2 px-2.5 py-1 @2xl:col-span-5">
+              <span className="font-display text-lg font-extrabold tabular-nums text-paper @2xl:text-2xl">{r.fixed.v}</span>
+              <span className="truncate text-xs text-muted">de dano fixo · não multiplica pelo grau</span>
+            </span>
+          ) : (
+            <>
+              <span className="flex min-w-0 flex-1 items-center justify-center rounded-md border border-chakra/60 bg-chakra/10 px-1 py-0.5 @2xl:h-9 @2xl:flex-none" title={`Dano base = ${partsText(r.parts)}`}>
+                <span className="sr-only">Dano base:</span>
+                <AnimatedNumber value={r.base} className="text-sm font-extrabold text-[#ffd3a8] @2xl:text-base" />
+              </span>
+              {cells.map(({ g, v }) => (
+                <span
+                  key={g}
+                  className={`flex min-w-0 flex-1 items-center justify-center rounded-md px-0.5 py-1 @2xl:h-9 @2xl:flex-none @2xl:px-1.5 ${g === 4 ? "bg-[#3d1f18] ring-1 ring-[#6b3526]" : "bg-panel"}`}
+                  title={v === null ? `Grau mínimo ${minGrau}` : `Grau ${g}${halfGrade ? ",5" : ""}: ${r.base} × ${g}${halfGrade ? ",5" : ""}`}
+                >
+                  <span className="sr-only">Grau {g}:</span>
+                  <AnimatedNumber value={v ?? "—"} className={`font-display text-[15px] font-extrabold leading-none @2xl:text-xl ${v === null ? "text-faint" : g === 4 ? "text-vit" : "text-paper"}`} />
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
-      {r.info ? (
-        r.info.v !== undefined && (
-          <div className="col-span-4 flex items-center justify-center gap-3 rounded-lg border border-[#2d5577] bg-chk-bg px-3 py-2">
-            <span className="font-display text-3xl font-extrabold leading-none tabular-nums text-chk">{r.info.v}</span>
-            <span className="text-[11px] font-bold uppercase leading-tight tracking-wider text-chk-muted">{r.info.label}</span>
-          </div>
-        )
-      ) : r.fixed ? (
-        <div className="col-span-4 flex items-center gap-3 rounded-lg border border-line-2 px-3 py-2">
-          <span className="font-display text-3xl font-extrabold tabular-nums text-paper">{r.fixed.v}</span>
-          <span className="text-xs leading-snug text-muted">
-            de dano fixo {r.fixed.txt}
-            <br />
-            <span className="text-faint">não multiplica pelo grau</span>
-          </span>
-        </div>
-      ) : (
-        <>
-          {cells.map(({ g, v }) => (
-            <div
-              key={g}
-              className={`flex flex-col items-center rounded-lg py-1.5 ${g === 4 ? "bg-[#3d1f18] ring-1 ring-[#6b3526]" : "bg-panel"}`}
-              title={v === null ? `Grau mínimo ${minGrau}` : `Grau ${g}${halfGrade ? ",5" : ""}: ${r.base} × ${g}${halfGrade ? ",5" : ""}`}
-            >
-              <span className={`text-[10px] font-bold uppercase tracking-wider @2xl:hidden ${g === 4 ? "text-[#ff9a80]" : "text-faint"}`}>G{g}</span>
-              <AnimatedNumber value={v ?? "—"} className={`font-display text-2xl font-extrabold leading-none ${v === null ? "text-faint" : g === 4 ? "text-vit" : "text-paper"}`} />
+      {open && temDetalhe && (
+        <div className="flex flex-col gap-1.5 border-t border-line px-3 py-2.5 @2xl:pl-11">
+          {extra && <div>{extra}</div>}
+          {r.geo && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
+                <IconAlcance />
+                <span className="sr-only">Alcance:</span>
+                {r.geo.alcance}
+              </span>
+              {r.geo.area && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
+                  <IconArea />
+                  <span className="sr-only">Área ou alvo:</span>
+                  {r.geo.area}
+                </span>
+              )}
             </div>
-          ))}
-        </>
+          )}
+          {note && <p className="text-xs leading-snug text-faint">{note}</p>}
+          {r.info?.v !== undefined && r.info.txt && <p className="text-xs leading-snug text-muted">{r.info.txt}</p>}
+          {!r.fixed && !r.info && r.parts.length > 1 && (
+            <p className="text-[11px] leading-snug text-faint">
+              <span className="font-bold text-chakra/80">Base</span> = {partsText(r.parts)}
+            </p>
+          )}
+          {r.fixed && <p className="text-xs leading-snug text-muted">{r.fixed.txt}</p>}
+        </div>
       )}
-
-      <UseButton cost={r.cost} vis={r.vis} short={short} onUse={onUse} className={`hidden @2xl:inline-flex ${r.fixed || r.info ? "@2xl:col-start-6 @2xl:row-start-1" : ""}`} />
     </li>
   );
 }
@@ -412,7 +592,7 @@ function UseButton({ cost, vis, short, onUse, className = "" }: { cost: number; 
 
 function MetaChip({ on, onClick, label, hint }: { on: boolean; onClick: () => void; label: string; hint: string }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick} className={`chip ${on ? "border-chakra bg-chakra text-paper-ink" : "text-text hover:border-muted"}`}>
+    <button type="button" aria-pressed={on} onClick={onClick} className={`chip shrink-0 whitespace-nowrap ${on ? "border-chakra bg-chakra text-paper-ink" : "text-text hover:border-muted"}`}>
       <span className="font-bold">{label}</span>
       <span className={`text-xs ${on ? "text-paper-ink/80" : "text-muted"}`}>{hint}</span>
     </button>

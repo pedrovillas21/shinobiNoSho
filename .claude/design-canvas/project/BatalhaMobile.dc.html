@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Mesa · Ataques no celular</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0;background:#16120e}
+a{color:#f0892a}a:hover{color:#ffd3a8}
+button,input{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:0.4}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #16120e; color: #efe6d6; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="flex-shrink: 0; padding: 10px 16px 12px; border-bottom: 1px solid #2e261e; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <a href="#" aria-label="Voltar ao início" style="display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #3a3027; border-radius: 12px; color: #efe6d6">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </a>
+      <div style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+        <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-weight: 800; font-size: 18px; color: #f3e9d6; line-height: 1.15">Ashihira Senju</span>
+        <span style="font-size: 12px; color: #b3a48c">NC 20 · Sannin/Kage</span>
+      </div>
+      <span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 99px; background: #2a221a; font-size: 13px; font-weight: 700">Rodada <span style="color: #f0892a">3</span></span>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+      <span style="display: flex; flex-direction: column; gap: 4px">
+        <span style="display: flex; align-items: baseline; gap: 5px; line-height: 1"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">VIT</span><span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 17px; font-weight: 800; color: #ffd9cf">134</span><span style="font-size: 12px; color: #b3a48c">/ 134</span></span>
+        <span style="display: block; height: 6px; border-radius: 6px; background: #3d1f18"><span style="display: block; height: 6px; width: 100%; border-radius: 6px; background: #e0573a"></span></span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 4px">
+        <span style="display: flex; align-items: baseline; gap: 5px; line-height: 1"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">CHAKRA</span><span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 17px; font-weight: 800; color: #d6e9fa">{{ chk }}</span><span style="font-size: 12px; color: #b3a48c">/ 90</span></span>
+        <span style="display: block; height: 6px; border-radius: 6px; background: #1c3346"><span style="display: block; height: 6px; width: {{ chkPct }}; border-radius: 6px; background: #4f9bd9"></span></span>
+      </span>
+    </div>
+  </header>
+
+  <div style="flex-shrink: 0; display: flex; gap: 6px; padding: 10px 16px; overflow-x: auto; border-bottom: 1px solid #2e261e">
+    <sc-for list="{{ chips }}" as="c" hint-placeholder-count="9">
+      <button type="button" onClick="{{ c.pick }}" aria-pressed="{{ c.pressed }}" style="flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; height: 36px; padding: 0 11px; border-radius: 99px; border: 1px solid {{ c.border }}; background: {{ c.bg }}; color: {{ c.color }}; font-size: 13px; font-weight: 700; white-space: nowrap">
+        <span style="color: {{ c.kColor }}">{{ c.kanji }}</span>{{ c.label }}<span style="font-weight: 500; opacity: 0.7">{{ c.n }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 0 12px; display: flex; flex-direction: column">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <div>
+        <button type="button" onClick="{{ g.toggle }}" aria-expanded="{{ g.expanded }}" style="width: 100%; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 4px; border: 0; background: transparent; color: #efe6d6; text-align: left">
+          <span style="width: 12px; font-size: 11px; color: #8f8170">{{ g.chev }}</span>
+          <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 16px; font-weight: 800; color: {{ g.color }}">{{ g.kanji }}</span>
+          <span style="font-size: 15px; font-weight: 700; color: #f3e9d6">{{ g.label }}</span>
+          <span style="font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #2a221a; color: #b3a48c">{{ g.n }}</span>
+          <span style="margin-left: auto; font-size: 11px; color: #8f8170">G1 · G2 · G3 · G4</span>
+        </button>
+        <sc-if value="{{ g.open }}" hint-placeholder-val="{{ true }}">
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="6">
+              <li style="display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 2px; border: 1px solid #2e261e; border-radius: 12px; background: #211b15">
+                <button type="button" onClick="{{ r.pin }}" aria-pressed="{{ r.pinned }}" aria-label="{{ r.pinAria }}" style="display: grid; place-items: center; width: 36px; height: 44px; flex-shrink: 0; border: 0; background: transparent; color: {{ r.starColor }}; font-size: 17px">{{ r.star }}</button>
+                <span style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0">
+                  <span style="display: flex; align-items: baseline; gap: 6px; min-width: 0">
+                    <span style="color: {{ r.kColor }}; font-weight: 800; font-size: 13px">{{ r.kanji }}</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #f3e9d6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.name }}</span>
+                  </span>
+                  <sc-if value="{{ r.dmg }}" hint-placeholder-val="{{ true }}">
+                    <span style="display: flex; align-items: center; gap: 4px">
+                      <span style="font-size: 11px; font-weight: 700; color: #f0892a; margin-right: 2px">Nv {{ r.lv }}</span>
+                      <sc-for list="{{ r.cells }}" as="cl" hint-placeholder-count="4">
+                        <span style="min-width: 30px; padding: 2px 0; border-radius: 6px; text-align: center; background: {{ cl.bg }}; font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 14px; font-weight: 800; color: {{ cl.color }}">{{ cl.v }}</span>
+                      </sc-for>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ r.noDmg }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size: 12px; color: #b3a48c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.text }}</span>
+                  </sc-if>
+                </span>
+                <button type="button" onClick="{{ r.use }}" disabled="{{ r.short }}" style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; height: 44px; flex-shrink: 0; border: 0; border-radius: 10px; background: #1f4e73; color: #fff; font-size: 13px; font-weight: 700; line-height: 1.1">Usar<span style="font-size: 11px; font-weight: 500; color: #d6e9fa">{{ r.costText }}</span></button>
+              </li>
+            </sc-for>
+          </ul>
+        </sc-if>
+      </div>
+    </sc-for>
+  </main>
+
+  <nav aria-label="Partes da mesa" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 4px 4px 10px; border-top: 1px solid #2e261e; background: #1b1612">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <a href="#" aria-current="{{ t.current }}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 54px; text-decoration: none; font-size: 11px; font-weight: 700; color: {{ t.color }}">
+        <span style="width: 22px; height: 3px; border-radius: 3px; background: {{ t.bar }}"></span>
+        {{ t.label }}
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var EL = {
+  fix: { name: 'Fixados', kanji: '★', c: '#f0892a' },
+  R: { name: 'Raiton', kanji: '雷', c: '#e8c547', bonus: 1 },
+  K: { name: 'Katon', kanji: '火', c: '#f07a4a', bonus: 0 },
+  W: { name: 'Fuuton', kanji: '風', c: '#7fc8a9', bonus: 0 },
+  S: { name: 'Suiton', kanji: '水', c: '#5aa7e0', bonus: 0 },
+  D: { name: 'Doton', kanji: '土', c: '#c99a66', bonus: 0 },
+  F: { name: 'Fuuinjutsu', kanji: '封', c: '#b294e8', bonus: 0 },
+  B: { name: 'Básico', kanji: '刃', c: '#b3a48c', bonus: 0 }
+};
+var ORDER = ['R', 'K', 'W', 'S', 'D', 'F', 'B'];
+var ROWS = [
+  ['r1', 'R', 'Jinraisen', 'c', 1], ['r2', 'R', 'Shiden', 'c', 2], ['r3', 'R', 'Chidori / Raikiri', 'c', 4], ['r4', 'R', 'Raikiri · Investida', 'c', 5, 7],
+  ['r5', 'R', 'Raiken', 'c', 5], ['r6', 'R', 'Kirin', 'c', 8], ['r7', 'R', 'Kanden Haribari', 'f', 4], ['r8', 'R', 'Chidori Nagashi', 'c', 6], ['r9', 'R', 'Desastre', 'c', 9],
+  ['k1', 'K', 'Hiakahou', 'c', 1], ['k2', 'K', 'Shoukakyuu no Jutsu', 'c', 2], ['k3', 'K', 'Goukakyuu no Jutsu', 'sopro', 4], ['k4', 'K', 'Housenka / Tsumabeni', 'f', 4],
+  ['k5', 'K', 'Ricochete', 'c', 5], ['k6', 'K', 'Kaen Senpū', 'c', 7], ['k7', 'K', 'Homuranagase', 'c', 10],
+  ['w1', 'W', 'Renkūdan', 'c', 1], ['w2', 'W', 'Rasengan / Oodama', 'c', 6], ['w3', 'W', 'Shinkuuha', 'c', 8], ['w4', 'W', 'Taifuuikka', 'c', 5],
+  ['w5', 'W', 'Kumo', 'fixo', 7], ['w6', 'W', 'Fūhakujun', 'u', 3, 0, 'Barreira · sem dano'],
+  ['s1', 'S', 'Mizudeppou', 'c', 1], ['s2', 'S', 'Ryūsuisō', 'c', 7], ['s3', 'S', 'Suishouha', 'valor', 10], ['s4', 'S', 'Haran Banshō', 'u', 3, 0, 'Barreira · sem dano'],
+  ['s5', 'S', 'Araumi', 'u', 6, 0, 'Restringente · resistido'], ['s6', 'S', 'Suirou no Jutsu', 'u', 9, 0, 'Prisão de Água · resistido'],
+  ['d1', 'D', 'Makigai Hō', 'c', 1], ['d2', 'D', 'Kiretsu', 'c', 5], ['d3', 'D', 'Buki no Sakusei', 'u', 2, 0, 'Criar Arma'], ['d4', 'D', 'Moguragakure no Jutsu', 'u', 4, 0, 'Imergir'],
+  ['d5', 'D', 'Sazareishi', 'u', 8, 0, 'Algemar · resistido'], ['d6', 'D', 'Dorou Doumu', 'u', 3, 0, 'Barreira · sem dano'],
+  ['f1', 'F', 'Selo de Armazenamento', 'fu', 1, 0, 'Fuuinjutsu 1'], ['f2', 'F', 'Misshi / Nise no Shitai', 'fu', 3, 0, 'Fuuinjutsu 3'], ['f3', 'F', 'Ninjutsu no Wana', 'fu', 6, 0, 'Fuuinjutsu 6'],
+  ['f4', 'F', 'Chakra no Souin', 'fu', 7, 0, 'Fuuinjutsu 7'], ['f5', 'F', 'Keiyaku Fuuin', 'fu', 10, 0, 'Fuuinjutsu 10'], ['f6', 'F', 'Hiraishin', 'fu', 8, 0, 'Teleporte até uma marca'],
+  ['b1', 'B', 'Kunai (corpo a corpo)', 'arma', 0, 0, '', [1, 2, 3, 4]], ['b2', 'B', 'Kunai (distância)', 'arma', 0, 0, '', [2, 4, 6, 8]], ['b3', 'B', 'Shuriken', 'arma', 0, 0, '', [1, 2, 3, 4]]
+];
+var HALF = 10;
+class Component extends DCLogic {
+  state = { filter: 'fix', chk: 70, pins: { r3: true, r4: true, k3: true, w2: true, s6: true, f6: true }, closed: {} };
+  calc(row) {
+    var kind = row[3], min = row[4], el = EL[row[1]];
+    var lv = kind === 'c' || kind === 'f' || kind === 'fixo' || kind === 'valor' ? 10 : min;
+    var base = 0, cost = 0, dmg = true, text = '';
+    if (kind === 'c') { base = lv + HALF + el.bonus + (row[5] || 0); cost = lv; }
+    else if (kind === 'f') { base = 2 * lv + el.bonus; cost = lv; }
+    else if (kind === 'sopro') { base = 22; cost = 10; }
+    else if (kind === 'valor') { base = 10; cost = lv; }
+    else if (kind === 'fixo') { dmg = false; cost = lv; text = lv + ' de dano fixo · sem grau'; }
+    else if (kind === 'u') { dmg = false; cost = lv; text = 'Nv ' + lv + ' · ' + row[6]; }
+    else if (kind === 'fu') { dmg = false; text = row[6]; }
+    else if (kind === 'arma') { base = row[7][0]; }
+    var cells = kind === 'arma' ? row[7] : [1, 2, 3, 4].map(function (g) { return base * g; });
+    return { lv: lv, base: base, cost: cost, dmg: dmg, text: text, cells: cells };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var mkRow = function (row) {
+      var r = self.calc(row);
+      var el = EL[row[1]];
+      var pinned = !!st.pins[row[0]];
+      return {
+        name: row[2], kanji: el.kanji, kColor: el.c, lv: r.lv,
+        pinned: pinned ? 'true' : 'false', star: pinned ? '★' : '☆', starColor: pinned ? '#f0892a' : '#5e5246',
+        pinAria: (pinned ? 'Desafixar ' : 'Fixar ') + row[2],
+        pin: function () { var p = Object.assign({}, self.state.pins); p[row[0]] = !p[row[0]]; self.setState({ pins: p }); },
+        dmg: r.dmg, noDmg: !r.dmg, text: r.text,
+        cells: r.cells.map(function (v, i) { return { v: v, bg: i === 3 ? '#3d1f18' : '#2a221a', color: i === 3 ? '#ffd9cf' : '#f3e9d6' }; }),
+        costText: r.cost ? r.cost + ' chk' : 'livre',
+        short: r.cost > st.chk,
+        use: function () { self.setState({ chk: self.state.chk - r.cost }); }
+      };
+    };
+    var groups = st.filter === 'fix'
+      ? [{ key: 'fix', rows: ROWS.filter(function (row) { return st.pins[row[0]]; }) }]
+      : ORDER.filter(function (k) { return st.filter === 'todos' || st.filter === k; }).map(function (k) { return { key: k, rows: ROWS.filter(function (row) { return row[1] === k; }) }; });
+    var chipKeys = ['fix', 'todos'].concat(ORDER);
+    return {
+      chk: st.chk,
+      chkPct: Math.max(0, Math.round(st.chk / 90 * 100)) + '%',
+      chips: chipKeys.map(function (k) {
+        var on = st.filter === k;
+        var n = k === 'fix' ? Object.keys(st.pins).filter(function (x) { return st.pins[x]; }).length : k === 'todos' ? ROWS.length : ROWS.filter(function (r) { return r[1] === k; }).length;
+        var el = EL[k];
+        return {
+          label: k === 'todos' ? 'Todas' : el.name, kanji: k === 'todos' ? '' : el.kanji, kColor: on ? '#231b13' : (el ? el.c : '#efe6d6'), n: n,
+          pressed: on ? 'true' : 'false', bg: on ? '#f3e9d6' : 'transparent', color: on ? '#231b13' : '#efe6d6', border: on ? '#f3e9d6' : '#3a3027',
+          pick: function () { self.setState({ filter: k }); }
+        };
+      }),
+      groups: groups.filter(function (g) { return g.rows.length > 0; }).map(function (g) {
+        var el = EL[g.key];
+        var open = st.filter !== 'todos' || !st.closed[g.key];
+        return {
+          label: el.name, kanji: el.kanji, color: el.c, n: g.rows.length,
+          open: open, expanded: open ? 'true' : 'false', chev: open ? '▾' : '▸',
+          toggle: function () { var c = Object.assign({}, self.state.closed); c[g.key] = !c[g.key]; self.setState({ closed: c }); },
+          rows: g.rows.map(mkRow)
+        };
+      }),
+      tabs: ['Status', 'Ataques', 'Estados', 'Números', 'Mais'].map(function (t) {
+        var on = t === 'Ataques';
+        return { label: t, current: on ? 'page' : 'false', color: on ? '#f0892a' : '#b3a48c', bar: on ? '#f0892a' : 'transparent' };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

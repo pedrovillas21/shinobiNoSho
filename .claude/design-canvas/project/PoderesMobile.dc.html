@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Criação · Poderes no celular</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0;background:#16120e}
+a{color:#f0892a}a:hover{color:#ffd3a8}
+button,input{font:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #16120e; color: #efe6d6; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="flex-shrink: 0; border-bottom: 1px solid #2e261e">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px 16px">
+      <a href="#" aria-label="Voltar às fichas" style="display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #3a3027; border-radius: 12px; color: #efe6d6">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </a>
+      <div style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+        <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-weight: 800; font-size: 18px; color: #f3e9d6; line-height: 1.15">Ashihira Senju</span>
+        <span style="font-size: 12px; color: #b3a48c">Sannin/Kage · salva na conta</span>
+      </div>
+      <div role="group" aria-label="Nível de campanha" style="display: flex; align-items: center; padding: 2px; border: 1px solid #3a3027; border-radius: 12px; background: #1b1612">
+        <button type="button" aria-label="Diminuir NC" style="width: 34px; height: 38px; border: 0; background: transparent; color: #efe6d6; font-weight: 700">−</button>
+        <span style="font-size: 13px; font-weight: 700; white-space: nowrap">NC 20</span>
+        <button type="button" aria-label="Aumentar NC" style="width: 34px; height: 38px; border: 0; background: transparent; color: #efe6d6; font-weight: 700">+</button>
+      </div>
+    </div>
+    <button type="button" aria-label="Ver todas as etapas e orçamentos" style="width: 100%; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 16px; border: 0; border-top: 1px solid #2e261e; background: #1b1612; color: #efe6d6; text-align: left">
+      <span style="display: flex; flex-direction: column; gap: 5px; flex: 1">
+        <span style="font-size: 13px; font-weight: 700">Etapa 6 de 9 · <span style="color: #f3e9d6">Poderes</span></span>
+        <span style="display: flex; gap: 3px">
+          <sc-for list="{{ segs }}" as="sg" hint-placeholder-count="9">
+            <span style="flex: 1; height: 3px; border-radius: 3px; background: {{ sg.c }}"></span>
+          </sc-for>
+        </span>
+      </span>
+      <span style="font-size: 13px; font-weight: 700; color: #7fb069; white-space: nowrap">0/40 pts</span>
+      <span style="font-size: 11px; color: #8f8170">▾</span>
+    </button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="display: flex; flex-direction: column; flex: 1">
+        <h1 style="margin: 0; font-family: 'Shippori Mincho B1', Georgia, serif; font-weight: 800; font-size: 26px; color: #f3e9d6">Poderes</h1>
+        <span style="font-size: 13px; color: #b3a48c">4 compras · 40 níveis</span>
+      </div>
+      <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: #c2381b; color: #fff; font-size: 14px; font-weight: 700">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        Adicionar
+      </button>
+    </div>
+
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+      <sc-for list="{{ list }}" as="it" hint-placeholder-count="4">
+        <li>
+          <a href="PoderesMobileEditar.dc.html" style="display: flex; flex-direction: column; gap: 9px; padding: 12px 14px; border: 1px solid #2e261e; border-radius: 14px; background: #211b15; color: #efe6d6; text-decoration: none">
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span style="font-weight: 700; font-size: 15px; color: #f3e9d6">Versatilidade</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: #2a221a; color: #b3a48c">{{ it.nth }}</span>
+              <span style="margin-left: auto; font-size: 13px; font-weight: 700; color: #f0892a">Nv 10</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8f8170" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </span>
+            <span style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+              <sc-for list="{{ it.chips }}" as="ch" hint-placeholder-count="2">
+                <span style="display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 8px; background: {{ ch.bg }}; font-size: 12px; font-weight: 700">
+                  <span style="color: {{ ch.color }}">{{ ch.kanji }}</span>{{ ch.name }}
+                </span>
+              </sc-for>
+              <span style="margin-left: auto; font-size: 12px; color: #7fb069">✓ 10/10</span>
+            </span>
+            <span style="display: flex; gap: 3px" aria-hidden="true">
+              <sc-for list="{{ it.seq }}" as="sq" hint-placeholder-count="10">
+                <span style="flex: 1; display: grid; place-items: center; height: 20px; border-radius: 5px; background: {{ sq.bg }}; color: {{ sq.color }}; font-size: 11px; font-weight: 800">{{ sq.label }}</span>
+              </sc-for>
+            </span>
+          </a>
+        </li>
+      </sc-for>
+    </ul>
+  </main>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px 14px; border-top: 1px solid #2e261e; background: #1b1612">
+    <a href="#" aria-label="Voltar para Aptidões" style="display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid #3a3027; border-radius: 12px; color: #efe6d6">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </a>
+    <button type="button" style="flex: 1; height: 48px; border: 1px solid #3a3027; border-radius: 12px; background: transparent; color: #efe6d6; font-size: 14px; font-weight: 700">Resumo</button>
+    <a href="#" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 48px; border-radius: 12px; background: #c2381b; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none">Equipamento
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var EL = {
+  R: { name: 'Raiton', kanji: '雷', c: '#e8c547' },
+  K: { name: 'Katon', kanji: '火', c: '#f07a4a' },
+  W: { name: 'Fuuton', kanji: '風', c: '#7fc8a9' },
+  S: { name: 'Suiton', kanji: '水', c: '#5aa7e0' },
+  D: { name: 'Doton', kanji: '土', c: '#c99a66' },
+  F: { name: 'Fuuinjutsu', kanji: '封', c: '#b294e8' }
+};
+function rgba(hex, a) {
+  var n = parseInt(hex.slice(1), 16);
+  return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+var POWERS = [
+  ['1ª compra', ['R', 'F'], '*RFRRFFRRF'],
+  ['2ª compra', ['K', 'W'], '*KWKKWKWKK'],
+  ['3ª compra', ['S', 'D'], '*DSDDSSDSS'],
+  ['4ª compra', ['R', 'W', 'D'], '*RDRWRWRRW']
+];
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      segs: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (i) { return { c: i < 6 ? '#7fb069' : i === 6 ? '#f0892a' : '#3a3027' }; }),
+      list: POWERS.map(function (p) {
+        return {
+          nth: p[0],
+          chips: p[1].map(function (k) { return { kanji: EL[k].kanji, name: EL[k].name, color: EL[k].c, bg: rgba(EL[k].c, 0.12) }; }),
+          seq: p[2].split('').map(function (k) {
+            var c = k === '*' ? '#8f8170' : EL[k].c;
+            return { label: k === '*' ? '∗' : EL[k].kanji, bg: rgba(c, 0.18), color: c };
+          })
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

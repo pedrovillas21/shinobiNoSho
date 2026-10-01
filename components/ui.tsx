@@ -196,6 +196,35 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   );
 }
 
+/** Texto de regras recolhido: a etapa abre direto no que importa e a explicação fica a um toque. */
+export function RulesNote({ children, label = "Como funciona" }: { children: React.ReactNode; label?: string }) {
+  return (
+    <details className="group max-w-3xl rounded-xl border border-line bg-panel/60 [&_summary::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3.5 text-sm font-bold text-muted hover:text-text">
+        <IconInfo className="size-4 shrink-0" />
+        {label}
+        <IconRight className="ml-auto size-4 shrink-0 transition group-open:rotate-90" />
+      </summary>
+      <div className="px-3.5 pb-3.5 text-sm leading-relaxed text-muted">{children}</div>
+    </details>
+  );
+}
+
+/** Cor de cada poder (elementos e afins), usada em kanjis, chips e na ordem dos níveis da Versatilidade. */
+export const COR_PODER: Record<string, string> = {
+  raiton: "#e8c547",
+  katon: "#f07a4a",
+  fuuton: "#7fc8a9",
+  suiton: "#5aa7e0",
+  doton: "#c99a66",
+  fuuinjutsu: "#b294e8",
+  mokuton: "#8fbf6a",
+  ninpou: "#d9cbb0",
+};
+export const corPoder = (id: string | undefined) => (id && COR_PODER[id]) || "#b3a48c";
+/** Fundo translúcido na cor do poder. */
+export const tintPoder = (id: string | undefined, pct = 14) => `color-mix(in srgb, ${corPoder(id)} ${pct}%, transparent)`;
+
 export function Badge({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "ok" | "bad" | "chakra" | "seal" }) {
   const map = {
     muted: "bg-panel-2 text-muted",

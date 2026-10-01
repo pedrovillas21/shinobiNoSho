@@ -68,6 +68,7 @@ export function EffectPicker({
   label,
   context,
   placeholder = "Escolher efeito…",
+  compact = false,
 }: {
   value: string | null;
   options: PickOption[];
@@ -79,6 +80,8 @@ export function EffectPicker({
   /** Linha de contexto no rodapé e no título da gaveta (ex.: "Katon nível 5"). */
   context: string;
   placeholder?: string;
+  /** Botão mais baixo, para tabelas densas (matriz da Versatilidade). */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -213,12 +216,12 @@ export function EffectPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`${label}: ${current?.name ?? "nenhum"}`}
-        className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl border bg-ink-2 py-1.5 pr-3 pl-2 text-left transition ${open ? "border-chakra ring-3 ring-chakra/20" : "border-line-2 hover:border-muted"}`}
+        className={`flex w-full items-center text-left transition ${compact ? "min-h-11 gap-2 rounded-lg border bg-ink-2 py-1 pr-2 pl-1.5 text-sm md:min-h-9" : "min-h-11 gap-2.5 rounded-xl border bg-ink-2 py-1.5 pr-3 pl-2"} ${open ? "border-chakra ring-3 ring-chakra/20" : "border-line-2 hover:border-muted"}`}
       >
         {current ? (
           <>
             <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold ${PILL[current.tone]}`}>Nv {current.level}</span>
-            {current.kanji && <span className="shrink-0 font-display text-sm font-extrabold text-chakra">{current.kanji}</span>}
+            {current.kanji && !compact && <span className="shrink-0 font-display text-sm font-extrabold text-chakra">{current.kanji}</span>}
             <span className="min-w-0 flex-1 truncate font-bold text-text">{current.name}</span>
           </>
         ) : (

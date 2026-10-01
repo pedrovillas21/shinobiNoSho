@@ -1,0 +1,99 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Aptidoes.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "title": "Criação · Aptidões (tabela + catálogo)",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Batalha.dc.html": {
+      "h": 1080,
+      "is_interactive": true,
+      "title": "Mesa · Ataques (desktop)",
+      "w": 1440,
+      "x": 0,
+      "y": 1460
+    },
+    "BatalhaMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Mesa · Ataques (celular)",
+      "w": 390,
+      "x": 1520,
+      "y": 1460
+    },
+    "Main.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "title": "Criação · Poderes (lista + matriz)",
+      "w": 1440,
+      "x": 136,
+      "y": -34
+    },
+    "PoderesMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Criação · Poderes (celular)",
+      "w": 390,
+      "x": 3040,
+      "y": 0
+    },
+    "PoderesMobileEditar.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Criação · Editar Versatilidade (celular)",
+      "w": 390,
+      "x": 3510,
+      "y": 0
+    },
+    "AptidoesMobile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Criação · Aptidões (celular)",
+      "w": 390,
+      "x": 3980,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-01T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "tBatalha": {
+      "kind": "title1",
+      "maxW": 2960,
+      "text": "Batalha (mesa)",
+      "w": 240,
+      "x": 0,
+      "y": 1160
+    },
+    "tCriacao": {
+      "kind": "title1",
+      "maxW": 4370,
+      "text": "Criação de ficha",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Aptidoes.dc.html",
+    "PoderesMobile.dc.html",
+    "PoderesMobileEditar.dc.html",
+    "AptidoesMobile.dc.html",
+    "Batalha.dc.html",
+    "BatalhaMobile.dc.html"
+  ],
+  "pages": [],
+  "title": "Ficha compacta — builds extensas"
+}

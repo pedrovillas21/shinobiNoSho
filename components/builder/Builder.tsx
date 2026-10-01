@@ -7,7 +7,7 @@ import { ETAPAS_CRIATURA, contrato, validarInvocacao } from "@/lib/kuchiyose";
 import { NC_MAX, NC_MIN, POWER_BONUS, POWER_BONUS_NCS, budgetFor, derived, rankLabel, spent, validate } from "@/lib/rules";
 import { downloadJSON, useChars, useCharsStatus, useHydrated } from "@/lib/store";
 import type { Character } from "@/lib/types";
-import { AnimatedNumber, IconAlert, IconDownload, IconLeft, IconList, IconRight, Logo, Sheet } from "../ui";
+import { AnimatedNumber, IconAlert, IconCheck, IconDownload, IconLeft, IconList, IconRight, Sheet } from "../ui";
 import { ABAS_CONTRATO, stepsFor, type InvNav, type StepKey } from "./shared";
 import { StepAptidoes } from "./steps/StepAptidoes";
 import { StepAtributos } from "./steps/StepAtributos";
@@ -40,6 +40,7 @@ export function Builder({ id }: { id: string }) {
   const [dir, setDir] = useState(1);
   const [nav, setNav] = useState<InvNav>({ aba: 1, edit: null, etapa: 1 });
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [stepsOpen, setStepsOpen] = useState(false);
 
   const set = useCallback((fn: (d: Character) => void) => update(id, fn), [id, update]);
 
@@ -63,7 +64,20 @@ export function Builder({ id }: { id: string }) {
     );
 
   return (
-    <BuilderView c={c} set={set} stepKey={stepKey} setStepKey={setStepKey} dir={dir} setDir={setDir} nav={nav} setNav={setNav} summaryOpen={summaryOpen} setSummaryOpen={setSummaryOpen} />
+    <BuilderView
+      c={c}
+      set={set}
+      stepKey={stepKey}
+      setStepKey={setStepKey}
+      dir={dir}
+      setDir={setDir}
+      nav={nav}
+      setNav={setNav}
+      summaryOpen={summaryOpen}
+      setSummaryOpen={setSummaryOpen}
+      stepsOpen={stepsOpen}
+      setStepsOpen={setStepsOpen}
+    />
   );
 }
 
@@ -78,6 +92,8 @@ function BuilderView({
   setNav,
   summaryOpen,
   setSummaryOpen,
+  stepsOpen,
+  setStepsOpen,
 }: {
   c: Character;
   set: (fn: (d: Character) => void) => void;
@@ -89,6 +105,8 @@ function BuilderView({
   setNav: (n: InvNav) => void;
   summaryOpen: boolean;
   setSummaryOpen: (v: boolean) => void;
+  stepsOpen: boolean;
+  setStepsOpen: (v: boolean) => void;
 }) {
   const b = budgetFor(c.nc, c.optionals);
   const s = spent(c);
@@ -156,94 +174,115 @@ function BuilderView({
   ) : null;
 
   const budgets = [
-    { label: "Atributos", used: s.attr, total: b.attr },
-    { label: "Perícias", used: s.skill, total: b.skill },
-    { label: "Poderes", used: s.power, total: b.power },
-    { label: "Sociais", used: s.social, total: b.social },
-    { label: "Aptidões grátis", used: s.freeUsed, total: 3 },
+    { label: "Atributos", short: "Atrib.", used: s.attr, total: b.attr },
+    { label: "Perícias", short: "Períc.", used: s.skill, total: b.skill },
+    { label: "Poderes", short: "Poder.", used: s.power, total: b.power },
+    { label: "Sociais", short: "Soc.", used: s.social, total: b.social },
+    { label: "Aptidões grátis", short: "Apt.", used: s.freeUsed, total: 3 },
   ];
+  // Orçamento que importa em cada etapa (no celular só ele aparece na faixa da etapa).
+  const stepBudget = budgets[STEP_BUDGET[key] ?? -1];
+  const errCount = issues.filter((i) => i.sev === "erro").length;
 
   const setNc = (v: number) => set((d) => void (d.nc = Math.max(NC_MIN, Math.min(NC_MAX, v))));
 
   return (
     <div className="min-h-dvh pb-28 lg:pb-12">
-      {/* Cabeçalho */}
+      {/* Cabeçalho: uma linha no computador (nome, NC e orçamentos); no celular, a faixa da etapa abre as etapas */}
       <header className="no-print sticky top-0 z-30 border-b border-line bg-ink/92 backdrop-blur supports-[backdrop-filter]:bg-ink/80">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-8">
+        <div className="mx-auto flex max-w-[90rem] items-center gap-3 px-4 py-2.5 sm:px-6">
           <Link href="/" className="btn-ghost size-11 shrink-0 px-0" aria-label="Voltar às fichas">
             <IconLeft />
           </Link>
-          <Logo className="hidden size-8 sm:block" />
-          <div className="flex min-w-0 flex-1 flex-col leading-tight">
-            <span className="truncate font-display text-lg font-extrabold text-paper sm:text-xl">{c.name || "Novo shinobi"}</span>
+          <div className="flex min-w-0 flex-1 flex-col leading-tight lg:w-52 lg:flex-none">
+            <span className="truncate font-display text-lg font-extrabold text-paper">{c.name || "Novo shinobi"}</span>
             <span className="truncate text-xs text-muted">
               {rankLabel(c.nc)} · <SaveStatus />
             </span>
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-line-2 bg-ink-2 p-1">
-            <button type="button" className="grid size-9 place-items-center rounded-lg text-lg font-bold hover:bg-panel-2 disabled:opacity-30" onClick={() => setNc(c.nc - 1)} disabled={c.nc <= NC_MIN} aria-label="Diminuir NC">
+          <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-line-2 bg-ink-2 p-0.5">
+            <button type="button" className="grid size-10 place-items-center rounded-lg text-lg font-bold hover:bg-panel-2 disabled:opacity-30" onClick={() => setNc(c.nc - 1)} disabled={c.nc <= NC_MIN} aria-label="Diminuir NC">
               −
             </button>
-            <span className="min-w-14 text-center text-sm font-bold">
+            <span className="min-w-12 text-center text-sm font-bold">
               NC <AnimatedNumber value={c.nc} />
             </span>
-            <button type="button" className="grid size-9 place-items-center rounded-lg text-lg font-bold hover:bg-panel-2 disabled:opacity-30" onClick={() => setNc(c.nc + 1)} disabled={c.nc >= NC_MAX} aria-label="Aumentar NC">
+            <button type="button" className="grid size-10 place-items-center rounded-lg text-lg font-bold hover:bg-panel-2 disabled:opacity-30" onClick={() => setNc(c.nc + 1)} disabled={c.nc >= NC_MAX} aria-label="Aumentar NC">
               +
             </button>
           </div>
-          <button type="button" className="btn-ghost hidden md:inline-flex" onClick={() => downloadJSON(c)}>
-            <IconDownload className="size-4" /> Exportar
+          <div className="hidden min-w-0 flex-1 gap-2 lg:flex">
+            {budgets.map((x) => (
+              <BudgetPill key={x.label} {...x} />
+            ))}
+          </div>
+          <button type="button" className="btn-ghost hidden size-11 shrink-0 px-0 xl:inline-flex" onClick={() => downloadJSON(c)} aria-label="Exportar ficha">
+            <IconDownload className="size-4" />
           </button>
-          <button type="button" className="btn-ghost hidden sm:inline-flex" onClick={() => go(STEPS.length - 1)}>
+          <button type="button" className="btn-ghost hidden shrink-0 sm:inline-flex" onClick={() => go(STEPS.length - 1)}>
             Ver ficha
           </button>
         </div>
 
-        {/* Orçamento */}
-        <div className="mx-auto max-w-7xl overflow-x-auto px-4 pb-3 scrollbar-none sm:px-8">
-          <div className="flex min-w-max gap-2 lg:grid lg:min-w-0 lg:grid-cols-5">
-            {budgets.map((x) => {
-              const left = x.total - x.used;
-              const tone = left < 0 ? "var(--color-bad)" : left === 0 ? "var(--color-ok)" : "var(--color-chakra)";
-              return (
-                <div key={x.label} className="flex min-w-32 flex-col gap-1.5 rounded-xl bg-panel px-3 py-2">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[11px] text-muted">{x.label}</span>
-                    <span className="text-sm font-bold" style={{ color: tone }}>
-                      <AnimatedNumber value={left} />
-                      <span className="text-faint">/{x.total}</span>
-                    </span>
-                  </div>
-                  <div className="h-1 overflow-hidden rounded-full bg-line">
-                    <motion.div className="h-1 rounded-full" style={{ background: tone }} animate={{ width: `${Math.min(100, (x.used / Math.max(1, x.total)) * 100)}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Etapas */}
-        <nav aria-label="Etapas" className="mx-auto max-w-7xl overflow-x-auto px-2 scrollbar-none sm:px-6">
-          <ol className="flex min-w-max">
-            {STEPS.map((st, i) => {
-              const on = i === step;
-              const errs = errorsByStep[st.key] ?? 0;
-              return (
-                <li key={st.key}>
-                  <button type="button" onClick={() => go(i)} aria-current={on ? "step" : undefined} className={`relative flex h-12 items-center gap-2 px-3 text-sm font-bold transition ${on ? "text-paper" : "text-faint hover:text-muted"}`}>
-                    <span className={`grid size-6 place-items-center rounded-full text-xs ${on ? "bg-chakra text-paper-ink" : errs ? "bg-bad/20 text-bad" : i < step ? "bg-ok/20 text-ok" : "bg-line-2 text-muted"}`}>{errs ? "!" : i + 1}</span>
-                    {st.label}
-                    {on && <motion.span layoutId="step-underline" className="absolute inset-x-2 bottom-0 h-[3px] rounded-full bg-chakra" />}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
+        <button type="button" onClick={() => setStepsOpen(true)} aria-label="Ver todas as etapas e orçamentos" className="flex w-full items-center gap-3 border-t border-line bg-ink-2/80 px-4 py-2 text-left sm:px-6 lg:hidden">
+          <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="truncate text-sm font-bold">
+              <span className="text-muted">
+                Etapa {step + 1} de {STEPS.length} ·
+              </span>{" "}
+              {STEPS[step].label}
+            </span>
+            <span className="flex gap-0.5" aria-hidden="true">
+              {STEPS.map((st, i) => (
+                <span key={st.key} className={`h-[3px] flex-1 rounded-full ${errorsByStep[st.key] ? "bg-bad" : i === step ? "bg-chakra" : i < step ? "bg-ok" : "bg-line-2"}`} />
+              ))}
+            </span>
+          </span>
+          {stepBudget && (
+            <span className="shrink-0 text-sm font-bold" style={{ color: budgetTone(stepBudget.total - stepBudget.used) }}>
+              {stepBudget.total - stepBudget.used}
+              <span className="text-faint">/{stepBudget.total}</span>
+            </span>
+          )}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0 text-muted" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 pt-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mx-auto grid max-w-[90rem] gap-8 px-4 pt-6 sm:px-6 lg:grid-cols-[12.5rem_minmax(0,1fr)]">
+        {/* Computador: etapas numa coluna, com energias e observações embaixo */}
+        <aside className="no-print hidden lg:block">
+          <div className="sticky top-[5.5rem] flex flex-col gap-4">
+            <nav aria-label="Etapas">
+              <ol className="flex flex-col gap-0.5">
+                {STEPS.map((st, i) => {
+                  const on = i === step;
+                  const errs = errorsByStep[st.key] ?? 0;
+                  const n = stepCount(c, st.key);
+                  return (
+                    <li key={st.key}>
+                      <button
+                        type="button"
+                        onClick={() => go(i)}
+                        aria-current={on ? "step" : undefined}
+                        className={`flex h-10 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-sm font-bold transition ${on ? "bg-panel-2 text-paper" : "text-muted hover:bg-panel hover:text-text"}`}
+                      >
+                        <span className={`grid size-6 shrink-0 place-items-center rounded-full text-xs ${on ? "bg-chakra text-paper-ink" : errs ? "bg-bad/20 text-bad" : i < step ? "bg-ok/20 text-ok" : "bg-line-2 text-muted"}`}>
+                          {errs ? "!" : i < step ? <IconCheck className="size-3.5" /> : i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{st.label}</span>
+                        {n > 0 && <span className="text-xs font-normal text-faint">{n}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+            <RailResumo c={c} errors={errCount} warns={issues.length - errCount} onOpen={() => setSummaryOpen(true)} />
+          </div>
+        </aside>
+
         <main className="min-w-0">
           <AnimatePresence mode="wait" initial={false} custom={dir}>
             <motion.div
@@ -282,10 +321,6 @@ function BuilderView({
             )}
           </div>
         </main>
-
-        <aside className="no-print hidden lg:block">
-          <div className="sticky top-[200px] flex flex-col gap-4">{resumo ?? <Summary c={c} issues={issues} goTo={goKey} />}</div>
-        </aside>
       </div>
 
       {/* Barra inferior (celular) */}
@@ -324,6 +359,112 @@ function BuilderView({
           />
         )}
       </Sheet>
+
+      {/* Celular: todas as etapas e orçamentos, a partir da faixa da etapa */}
+      <Sheet open={stepsOpen} onClose={() => setStepsOpen(false)} title="Etapas">
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-2">
+            {budgets.map((x) => (
+              <BudgetPill key={x.label} {...x} />
+            ))}
+          </div>
+          <ol className="flex flex-col gap-1">
+            {STEPS.map((st, i) => {
+              const on = i === step;
+              const errs = errorsByStep[st.key] ?? 0;
+              const n = stepCount(c, st.key);
+              return (
+                <li key={st.key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStepsOpen(false);
+                      go(i);
+                    }}
+                    aria-current={on ? "step" : undefined}
+                    className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left font-bold ${on ? "bg-panel-2 text-paper" : "text-text"}`}
+                  >
+                    <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs ${on ? "bg-chakra text-paper-ink" : errs ? "bg-bad/20 text-bad" : i < step ? "bg-ok/20 text-ok" : "bg-line-2 text-muted"}`}>{errs ? "!" : i + 1}</span>
+                    <span className="flex-1">{st.label}</span>
+                    {errs > 0 && <span className="text-xs text-bad">{errs} fora da regra</span>}
+                    {!errs && n > 0 && <span className="text-sm font-normal text-faint">{n}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </Sheet>
+    </div>
+  );
+}
+
+/** Orçamento de cada etapa: índice em `budgets`. */
+const STEP_BUDGET: Partial<Record<StepKey, number>> = { atributos: 0, pericias: 1, poderes: 2, aptidoes: 4 };
+
+const budgetTone = (left: number) => (left < 0 ? "var(--color-bad)" : left === 0 ? "var(--color-ok)" : "var(--color-chakra)");
+
+/** Quantos itens a ficha tem na etapa (aparece ao lado do nome da etapa). */
+function stepCount(c: Character, key: StepKey) {
+  if (key === "aptidoes") return c.aptidoes.length;
+  if (key === "poderes") return c.poderes.length;
+  return 0;
+}
+
+function BudgetPill({ label, short, used, total }: { label: string; short: string; used: number; total: number }) {
+  const left = total - used;
+  const tone = budgetTone(left);
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-xl bg-panel px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-[11px] text-muted" title={label}>
+          <span className="lg:max-xl:hidden">{label}</span>
+          <span className="hidden lg:max-xl:inline">{short}</span>
+        </span>
+        <span className="text-sm font-bold" style={{ color: tone }}>
+          <AnimatedNumber value={left} />
+          <span className="text-faint">/{total}</span>
+        </span>
+      </div>
+      <div className="h-1 overflow-hidden rounded-full bg-line">
+        <motion.div className="h-1 rounded-full" style={{ background: tone }} animate={{ width: `${Math.min(100, (used / Math.max(1, total)) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** Coluna das etapas: energias e observações sempre à vista; o resumo completo abre na gaveta. */
+function RailResumo({ c, errors, warns, onOpen }: { c: Character; errors: number; warns: number; onOpen: () => void }) {
+  const d = derived(c);
+  return (
+    <div className="flex flex-col gap-3 border-t border-line pt-4">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col rounded-xl bg-vit-bg px-3 py-2">
+          <span className="text-[11px] text-vit-muted">Vitalidade</span>
+          <AnimatedNumber value={d.vit} className="font-display text-2xl font-extrabold text-vit" />
+        </div>
+        <div className="flex flex-col rounded-xl bg-chk-bg px-3 py-2">
+          <span className="text-[11px] text-chk-muted">Chakra</span>
+          <AnimatedNumber value={d.chakra} className="font-display text-2xl font-extrabold text-chk" />
+        </div>
+      </div>
+      <dl className="grid grid-cols-3 gap-1 text-center">
+        {[
+          ["Inic.", d.ini],
+          ["Esq.", d.reacaoEsquiva],
+          ["Desl.", `${d.desloc}m`],
+        ].map(([k, v]) => (
+          <div key={k} className="flex flex-col-reverse">
+            <dt className="text-[11px] text-faint">{k}</dt>
+            <dd className="font-bold text-paper">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <button type="button" onClick={onOpen} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold ${errors ? "bg-bad/12 text-bad" : warns ? "bg-chakra/10 text-chakra" : "bg-ok/10 text-ok"}`}>
+        <span className={`size-2.5 shrink-0 rounded-full ${errors ? "bg-bad" : warns ? "bg-chakra" : "bg-ok"}`} />
+        <span className="flex-1">{errors ? `${errors} fora da regra` : warns ? `${warns} em aberto` : "Dentro das regras"}</span>
+        <span className="text-xs font-normal text-muted">Resumo</span>
+      </button>
     </div>
   );
 }
@@ -366,7 +507,7 @@ function Summary({ c, issues, goTo }: { c: Character; issues: ReturnType<typeof 
         </dl>
       </div>
 
-      <div className="card flex flex-col gap-3 p-5">
+      <div className="card mt-4 flex flex-col gap-3 p-5">
         <div className="flex items-baseline justify-between">
           <span className="label">Observações</span>
           <span className="text-xs text-faint">
@@ -392,7 +533,7 @@ function Summary({ c, issues, goTo }: { c: Character; issues: ReturnType<typeof 
       </div>
 
       {c.nc > 20 && (
-        <div className="rounded-2xl bg-chakra p-4 text-paper-ink">
+        <div className="mt-4 rounded-2xl bg-chakra p-4 text-paper-ink">
           <p className="font-display text-base font-extrabold">NC estendido da mesa</p>
           <p className="text-sm leading-snug">Acima do NC 20, cada nível soma +6 atributos, +4 perícias e +2 poderes, com +{POWER_BONUS} poderes extras nos NCs {POWER_BONUS_NCS.filter((x) => x > 20).join(", ")}. Poderes podem passar do nível 10 e ganham um efeito novo por nível.</p>
         </div>

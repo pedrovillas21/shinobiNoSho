@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Mesa · Ataques</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0;background:#16120e}
+a{color:#f0892a}a:hover{color:#ffd3a8}
+button,input{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:0.4}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1080px; box-sizing: border-box; background: #16120e; color: #efe6d6; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="flex-shrink: 0; border-bottom: 1px solid #2e261e">
+    <div style="display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 32px">
+      <a href="#" aria-label="Voltar ao início" style="display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #3a3027; border-radius: 12px; color: #efe6d6">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </a>
+      <div style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+        <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-weight: 800; font-size: 20px; color: #f3e9d6; line-height: 1.15">Ashihira Senju</span>
+        <span style="font-size: 12px; color: #b3a48c">NC 20 · Sannin/Kage · Senju</span>
+      </div>
+      <span style="display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 99px; background: #2a221a; font-size: 13px; font-weight: 700">Rodada <span style="color: #f0892a">3</span></span>
+      <button type="button" onClick="{{ undo }}" disabled="{{ noUndo }}" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border: 1px solid #3a3027; border-radius: 12px; background: transparent; color: #efe6d6; font-size: 14px; font-weight: 700">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 010 12h-3"></path></svg>
+        Desfazer
+      </button>
+    </div>
+    <div style="display: flex; align-items: flex-end; gap: 24px; padding: 0 32px">
+      <nav aria-label="Partes da mesa" style="display: flex; flex: 1">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <a href="#" aria-current="{{ t.current }}" style="position: relative; display: flex; align-items: center; height: 46px; padding: 0 16px; font-size: 14px; font-weight: 700; text-decoration: none; color: {{ t.color }}; box-shadow: {{ t.line }}">{{ t.label }}</a>
+        </sc-for>
+      </nav>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 380px; padding-bottom: 10px">
+        <span style="display: flex; flex-direction: column; gap: 5px">
+          <span style="display: flex; align-items: baseline; gap: 6px; line-height: 1"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">VIT</span><span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 18px; font-weight: 800; color: #ffd9cf">134</span><span style="font-size: 12px; color: #b3a48c">/ 134</span></span>
+          <span style="display: block; height: 6px; border-radius: 6px; background: #3d1f18"><span style="display: block; height: 6px; width: 100%; border-radius: 6px; background: #e0573a"></span></span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 5px">
+          <span style="display: flex; align-items: baseline; gap: 6px; line-height: 1"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">CHAKRA</span><span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 18px; font-weight: 800; color: #d6e9fa">{{ chk }}</span><span style="font-size: 12px; color: #b3a48c">/ 90</span></span>
+          <span style="display: block; height: 6px; border-radius: 6px; background: #1c3346"><span style="display: block; height: 6px; width: {{ chkPct }}; border-radius: 6px; background: #4f9bd9"></span></span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; gap: 24px; padding: 18px 32px 0">
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <label style="display: flex; align-items: center; gap: 10px; width: 260px; flex-shrink: 0; height: 38px; padding: 0 12px; border: 1px solid #3a3027; border-radius: 12px; background: #1b1612">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b3a48c" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Buscar técnica</span>
+          <input type="text" placeholder="Buscar técnica (ex.: Chidori)" value="{{ q }}" onChange="{{ onQ }}" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #efe6d6; font-size: 14px">
+        </label>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap">
+          <sc-for list="{{ chips }}" as="c" hint-placeholder-count="9">
+            <button type="button" onClick="{{ c.pick }}" aria-pressed="{{ c.pressed }}" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 11px; border-radius: 99px; border: 1px solid {{ c.border }}; background: {{ c.bg }}; color: {{ c.color }}; font-size: 13px; font-weight: 700">
+              <span style="color: {{ c.kColor }}">{{ c.kanji }}</span>{{ c.label }}<span style="font-weight: 500; opacity: 0.7">{{ c.n }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #8f8170; margin-right: 4px">PRÓXIMA TÉCNICA</span>
+        <sc-for list="{{ metas }}" as="m" hint-placeholder-count="4">
+          <button type="button" onClick="{{ m.pick }}" aria-pressed="{{ m.pressed }}" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 99px; border: 1px solid {{ m.border }}; background: {{ m.bg }}; color: {{ m.color }}; font-size: 13px"><span style="font-weight: 700">{{ m.label }}</span><span style="opacity: 0.75">{{ m.hint }}</span></button>
+        </sc-for>
+        <label style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #b3a48c">
+          <input type="checkbox" checked="{{ dmgOnly }}" onChange="{{ onDmg }}" style="width: 18px; height: 18px; accent-color: #f0892a">
+          Só técnicas com dano
+        </label>
+      </div>
+
+      <div style="flex: 1; min-height: 0; border: 1px solid #2e261e; border-radius: 14px; background: #211b15; overflow: hidden; display: flex; flex-direction: column">
+        <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 104px 58px 58px repeat(4, 58px) 110px; gap: 8px; align-items: end; padding: 9px 14px 8px; border-bottom: 1px solid #3a3027; background: #1b1612; flex-shrink: 0">
+          <span></span>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #8f8170">TÉCNICA</span>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #8f8170; text-align: center">NÍVEL</span>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #8f8170; text-align: center">CHK</span>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: #f0892a; text-align: center">BASE</span>
+          <sc-for list="{{ gHeads }}" as="gh" hint-placeholder-count="4">
+            <span style="display: flex; flex-direction: column; align-items: center; line-height: 1.2"><span style="font-size: 11px; font-weight: 700; color: {{ gh.color }}">G{{ gh.g }}</span><span style="font-size: 10px; color: #8f8170">{{ gh.r }}</span></span>
+          </sc-for>
+          <span></span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow: hidden">
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="7">
+            <div>
+              <button type="button" onClick="{{ g.toggle }}" aria-expanded="{{ g.expanded }}" style="width: 100%; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 14px; border: 0; border-bottom: 1px solid #2e261e; background: #1b1612; color: #efe6d6; text-align: left">
+                <span style="width: 12px; font-size: 11px; color: #8f8170">{{ g.chev }}</span>
+                <span style="font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 17px; font-weight: 800; color: {{ g.color }}">{{ g.kanji }}</span>
+                <span style="font-size: 15px; font-weight: 700; color: #f3e9d6">{{ g.label }}</span>
+                <span style="font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #2a221a; color: #b3a48c">{{ g.n }}</span>
+                <span style="font-size: 12px; color: #8f8170; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ g.info }}</span>
+              </button>
+              <sc-if value="{{ g.open }}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="6">
+                  <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 104px 58px 58px repeat(4, 58px) 110px; gap: 8px; align-items: center; height: 42px; padding: 0 14px; border-bottom: 1px solid #2e261e">
+                    <button type="button" onClick="{{ r.pin }}" aria-pressed="{{ r.pinned }}" aria-label="{{ r.pinAria }}" style="display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: {{ r.starColor }}; font-size: 16px">{{ r.star }}</button>
+                    <span style="display: flex; align-items: baseline; gap: 8px; min-width: 0">
+                      <span style="color: {{ r.kColor }}; font-weight: 800; font-size: 13px">{{ r.kanji }}</span>
+                      <span style="font-size: 14px; font-weight: 700; color: #f3e9d6; white-space: nowrap">{{ r.name }}</span>
+                      <span style="font-size: 12px; color: #8f8170; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.sub }}</span>
+                    </span>
+                    <span style="display: flex; justify-content: center">
+                      <sc-if value="{{ r.stepper }}" hint-placeholder-val="{{ true }}">
+                        <span role="group" aria-label="{{ r.lvAria }}" style="display: inline-flex; align-items: center; border: 1px solid #3a3027; border-radius: 8px">
+                          <button type="button" onClick="{{ r.dec }}" disabled="{{ r.noDec }}" aria-label="Diminuir nível" style="width: 26px; height: 28px; border: 0; background: transparent; color: #b3a48c">−</button>
+                          <span style="min-width: 40px; text-align: center; font-size: 12px; font-weight: 700; color: #f0892a">Nv {{ r.lv }}</span>
+                          <button type="button" onClick="{{ r.inc }}" disabled="{{ r.noInc }}" aria-label="Aumentar nível" style="width: 26px; height: 28px; border: 0; background: transparent; color: #b3a48c">+</button>
+                        </span>
+                      </sc-if>
+                      <sc-if value="{{ r.noStepper }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size: 12px; font-weight: 700; color: #b3a48c">{{ r.lvText }}</span>
+                      </sc-if>
+                    </span>
+                    <span style="text-align: center; font-size: 13px; font-weight: 700; color: #8fb7d9">{{ r.costText }}</span>
+                    <sc-if value="{{ r.dmg }}" hint-placeholder-val="{{ true }}">
+                      <span style="display: grid; place-items: center; height: 30px; border-radius: 8px; border: 1px solid rgba(240,137,42,0.55); background: rgba(240,137,42,0.1); font-size: 14px; font-weight: 800; color: #ffd3a8">{{ r.base }}</span>
+                      <sc-for list="{{ r.cells }}" as="cl" hint-placeholder-count="4">
+                        <span style="display: grid; place-items: center; height: 30px; border-radius: 8px; background: {{ cl.bg }}; font-family: 'Shippori Mincho B1', Georgia, serif; font-size: 17px; font-weight: 800; color: {{ cl.color }}">{{ cl.v }}</span>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ r.noDmg }}" hint-placeholder-val="{{ false }}">
+                      <span style="grid-column: span 5; font-size: 12px; color: #b3a48c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.text }}</span>
+                    </sc-if>
+                    <button type="button" onClick="{{ r.use }}" disabled="{{ r.short }}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border: 0; border-radius: 10px; background: #1f4e73; color: #fff; font-size: 13px; font-weight: 700">Usar<sc-if value="{{ r.hasCost }}" hint-placeholder-val="{{ true }}"><span style="padding: 1px 6px; border-radius: 6px; background: rgba(14,24,33,0.6); color: #d6e9fa; font-size: 12px">{{ r.cost }}</span></sc-if></button>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </main>
+
+    <aside style="width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+      <section aria-labelledby="h-log" style="border: 1px solid #2e261e; border-radius: 16px; background: #211b15; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <h2 id="h-log" style="margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">HISTÓRICO</h2>
+        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="4">
+            <li style="display: flex; gap: 10px; align-items: baseline; font-size: 13px; line-height: 1.4">
+              <span style="flex-shrink: 0; font-size: 11px; font-weight: 700; color: #8f8170">R{{ l.r }}</span>
+              <span style="flex: 1; color: #efe6d6">{{ l.t }}</span>
+              <span style="flex-shrink: 0; font-size: 12px; color: #8fb7d9">{{ l.c }}</span>
+            </li>
+          </sc-for>
+        </ul>
+      </section>
+      <section aria-labelledby="h-cnt" style="border: 1px solid #2e261e; border-radius: 16px; background: #211b15; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <h2 id="h-cnt" style="margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">CONTADORES</h2>
+        <sc-for list="{{ counters }}" as="k" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="flex: 1; font-size: 14px">{{ k.n }}</span>
+            <span role="group" aria-label="{{ k.n }}" style="display: inline-flex; align-items: center; border: 1px solid #3a3027; border-radius: 8px">
+              <button type="button" aria-label="Diminuir" style="width: 30px; height: 30px; border: 0; background: transparent; color: #b3a48c">−</button>
+              <span style="min-width: 32px; text-align: center; font-size: 14px; font-weight: 700; color: #f0892a">{{ k.v }}</span>
+              <button type="button" aria-label="Aumentar" style="width: 30px; height: 30px; border: 0; background: transparent; color: #b3a48c">+</button>
+            </span>
+          </div>
+        </sc-for>
+      </section>
+      <section aria-labelledby="h-cond" style="border: 1px solid #2e261e; border-radius: 16px; background: #211b15; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <h2 id="h-cond" style="margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #b3a48c">CONDIÇÕES</h2>
+        <p style="margin: 0; font-size: 13px; color: #8f8170">Nenhuma condição ativa.</p>
+        <button type="button" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid #3a3027; border-radius: 99px; background: transparent; color: #efe6d6; font-size: 13px">+ Condição</button>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+var EL = {
+  fix: { name: 'Fixados', kanji: '★', c: '#f0892a' },
+  R: { name: 'Raiton', kanji: '雷', c: '#e8c547', bonus: 1, info: 'Versatilidade 1ª e 4ª · Nv 10 · alcance 75m · tamanho 10m · +1 de dano base' },
+  K: { name: 'Katon', kanji: '火', c: '#f07a4a', bonus: 0, info: 'Versatilidade 2ª · Nv 10 · Sopro pelo Talento Natural' },
+  W: { name: 'Fuuton', kanji: '風', c: '#7fc8a9', bonus: 0, info: 'Versatilidade 2ª e 4ª · Nv 10' },
+  S: { name: 'Suiton', kanji: '水', c: '#5aa7e0', bonus: 0, info: 'Versatilidade 3ª · Nv 10 · alcance 50m · tamanho 20m' },
+  D: { name: 'Doton', kanji: '土', c: '#c99a66', bonus: 0, info: 'Versatilidade 3ª e 4ª · Nv 10' },
+  F: { name: 'Fuuinjutsu', kanji: '封', c: '#b294e8', bonus: 0, info: 'Versatilidade 1ª · técnicas sem dano · custo no livro' },
+  B: { name: 'Básico', kanji: '刃', c: '#b3a48c', bonus: 0, info: 'Armas equipadas · precisão 24' }
+};
+var ORDER = ['R', 'K', 'W', 'S', 'D', 'F', 'B'];
+// [chave, elemento, nome, efeito/observação, tipo, nível mínimo, extra]
+var ROWS = [
+  ['r1', 'R', 'Jinraisen', 'Canhão · 1ª e 4ª compra', 'c', 1],
+  ['r2', 'R', 'Shiden', 'Raio', 'c', 2],
+  ['r3', 'R', 'Chidori / Raikiri', 'Lâmina de Raios · evolução Nv 9', 'c', 4],
+  ['r4', 'R', 'Raikiri · Investida', 'ação completa · corrida de 3m+', 'c', 5, 7],
+  ['r5', 'R', 'Raiken', 'Arma Elétrica · evolução Nv 8', 'c', 5],
+  ['r6', 'R', 'Kirin', 'homebrew', 'c', 8],
+  ['r7', 'R', 'Kanden Haribari', 'Flechas · 2 por projétil', 'f', 4],
+  ['r8', 'R', 'Chidori Nagashi', 'Descarga', 'c', 6],
+  ['r9', 'R', 'Desastre', 'sem nome de técnica', 'c', 9],
+  ['k1', 'K', 'Hiakahou', 'Canhão', 'c', 1],
+  ['k2', 'K', 'Shoukakyuu no Jutsu', 'Orbe', 'c', 2],
+  ['k3', 'K', 'Goukakyuu no Jutsu', 'Sopro Destrutivo · Int + 2', 'sopro', 4],
+  ['k4', 'K', 'Housenka / Tsumabeni', 'Flechas · evolução Nv 9', 'f', 4],
+  ['k5', 'K', 'Ricochete', 'sem nome de técnica', 'c', 5],
+  ['k6', 'K', 'Kaen Senpū', 'Coluna', 'c', 7],
+  ['k7', 'K', 'Homuranagase', 'Meteoros', 'c', 10],
+  ['w1', 'W', 'Renkūdan', 'Canhão', 'c', 1],
+  ['w2', 'W', 'Rasengan / Oodama', 'Rasengan · evolução Nv 10', 'c', 6],
+  ['w3', 'W', 'Shinkuuha', 'Onda Explosiva', 'c', 8],
+  ['w4', 'W', 'Taifuuikka', 'Correnteza', 'c', 5],
+  ['w5', 'W', 'Kumo', 'Nuvem · dano fixo', 'fixo', 7],
+  ['w6', 'W', 'Fūhakujun', 'Barreira', 'u', 3, 0, 'Barreira de vento · sem dano'],
+  ['s1', 'S', 'Mizudeppou', 'Canhão', 'c', 1],
+  ['s2', 'S', 'Ryūsuisō', 'Lança', 'c', 7],
+  ['s3', 'S', 'Suishouha', 'Colisão de Ondas · base fixa 10', 'valor', 10],
+  ['s4', 'S', 'Haran Banshō', 'Barreira', 'u', 3, 0, 'Barreira de água · sem dano'],
+  ['s5', 'S', 'Araumi', 'Restringente', 'u', 6, 0, 'Restringe o alvo · teste resistido'],
+  ['s6', 'S', 'Suirou no Jutsu', 'Prisão de Água', 'u', 9, 0, 'Prende o alvo · teste resistido'],
+  ['d1', 'D', 'Makigai Hō', 'Canhão', 'c', 1],
+  ['d2', 'D', 'Kiretsu', 'Tremor', 'c', 5],
+  ['d3', 'D', 'Buki no Sakusei', 'Criar Arma', 'u', 2, 0, 'Cria arma de terra · sem dano próprio'],
+  ['d4', 'D', 'Moguragakure no Jutsu', 'Imergir', 'u', 4, 0, 'Move-se por dentro da terra'],
+  ['d5', 'D', 'Sazareishi', 'Algemar', 'u', 8, 0, 'Prende o alvo · teste resistido'],
+  ['d6', 'D', 'Dorou Doumu', 'Barreira', 'u', 3, 0, 'Cúpula de terra · sem dano'],
+  ['f1', 'F', 'Selo de Armazenamento', 'Fuuinjutsu 1', 'fu', 1, 0, 'Guarda objetos em pergaminho'],
+  ['f2', 'F', 'Misshi / Nise no Shitai', 'Fuuinjutsu 3', 'fu', 3, 0, 'Selos secretos'],
+  ['f3', 'F', 'Ninjutsu no Wana', 'Fuuinjutsu 6', 'fu', 6, 0, 'Armadilha de ninjutsu'],
+  ['f4', 'F', 'Chakra no Souin', 'Fuuinjutsu 7', 'fu', 7, 0, 'Selo de chakra'],
+  ['f5', 'F', 'Keiyaku Fuuin', 'Fuuinjutsu 10', 'fu', 10, 0, 'Selo de contrato'],
+  ['f6', 'F', 'Hiraishin', 'Deus do Trovão Voador · aptidão', 'fu', 8, 0, 'Teleporte até uma marca de Jutsu Shiki'],
+  ['b1', 'B', 'Kunai (corpo a corpo)', 'perfurante · crítico 14–16', 'arma', 0, 0, '', [1, 2, 3, 4]],
+  ['b2', 'B', 'Kunai (distância)', '15m · crítico 14–16', 'arma', 0, 0, '', [2, 4, 6, 8]],
+  ['b3', 'B', 'Shuriken', '20m · crítico 15–16 +1', 'arma', 0, 0, '', [1, 2, 3, 4]]
+];
+var HALF = 10; // ½ Inteligência 20, pelo Controle Perfeito
+function rgba(hex, a) {
+  var n = parseInt(hex.slice(1), 16);
+  return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+class Component extends DCLogic {
+  state = {
+    filter: 'todos', q: '', dmgOnly: false, chk: 70, lvls: {}, pot: '', tp: false,
+    pins: { r3: true, r4: true, k3: true, w2: true, s6: true, f6: true },
+    closed: { K: true, W: true, S: true, D: true, F: true },
+    log: [
+      { r: 2, t: 'Kanden Haribari · Nv 10 · base 21', c: '−10 chk' },
+      { r: 2, t: 'Sensor ativado', c: '−5 chk' },
+      { r: 1, t: 'Shiden · Nv 5 · base 16', c: '−5 chk' }
+    ],
+    hist: []
+  };
+  calc(row) {
+    var kind = row[4], min = row[5], el = EL[row[1]];
+    var lv = kind === 'c' || kind === 'f' || kind === 'fixo' || kind === 'valor' ? Math.min(10, Math.max(min, this.state.lvls[row[0]] || 10)) : min;
+    var meta = kind === 'c' || kind === 'f' || kind === 'sopro' || kind === 'valor';
+    var potDano = meta && this.state.pot === 'dano';
+    var base = 0, cost = 0, dmg = true, text = '';
+    if (kind === 'c') { base = lv + HALF + el.bonus + (row[6] || 0); cost = lv; }
+    else if (kind === 'f') { base = 2 * lv + el.bonus; cost = lv; }
+    else if (kind === 'sopro') { base = 22; cost = 10; }
+    else if (kind === 'valor') { base = 10; cost = lv; }
+    else if (kind === 'fixo') { dmg = false; cost = lv; text = lv + ' de dano fixo · não multiplica pelo grau'; }
+    else if (kind === 'u') { dmg = false; cost = lv; text = row[7]; }
+    else if (kind === 'fu') { dmg = false; cost = 0; text = row[7]; }
+    else if (kind === 'arma') { base = row[8][0]; cost = 0; }
+    if (potDano) base += 1;
+    var half = meta && this.state.tp ? 0.5 : 0;
+    var cells = kind === 'arma' ? row[8] : [1, 2, 3, 4].map(function (g) { return Math.ceil(base * (g + half)); });
+    return { lv: lv, base: base, cost: cost, dmg: dmg, text: text, cells: cells, meta: meta };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var q = (st.q || '').toLowerCase().trim();
+    var visible = function (row) {
+      var r = self.calc(row);
+      if (st.dmgOnly && !r.dmg && row[4] !== 'fixo') return false;
+      if (q && (row[2] + ' ' + row[3]).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    };
+    var mkRow = function (row) {
+      var r = self.calc(row);
+      var el = EL[row[1]];
+      var pinned = !!st.pins[row[0]];
+      var stepper = row[4] === 'c' || row[4] === 'f' || row[4] === 'fixo' || row[4] === 'valor';
+      var setLv = function (d) { var l = Object.assign({}, self.state.lvls); l[row[0]] = Math.min(10, Math.max(row[5], r.lv + d)); self.setState({ lvls: l }); };
+      return {
+        name: row[2], sub: row[3], kanji: el.kanji, kColor: el.c,
+        pinned: pinned ? 'true' : 'false', star: pinned ? '★' : '☆', starColor: pinned ? '#f0892a' : '#5e5246',
+        pinAria: (pinned ? 'Desafixar ' : 'Fixar ') + row[2],
+        pin: function () { var p = Object.assign({}, self.state.pins); p[row[0]] = !p[row[0]]; self.setState({ pins: p }); },
+        stepper: stepper, noStepper: !stepper, lv: r.lv, lvAria: 'Nível usado de ' + row[2],
+        lvText: row[4] === 'arma' ? 'arma' : 'Nv ' + r.lv,
+        noDec: r.lv <= row[5], noInc: r.lv >= 10,
+        dec: function () { setLv(-1); }, inc: function () { setLv(1); },
+        costText: r.cost ? r.cost : '—', cost: r.cost, hasCost: r.cost > 0,
+        dmg: r.dmg, noDmg: !r.dmg, text: r.text, base: r.base,
+        cells: r.cells.map(function (v, i) { return { v: v, bg: i === 3 ? '#3d1f18' : '#2a221a', color: i === 3 ? '#ffd9cf' : '#f3e9d6' }; }),
+        short: r.cost > st.chk,
+        use: function () {
+          var s = self.state;
+          var metas = [];
+          if (r.meta && s.pot) metas.push('Potencializar');
+          if (r.meta && s.tp) metas.push('Técnica Poderosa');
+          var t = row[2] + ' · Nv ' + r.lv + (r.dmg ? ' · base ' + r.base : '') + (metas.length ? ' · ' + metas.join(' + ') : '');
+          self.setState({
+            hist: [{ chk: s.chk, log: s.log }].concat(s.hist),
+            chk: s.chk - r.cost,
+            log: [{ r: 3, t: t, c: r.cost ? '−' + r.cost + ' chk' : '' }].concat(s.log).slice(0, 6),
+            pot: r.meta ? '' : s.pot, tp: r.meta ? false : s.tp
+          });
+        }
+      };
+    };
+    var groups;
+    if (st.filter === 'fix') {
+      var pinnedRows = ROWS.filter(function (row) { return st.pins[row[0]] && visible(row); });
+      groups = [{ key: 'fix', rows: pinnedRows, info: 'sua seleção para o combate · clique na estrela para tirar' }];
+    } else {
+      groups = ORDER.filter(function (k) { return st.filter === 'todos' || st.filter === k; }).map(function (k) {
+        return { key: k, rows: ROWS.filter(function (row) { return row[1] === k && visible(row); }), info: EL[k].info };
+      });
+    }
+    var forceOpen = !!q || st.filter !== 'todos';
+    var chipKeys = ['fix', 'todos'].concat(ORDER);
+    return {
+      q: st.q,
+      onQ: function (e) { self.setState({ q: e.target.value }); },
+      dmgOnly: st.dmgOnly,
+      onDmg: function (e) { self.setState({ dmgOnly: e.target.checked }); },
+      chk: st.chk,
+      chkPct: Math.max(0, Math.round(st.chk / 90 * 100)) + '%',
+      noUndo: st.hist.length === 0,
+      undo: function () { var h = self.state.hist; if (!h.length) return; self.setState({ chk: h[0].chk, log: h[0].log, hist: h.slice(1) }); },
+      tabs: ['Status', 'Ataques', 'Estados', 'Números'].map(function (t) {
+        var on = t === 'Ataques';
+        return { label: t, current: on ? 'page' : 'false', color: on ? '#f3e9d6' : '#8f8170', line: on ? 'inset 0 -3px 0 #f0892a' : 'none' };
+      }),
+      chips: chipKeys.map(function (k) {
+        var on = st.filter === k;
+        var n = k === 'fix' ? Object.keys(st.pins).filter(function (x) { return st.pins[x]; }).length : k === 'todos' ? ROWS.length : ROWS.filter(function (r) { return r[1] === k; }).length;
+        var el = EL[k];
+        return {
+          label: k === 'todos' ? 'Todas' : el.name, kanji: k === 'todos' ? '' : el.kanji, kColor: on ? '#231b13' : (el ? el.c : '#efe6d6'), n: n,
+          pressed: on ? 'true' : 'false', bg: on ? '#f3e9d6' : 'transparent', color: on ? '#231b13' : '#efe6d6', border: on ? '#f3e9d6' : '#3a3027',
+          pick: function () { self.setState({ filter: k }); }
+        };
+      }),
+      metas: [['dano', 'Potencializar', '+1 de dano'], ['alcance', 'Potencializar', 'alcance ×2'], ['area', 'Potencializar', 'área ×2'], ['tp', 'Técnica Poderosa', '+0,5 de grau']].map(function (m) {
+        var on = m[0] === 'tp' ? st.tp : st.pot === m[0];
+        return {
+          label: m[1], hint: m[2], pressed: on ? 'true' : 'false',
+          bg: on ? '#f0892a' : 'transparent', color: on ? '#231b13' : '#efe6d6', border: on ? '#f0892a' : '#3a3027',
+          pick: function () {
+            if (m[0] === 'tp') self.setState({ tp: !self.state.tp, pot: '' });
+            else self.setState({ pot: self.state.pot === m[0] ? '' : m[0], tp: false });
+          }
+        };
+      }),
+      gHeads: [['4–8', 1], ['9–11', 2], ['12–14', 3], ['15–16', 4]].map(function (x) { return { r: x[0], g: x[1], color: x[1] === 4 ? '#ff9a80' : '#b3a48c' }; }),
+      groups: groups.filter(function (g) { return g.rows.length > 0; }).map(function (g) {
+        var el = EL[g.key];
+        var open = forceOpen || !st.closed[g.key];
+        return {
+          label: el.name, kanji: el.kanji, color: el.c, info: g.info, n: g.rows.length,
+          open: open, expanded: open ? 'true' : 'false', chev: open ? '▾' : '▸',
+          toggle: function () { var c = Object.assign({}, self.state.closed); c[g.key] = !c[g.key]; self.setState({ closed: c }); },
+          rows: g.rows.map(mkRow)
+        };
+      }),
+      log: st.log,
+      counters: [{ n: 'Kunais marcadas (Jutsu Shiki)', v: 30 }, { n: 'Inspiração', v: 1 }, { n: 'Ponto heroico', v: 0 }]
+    };
+  }
+}
+</script>
+</body>
+</html>
