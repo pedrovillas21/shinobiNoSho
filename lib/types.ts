@@ -54,6 +54,8 @@ export interface Aptidao {
   free?: boolean;
   /** Genérica: pode ser comprada várias vezes com categorias diferentes. */
   generic?: boolean;
+  /** Pode ser comprada várias vezes, sem categoria (ex.: Aprendizagem Rápida). */
+  repeatable?: boolean;
   /** Evolutiva: número máximo de níveis. */
   maxLevel?: number;
   /** Pré-requisito e benefício de cada nível acima do 1º (índice 0 = nível 2). */
@@ -79,6 +81,9 @@ export interface Efeito {
   source: Source;
   /** Níveis do poder em que o efeito pode ser escolhido de novo para evoluir, em ordem (ex.: Raio: [5, 8]). */
   evolves?: number[];
+  /** Pré-requisito do efeito (ex.: Lâmina de Raios pede Espírito 8). */
+  reqText?: string;
+  req?: Req[];
 }
 
 export type PowerMode = "efeitos" | "tecnicas" | "livre";
@@ -177,6 +182,10 @@ export interface Optionals {
   danoExtraAuto: boolean;
   /** Livro Básico: mais de um clã/hijutsu. */
   multiHijutsu: boolean;
+  /** Regra da mesa: Fuuinjutsu Versátil ganha as técnicas como lista (cada nível traz as anteriores que faltaram). */
+  fuuinjutsuLista: boolean;
+  /** Regra da mesa: repetir um efeito leva direto à evolução mais alta que o nível da escolha permite. */
+  pularEvolucoes: boolean;
 }
 
 /** Clã ou hijutsu criado pelo próprio jogador/mestre. */

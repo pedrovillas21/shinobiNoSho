@@ -48,6 +48,12 @@ export function StepAptidoes({ c, set }: StepProps) {
     set((d) => {
       const freeUsed = d.aptidoes.filter((x) => x.free).length;
       d.aptidoes.push({ uid: uid(), id: a.id, level: 1, free: freeUsed < FREE_APTS && isFreeEligible(a), detail: a.generic ? "" : undefined });
+      // Aprendizagem Rápida: cada compra libera mais uma tabela de Versatilidade, que já aparece na etapa Poderes.
+      if (a.id === "aprendizagem-rapida") {
+        const tabelas = d.poderes.filter((p) => p.id === "versatilidade").length;
+        const liberadas = 1 + d.aptidoes.filter((x) => x.id === "aprendizagem-rapida").length;
+        if (tabelas >= 1 && tabelas < liberadas) d.poderes.push({ id: "versatilidade", level: 1, effects: [null], techniques: [""], versatile: ["", ""], owner: [null] });
+      }
     });
 
   const addCustom = () => {
@@ -198,7 +204,8 @@ export function StepAptidoes({ c, set }: StepProps) {
         <ul className="grid gap-2 md:grid-cols-2">
           {catalog.map((a) => {
             const st = status(a);
-            const disabled = st.owned && !a.generic;
+            const many = a.generic || a.repeatable;
+            const disabled = st.owned && !many;
             return (
               <li key={a.id} className={`card flex gap-3 p-3 ${st.available ? "" : "opacity-70"}`}>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -206,6 +213,7 @@ export function StepAptidoes({ c, set }: StepProps) {
                     <span className="font-bold text-paper">{a.name}</span>
                     {isFreeEligible(a) && <Badge tone="ok">gratuita</Badge>}
                     {a.generic && <Badge>genérica</Badge>}
+                    {a.repeatable && <Badge>{st.owned ? `comprada ${c.aptidoes.filter((x) => x.id === a.id).length}×` : "repetível"}</Badge>}
                     {a.maxLevel && a.maxLevel > 1 && <Badge>até nv {a.maxLevel}</Badge>}
                     {granted.includes(a.id) && <Badge tone="ok">pela Técnica Avançada</Badge>}
                     <span className="text-[11px] text-faint">{a.source}</span>
@@ -225,10 +233,10 @@ export function StepAptidoes({ c, set }: StepProps) {
                   type="button"
                   onClick={() => add(a)}
                   disabled={disabled}
-                  className={`grid size-11 shrink-0 place-items-center self-center rounded-xl transition disabled:opacity-40 ${st.owned && !a.generic ? "bg-ok/20 text-ok" : "bg-seal text-white"}`}
-                  aria-label={st.owned && !a.generic ? `${a.name} já adicionada` : `Adicionar ${a.name}`}
+                  className={`grid size-11 shrink-0 place-items-center self-center rounded-xl transition disabled:opacity-40 ${disabled ? "bg-ok/20 text-ok" : "bg-seal text-white"}`}
+                  aria-label={disabled ? `${a.name} já adicionada` : `Adicionar ${a.name}`}
                 >
-                  {st.owned && !a.generic ? <IconCheck /> : <IconPlus />}
+                  {disabled ? <IconCheck /> : <IconPlus />}
                 </motion.button>
               </li>
             );

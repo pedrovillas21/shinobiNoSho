@@ -1,6 +1,6 @@
 import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { custoVisao, evolutionIndex, hasApt, hasChakraExpandido, hasHipnose, katonLevel, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks } from "./rules";
+import { custoVisao, espParam, evolutionIndex, hasApt, hasChakraExpandido, hasHipnose, katonLevel, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -49,12 +49,24 @@ export const DANO_EFEITO: Record<string, DmgSpec> = {
   desastre: { kind: { k: "porNivel", x: 3 }, note: "1× por cena. Ataque de CD no turno de cada um na área.", costX: 3, noMeta: true },
   meteoros: { kind: { k: "fixo", mult: 1, txt: "por meteoro · 6 meteoros" }, note: "Sem bônus de dano. Mirar em alguém: −3 de precisão.", noMeta: true },
   inflamavel: { kind: { k: "canhao2" }, note: "Combustão com o Canhão Katon ou Raiton, na área do efeito.", noMeta: true },
-  "lamina-raios": { kind: { k: "comum" }, note: "Ataque de CC. Ignora 1 de dureza e quebra armas no bloqueio." },
+  "lamina-raios": { kind: { k: "comum" }, note: "Ataque de CC. Ignora 1 de dureza e quebra armas no bloqueio." }, // nota real em laminaRaiosNote
   descarga: { kind: { k: "metade" }, note: "Vigor (Dif −3) ou atordoado." },
   "lamina-vento": { kind: { k: "laminas" }, note: "Ação completa. Prontidão ou fica fintado. Só o bônus do elemento." },
   "bracos-serpente": { kind: { k: "arma", arma: 3 }, note: "Arma longa de 6m; bloqueia ataques armados. Contínua depois de criada.", costFixed: 4, noMeta: true },
   "colisao-ondas": { kind: { k: "valor", v: 10 }, note: "Construções sofrem o dobro. Evolução Nv 8: base 14; Nv 10: 18." },
 };
+
+/**
+ * Lâmina de Raios (Livro Básico, Raiton): o que cada evolução muda (Nv 5, 7 e 9). Usado abaixo do nível da evolução,
+ * o efeito fica sem o melhoramento dela (Livro Básico, Evoluindo Efeitos).
+ */
+function laminaRaiosNote(ev: number): string {
+  const out = ["Ataque de CC. Prepara com ação de movimento. Ignora 1 de dureza e quebra armas comuns no bloqueio, mesmo energizadas (menos Fuuton e Raiton)."];
+  if (ev >= 1) out.push("Usada no Nv 5+: prepara com ação parcial.");
+  if (ev >= 2) out.push("Nv 7+: ignora toda dureza (proteção Raiton: só metade; Fuuton: nenhuma).");
+  if (ev >= 3) out.push("Nv 9+: Crítico Aprimorado, cumulativo com o Domínio do Raio.");
+  return out.join(" ");
+}
 
 /** O que mostrar nos efeitos que não causam dano: dureza da criação, dificuldade do teste do alvo ou só o texto. */
 interface UtilSpec {
@@ -308,12 +320,7 @@ const half = (n: number) => Math.ceil(n / 2);
 
 function chave(c: Character, v: PlayView, powerId: string) {
   const sk = CHAVE_PERICIA[powerId];
-  let label = "Esp";
-  let val = v.attrs.ESP;
-  if (hasApt(c, "controle-perfeito") && v.attrs.INT > val) {
-    label = "Int";
-    val = v.attrs.INT;
-  }
+  let { label, val }: { label: string; val: number } = espParam(c, v.attrs);
   if (sk) {
     const s = v.skills.find((x) => x.key === sk.k)?.eff ?? 0;
     if (!sk.optional || s > val) {
@@ -373,7 +380,7 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
     pe.effects.slice(0, pe.level).forEach((eff, i) => {
       if (!eff || !EFEITO_BY_ID[eff]) return;
       // Escolher o efeito de novo = evolução.
-      addPick(g.picks, { eff, tech: pe.techniques[i]?.trim() ?? "", ev: evolutionIndex(pe.effects, i) });
+      addPick(g.picks, { eff, tech: pe.techniques[i]?.trim() ?? "", ev: evolutionIndex(pe.effects, i, c.optionals.pularEvolucoes) });
     });
     byId.set(pe.id, g);
   }
@@ -385,7 +392,7 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
     if (id === "hibon" && tn?.target === "hibon") addTalento(g, tn.eff);
     if (g.picks.length) groups.push(effectGroup(c, v, p, { key: id, powerId: id, title: PODER_BY_ID[id].name, level: g.level, picks: g.picks }));
   }
-  if (natural && !(katonG && katonG.level >= 4)) groups.push(katonNatural(v, p));
+  if (natural && !(katonG && katonG.level >= 4)) groups.push(katonNatural(c, v, p));
 
   // Versatilidade: cada poder versátil vira um grupo com alcance, tamanho e bônus do próprio elemento.
   // Os parâmetros usam o nível de Versatilidade mais alto entre as compras (como no Ninpou comprado 2×).
@@ -398,7 +405,7 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
       if (!id || PODER_BY_ID[id]?.mode !== "efeitos") return;
       const g = vGroups.get(id) ?? { level: vLevel, picks: [] as EffPick[] };
       vGroups.set(id, g);
-      for (const x of versatilePicks(pe, k)) if (x.eff && EFEITO_BY_ID[x.eff]) addPick(g.picks, { eff: x.eff, tech: x.tech.trim(), ev: x.ev });
+      for (const x of versatilePicks(pe, k, c.optionals.pularEvolucoes)) if (x.eff && EFEITO_BY_ID[x.eff]) addPick(g.picks, { eff: x.eff, tech: x.tech.trim(), ev: x.ev });
     });
   }
   for (const [id, g] of vGroups) {
@@ -485,8 +492,8 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
 }
 
 /** Elemento Natural: Katon sem o poder no nível 4: Sopro Destrutivo 4, dano base Espírito +2 e custo ½ Espírito (Livro Básico, pág. 180). */
-function katonNatural(v: PlayView, p: PlayState): AtkGroup {
-  const esp = v.attrs.ESP;
+function katonNatural(c: Character, v: PlayView, p: PlayState): AtkGroup {
+  const { label, val: esp } = espParam(c, v.attrs);
   const at = alcanceTamanho("katon", esp);
   const extra = p.dmgExtra?.["elemento-natural-katon"] ?? 0;
   const row: AtkRow = {
@@ -499,13 +506,13 @@ function katonNatural(v: PlayView, p: PlayState): AtkGroup {
     meta: false,
     free: false,
     calc: () => {
-      const parts = [`Esp ${esp}`, "Katon 2"];
+      const parts = [`${label} ${esp}`, "Katon 2"];
       if (extra) parts.push(`extra ${extra}`);
       if (v.dano) parts.push(`estado ${v.dano}`);
       return { base: Math.max(0, esp + 2 + extra + v.dano), cost: half(esp), dif: 13 + half(esp) + v.dif, parts, geo: geo("sopro", { A: at.alcance, T: at.tamanho, lvl: 4, ev: 0, key: esp }) };
     },
   };
-  return { id: "elemento-natural-katon", title: "Elemento Natural: Katon", level: 4, keyLabel: "Esp", keyVal: esp, alcance: at.alcance, tamanho: at.tamanho, bonus: [], extra, rows: [row] };
+  return { id: "elemento-natural-katon", title: "Elemento Natural: Katon", level: 4, keyLabel: label, keyVal: esp, alcance: at.alcance, tamanho: at.tamanho, bonus: [], extra, rows: [row] };
 }
 
 /** Linha de técnica sem nível variável (Sharingan e Mangekyou: nível de poder 10 para a dificuldade). */
@@ -600,7 +607,8 @@ function mangekyouGroup(c: Character, v: PlayView, p: PlayState): AtkGroup | nul
   const curto = !perdidas.includes("kamui-curto");
   const longo = !perdidas.includes("kamui-longo");
   const vis = (n: number) => custoVisao(c, n);
-  const esp = v.attrs.ESP;
+  // Controle Perfeito: Inteligência no lugar do Espírito.
+  const { label: espLbl, val: esp } = espParam(c, v.attrs);
   const kat = katonLevel(c);
   const alvo = { alcance: "9m", area: "1 criatura" };
   const util = (key: string, name: string, sub: string, cost: number, visao: number, txt: string, note = "") =>
@@ -651,7 +659,7 @@ function mangekyouGroup(c: Character, v: PlayView, p: PlayState): AtkGroup | nul
         "Kamui · Expelir Objetos",
         "Curto alcance · ação padrão",
         `1 alvo por compartimento expelido (1 chakra cada). Sem armas, metade do dano. ${need}`,
-        () => ({ base: Math.max(0, esp + v.dano), cost: 1, vis: vis(1), dif: 0, noDif: true, sharingan: true, parts: v.dano ? [`Esp ${esp}`, `estado ${v.dano}`] : [`Esp ${esp}`], geo: { alcance: "18m", area: "1 alvo por compartimento" } }),
+        () => ({ base: Math.max(0, esp + v.dano), cost: 1, vis: vis(1), dif: 0, noDif: true, sharingan: true, parts: v.dano ? [`${espLbl} ${esp}`, `estado ${v.dano}`] : [`${espLbl} ${esp}`], geo: { alcance: "18m", area: "1 alvo por compartimento" } }),
         ),
         util("abducao-objetos", "Kamui · Abdução de Objetos", "Curto alcance · defesa, sem teste", 1, 1, "Guarda na dimensão um objeto grande ou menor jogado contra você (1 chakra por compartimento, até 10).", need),
         util("intangibilidade", "Kamui · Intangibilidade", "Curto alcance · ação padrão ou defesa", 5, 2, "Na defesa é sucesso automático (menos contra crítico). Atravessa obstáculos, mas não interage com o mundo nem usa o Teletransporte. Até 5 minutos seguidos.", need),
@@ -663,7 +671,7 @@ function mangekyouGroup(c: Character, v: PlayView, p: PlayState): AtkGroup | nul
         "Kamui · Abdução Ofensiva",
         "Longo alcance · concentração",
         `Teste de LM no fim de cada turno; acerta com 3 acertos (ou um crítico) enquanto o alvo estiver a 18m e à vista. ${need}`,
-        () => ({ base: 0, cost: 10, vis: vis(2), dif: 0, noDif: true, sharingan: true, parts: [`Esp ${esp}`], fixed: { v: esp, txt: "e amputa um braço; sangrando ×5" }, geo: { alcance: "18m", area: "1 criatura" } }),
+        () => ({ base: 0, cost: 10, vis: vis(2), dif: 0, noDif: true, sharingan: true, parts: [`${espLbl} ${esp}`], fixed: { v: esp, txt: "e amputa um braço; sangrando ×5" }, geo: { alcance: "18m", area: "1 criatura" } }),
         ),
         util("abducao-defensiva", "Kamui · Abdução Defensiva", "Longo alcance · defesa, sem teste", 5, 2, "Engole um ataque à distância contra você ou um aliado no alcance.", need),
       );
@@ -693,20 +701,20 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
 
   const rows: AtkRow[] = o.picks
-    .map(({ eff, tech, ev, talento, tag: from }): AtkRow => {
+    .flatMap(({ eff, tech, ev, talento, tag: from }): AtkRow[] => {
       const e = EFEITO_BY_ID[eff];
       const spec = DANO_EFEITO[eff];
       const tag = talento ? "Talento Natural" : (from ?? "");
-      if (!spec) return utilRow(key, id, eff, tech, ev, level, k, v, tag);
+      if (!spec) return [utilRow(key, id, eff, tech, ev, level, k, v, tag)];
       const effName = e.name.replace(/ \(.*\)$/, "");
       const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
       const evoTxt = evoLvl ? `evoluído Nv ${evoLvl}` : "";
       const meta = !spec.noMeta;
-      return {
+      const row: AtkRow = {
         key: `${key}:${eff}`,
         name: tech || effName,
         sub: [tech ? effName : "", evoTxt, tag].filter(Boolean).join(" · "),
-        note: spec.note,
+        note: eff === "lamina-raios" ? laminaRaiosNote(ev) : spec.note,
         min: e.level,
         max: spec.costFixed ? e.level : Math.max(e.level, level),
         meta,
@@ -717,6 +725,23 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
           geo: geo(eff, { A: at.alcance * (meta && opt.pot === "alcance" ? 2 : 1), T: at.tamanho * (meta && opt.pot === "area" ? 2 : 1), lvl, ev, key: k.val }),
         }),
       };
+      // Lâmina de Raios Nv 5 (evolução): atacar com Investida dá +2 de dano, +1 a cada nível do poder acima do 5.
+      // Conta o nível do poder (num poder versátil, o da Versatilidade), não o nível usado; usar abaixo do Nv 5 perde a evolução.
+      if (eff !== "lamina-raios" || ev < 1 || row.max < 5) return [row];
+      const investida: AtkRow = {
+        ...row,
+        key: `${key}:${eff}:investida`,
+        name: `${row.name} · Investida`,
+        sub: ["Ação completa · corrida de 3m+", row.sub].filter(Boolean).join(" · "),
+        note: "+1 no ataque e −1 na defesa até o seu próximo turno. Se o alvo Esquivar ou Antecipar, ganha um ataque oportuno (não vale se você estiver Acelerado ou tiver o Nidan Sharingan; Mobilidade serve contra ele).",
+        min: 5,
+        calc: (lvl, opt) => {
+          const r = row.calc(lvl, opt);
+          const b = 2 + Math.max(0, level - 5);
+          return { ...r, base: r.base + b, parts: [...r.parts, `Investida ${b}`] };
+        },
+      };
+      return [row, investida];
       function dmgCalc(lvl: number, opt: { free?: boolean; pot?: PotMode }): Calc {
         const comum = lvl + half(k.val);
         const dif = 9 + lvl + half(k.val) + v.dif + (DIF_PODER[id] ?? 0);
@@ -835,11 +860,12 @@ export function outrosPoderes(c: Character): OutroPoder[] {
     (pe.versatile ?? []).forEach((id, k) => {
       const def = PODER_BY_ID[id];
       if (def?.mode !== "tecnicas") return;
-      const items = versatilePicks(pe, k)
-        .map((x) => def.techniques?.[tecIndex(x.eff)])
+      const lista = c.optionals.fuuinjutsuLista;
+      const items = versatileTechs(pe, k, lista)
+        .map((n) => def.techniques?.[n])
         .filter((t): t is NonNullable<typeof t> => !!t)
         .map((t) => `Nv ${t.level} · ${t.name}`);
-      out.push({ id: `versatilidade:${id}:${i}`, title: versatileName(id), level: pe.level, items: [...new Set(items)], note: "" });
+      out.push({ id: `versatilidade:${id}:${i}`, title: versatileName(id), level: pe.level, items, note: lista ? "Regra opcional: técnicas em lista." : "" });
     });
   });
   // Mímica Sharingan (Nidan Sharingan, Livro Básico pág. 185): técnicas sem custo de chakra, exceto Anular.

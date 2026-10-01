@@ -190,7 +190,7 @@ const RESTRITAS: Aptidao[] = [
   // Magen
   r("ilusao-fluida", "Ilusão Fluida", "Básico", "Adapta a ilusão para ajustar a resistência.", "Inteligência 12; Magen 6", [A("INT", 12), P("magen", 6)]),
   // Tensai
-  r("aprendizagem-rapida", "Aprendizagem Rápida", "Básico", "Compra Versatilidade outra vez, com dois novos poderes versáteis. Pode ser comprada mais de uma vez.", "Versatilidade 5", [P("versatilidade", 5)], { generic: true }),
+  r("aprendizagem-rapida", "Aprendizagem Rápida", "Básico", "Compra Versatilidade outra vez, com dois novos poderes versáteis. Pode ser comprada mais de uma vez.", "Versatilidade 5", [P("versatilidade", 5)], { repeatable: true }),
   r("talento-natural", "Talento Natural", "Básico", "Ganha um efeito extra (e suas evoluções) num poder versátil ou Hibon Ninpou.", "Inteligência ou Espírito 6", [ANY(A("INT", 6), A("ESP", 6))]),
   r("tecnica-avancada", "Técnica Avançada", "Básico", "Recebe duas aptidões de técnica à sua escolha, sem pagar por elas.", "Cumprir os pré-requisitos das aptidões recebidas", undefined, { grants: { cat: "tecnica", n: 2 } }),
   e("capacidade", "Capacidade", "Básico", "+1 de dano base nos efeitos de Ninpou e elementos (inclusive Versatilidade e Hibon).", "Espírito 8", [A("ESP", 8)], { levels: [L("Espírito 12", [A("ESP", 12)], "Usa meta-aptidões como ação parcial.")] }),

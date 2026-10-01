@@ -3,7 +3,7 @@ import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
-import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks } from "@/lib/rules";
+import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 
 function H({ children }: { children: React.ReactNode }) {
@@ -169,28 +169,33 @@ export function FichaSheet({ c }: { c: Character }) {
                       id ? (
                         <p key={id} className="text-sm leading-snug">
                           <strong>{versatileName(id)}:</strong>{" "}
-                          {versatilePicks(p, k)
-                            .map((x) => {
-                              const t = PODER_BY_ID[id]?.techniques?.[tecIndex(x.eff)];
-                              const name = t ? t.name : x.eff ? EFEITO_BY_ID[x.eff]?.name : "—";
-                              const evo = x.ev && x.eff ? ` → evolução Nv ${evolutionLevel(x.eff, x.ev) ?? "?"}` : "";
-                              return `Nv ${x.level} ${name}${evo}${x.tech && !x.auto ? ` (${x.tech})` : ""}`;
-                            })
-                            .join(" · ")}
+                          {c.optionals.fuuinjutsuLista && PODER_BY_ID[id]?.mode === "tecnicas"
+                            ? versatileTechs(p, k, true)
+                                .map((n) => PODER_BY_ID[id].techniques?.[n])
+                                .map((t) => `Nv ${t?.level} ${t?.name}`)
+                                .join(" · ")
+                            : versatilePicks(p, k, c.optionals.pularEvolucoes)
+                                .map((x) => {
+                                  const t = PODER_BY_ID[id]?.techniques?.[tecIndex(x.eff)];
+                                  const name = t ? t.name : x.eff ? EFEITO_BY_ID[x.eff]?.name : "—";
+                                  const evo = x.ev && x.eff ? ` → evolução Nv ${evolutionLevel(x.eff, x.ev) ?? "?"}` : "";
+                                  return `Nv ${x.level} ${name}${evo}${x.tech && !x.auto ? ` (${x.tech})` : ""}`;
+                                })
+                                .join(" · ")}
                         </p>
                       ) : null,
                     )}
                   {def?.mode === "efeitos" && p.id !== "versatilidade" && (
                     <>
                       <p className="text-xs text-paper-muted">
-                        Dano base {top + Math.ceil(c.attrs.ESP / 2)} · Dif {9 + top + Math.ceil(c.attrs.ESP / 2)} · Custo = nível usado
+                        Dano base {top + Math.ceil(espParam(c).val / 2)} · Dif {9 + top + Math.ceil(espParam(c).val / 2)} · Custo = nível usado
                       </p>
                       <ol className="text-sm leading-snug">
                         {p.effects.slice(0, p.level).map((e, n) => (
                           <li key={n}>
                             {e ? EFEITO_BY_ID[e]?.name : "—"}
-                            {e && !evolutionIndex(p.effects, n) ? <span className="text-paper-muted"> (nv {EFEITO_BY_ID[e]?.level})</span> : null}
-                            {e && evolutionIndex(p.effects, n) > 0 ? ` → evolução Nv ${evolutionLevel(e, evolutionIndex(p.effects, n)) ?? "?"}` : ""}
+                            {e && !evolutionIndex(p.effects, n, c.optionals.pularEvolucoes) ? <span className="text-paper-muted"> (nv {EFEITO_BY_ID[e]?.level})</span> : null}
+                            {e && evolutionIndex(p.effects, n, c.optionals.pularEvolucoes) > 0 ? ` → evolução Nv ${evolutionLevel(e, evolutionIndex(p.effects, n, c.optionals.pularEvolucoes)) ?? "?"}` : ""}
                             {p.techniques[n] ? ` (${p.techniques[n]})` : ""}
                           </li>
                         ))}

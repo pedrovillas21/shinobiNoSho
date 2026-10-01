@@ -1,5 +1,5 @@
 import { BIJUUS } from "./data/poderes";
-import { aptLevel, custoVisao, hasApt, hasMangekyouTec, powerLevel, skillTotal, uid } from "./rules";
+import { aptLevel, custoVisao, espParam, hasApt, hasMangekyouTec, powerLevel, skillTotal, uid } from "./rules";
 import type { Character, ModTarget, PlayCounter, PlayEffect, PlayMod } from "./types";
 
 /* Catálogo dos poderes e aptidões ativáveis dos livros que viram estados na Mesa.
@@ -158,13 +158,13 @@ export const ESTADOS: EstadoDef[] = [
     id: "susanoo",
     name: "Susanoo",
     has: (c) => hasMangekyouTec(c, "susanoo"),
-    sig: (c) => `${c.attrs.ESP}|${c.attrs.INT}|${c.attrs.FOR}|${c.attrs.DES}|${c.acuidade}|${custoVisao(c, 1)}`,
+    sig: (c) => `${espParam(c).val}|${c.attrs.ESP}|${c.attrs.INT}|${c.attrs.FOR}|${c.attrs.DES}|${c.acuidade}|${custoVisao(c, 1)}`,
     stages: (c) => [{ label: "Incompleto" }, { label: "Completo" }, { label: "Perfeito", faint: Math.max(c.attrs.INT, c.attrs.ESP) < 18 }],
     switchCost: () => NO_COST,
     build(e, c) {
       const s = stageOf(e);
       const size: Size = s === 2 ? "Colossal" : "Imenso";
-      const esp = c.attrs.ESP;
+      const { label: espLbl, val: esp } = espParam(c);
       e.src = `Mangekyou · ${["incompleto", "completo", "forma perfeita"][s]}`;
       e.costChk = 10;
       e.costVis = custoVisao(c, 2);
@@ -172,8 +172,8 @@ export const ESTADOS: EstadoDef[] = [
       e.mods = sizeMods(c, size, { vig: false });
       e.hint = text(
         custoVisao(c, 1) ? "Sustentado; 2 pontos de visão ao ativar e 1 por turno (a mesa desconta). Evoluir de forma é ação parcial, regredir é livre." : "Sustentado; Mangekyou Eterno: sem custo de visão. Evoluir de forma é ação parcial, regredir é livre.",
-        `Barreira de dureza 0 e absorção ${(s === 0 ? 2 : 3) * esp} (${s === 0 ? "2" : "3"}× Espírito); com 10 ou menos, restaura tudo com ação de movimento.`,
-        s === 0 ? "Incompleto: usa técnicas à distância normalmente." : `Armas de chakra pesadas: dano base ${esp} (Espírito), 1 ataque por ação padrão; só técnicas que não partem de você.`,
+        `Barreira de dureza 0 e absorção ${(s === 0 ? 2 : 3) * esp} (${s === 0 ? "2" : "3"}× ${espLbl === "Int" ? "Inteligência" : "Espírito"}); com 10 ou menos, restaura tudo com ação de movimento.`,
+        s === 0 ? "Incompleto: usa técnicas à distância normalmente." : `Armas de chakra pesadas: dano base ${esp} (${espLbl === "Int" ? "Inteligência" : "Espírito"}), 1 ataque por ação padrão; só técnicas que não partem de você.`,
         s === 2 && "Forma Perfeita: pernas e asas, Voo 18.",
         sizeHint(size).replace(" e tamanho temporário não aumenta a Vitalidade", " (o Susanoo não dá Vigor)"),
       );
@@ -370,12 +370,12 @@ export const ESTADOS: EstadoDef[] = [
     id: "kyoudo-kyouka",
     name: "Kyoudo Kyouka",
     has: (c) => hasApt(c, "kyoudo-kyouka"),
-    sig: (c) => `${c.attrs.ESP}|${powerLevel(c, "iryou")}`,
+    sig: (c) => `${espParam(c).val}|${powerLevel(c, "iryou")}`,
     build(e, c) {
-      const esp = c.attrs.ESP;
+      const { label: espLbl, val: esp } = espParam(c);
       e.src = "Chakra acumulado na mão ou no pé";
       e.costChk = half(esp);
-      e.hint = `Ação parcial, sem selos, contínua até o golpe. Libera com ação livre num ataque desarmado: dano ${half(esp) + powerLevel(c, "iryou")} (½ Espírito + Iryou), sem Força nem arma; o alvo testa Acrobacia (Dif ${9 + esp}) ou fica caído. Não pode ser bloqueado desarmado nem com arma comum. Desligue depois do golpe.`;
+      e.hint = `Ação parcial, sem selos, contínua até o golpe. Libera com ação livre num ataque desarmado: dano ${half(esp) + powerLevel(c, "iryou")} (½ ${espLbl === "Int" ? "Inteligência" : "Espírito"} + Iryou), sem Força nem arma; o alvo testa Acrobacia (Dif ${9 + esp}) ou fica caído. Não pode ser bloqueado desarmado nem com arma comum. Desligue depois do golpe.`;
     },
   },
   {
@@ -444,7 +444,7 @@ export const ESTADOS: EstadoDef[] = [
     id: "armadura-raios",
     name: "Armadura de Raios",
     has: (c) => hasApt(c, "armadura-raios"),
-    sig: (c) => `${aptLevel(c, "armadura-raios")}|${c.attrs.ESP}`,
+    sig: (c) => `${aptLevel(c, "armadura-raios")}|${espParam(c).val}`,
     build(e, c) {
       const L = clamp(aptLevel(c, "armadura-raios"), 1, 3);
       const d = [
@@ -458,7 +458,7 @@ export const ESTADOS: EstadoDef[] = [
       e.hint = text(
         `Ação parcial, ${L > 1 ? "contínua" : "sustentada"}. Ataques corporais contam como Energizar Raiton; a dureza é do elemento Raiton.`,
         L > 1 && `Efeitos do Nintaijutsu +${L - 1} de dano.`,
-        `Defesa Ativa: ${L >= 3 ? "ação livre" : "ação de movimento"} e 2 chakra; defende com CC e ganha dureza extra igual ao Espírito (${c.attrs.ESP}) até o fim do turno do atacante.`,
+        `Defesa Ativa: ${L >= 3 ? "ação livre" : "ação de movimento"} e 2 chakra; defende com CC e ganha dureza extra igual ao ${espParam(c).label === "Int" ? "Inteligência" : "Espírito"} (${espParam(c).val}) até o fim do turno do atacante.`,
       );
     },
   },
@@ -511,12 +511,12 @@ export const ESTADOS: EstadoDef[] = [
     name: "Voo (Kujaku Myoho)",
     auto: false,
     has: (c) => powerLevel(c, "kujaku") >= 4,
-    sig: (c) => `${c.attrs.ESP}`,
+    sig: (c) => `${espParam(c).val}`,
     build(e, c) {
       e.src = "Kujaku Myoho · efeito Nv 4";
       e.costChk = 4;
       e.mods = [on("desloc", 10)];
-      e.hint = `Ação padrão, sustentada. Asas de chakra: Voo ${c.attrs.ESP} (Espírito) e condição Alado. Nv 7: leva um 2º alvo por +4 chakra.`;
+      e.hint = `Ação padrão, sustentada. Asas de chakra: Voo ${espParam(c).val} (${espParam(c).label === "Int" ? "Inteligência" : "Espírito"}) e condição Alado. Nv 7: leva um 2º alvo por +4 chakra.`;
     },
   },
   {
@@ -549,10 +549,10 @@ export const ESTADOS: EstadoDef[] = [
     id: "senjutsu",
     name: "Modo Eremita",
     has: (c) => aptLevel(c, "senjutsu") >= 1,
-    sig: (c) => `${aptLevel(c, "senjutsu")}|${c.attrs.VIG}|${c.attrs.ESP}`,
+    sig: (c) => `${aptLevel(c, "senjutsu")}|${c.attrs.VIG}|${c.attrs.ESP}|${espParam(c).val}`,
     build(e, c) {
       const lvl = aptLevel(c, "senjutsu");
-      const esp = c.attrs.ESP;
+      const esp = espParam(c).val;
       e.src = `Senjutsu · ${senjutsuPoints(c)} pontos de Chakra Senjutsu`;
       e.gainChk = lvl >= 2 ? 20 : 0;
       e.mods = [off("FOR", 4), off("dano", 2), off("precAtk", 1), off("precDef", 1), off("acel", 1), off("dif", 1), off("dureza", 1)];

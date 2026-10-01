@@ -25,6 +25,14 @@ Conferido com a planilha do Ashihira: Vitalidade 134, Chakra 90, Iniciativa 36, 
   - poder versátil repetido (na mesma compra ou em outra; a 4ª compra pode repetir os de outras compras);
   - compra extra de Versatilidade sem Aprendizagem Rápida.
 - **Ataques na mesa.** Cada poder versátil vira um grupo com alcance, tamanho e bônus do próprio elemento. Ex.: o Raiton Versátil com Espírito/Inteligência 20 tem alcance 75m, tamanho 10m e +1 de dano. Os parâmetros usam o nível de Versatilidade mais alto entre as compras.
+- **Lâmina de Raios (Raiton e Raiton Versátil).**
+  - O pré-requisito Espírito 8 do efeito agora é conferido. O nível de Versatilidade substitui o nível do poder, mas não os atributos.
+  - Na mesa, a observação muda com cada evolução: no Nv 5, preparar vira ação parcial; no Nv 7, ignora toda dureza (proteção Raiton, só metade; Fuuton, nenhuma); no Nv 9, ganha Crítico Aprimorado.
+  - Com a evolução Nv 5 aparece a linha "Investida": +2 de dano, mais +1 por nível do poder acima do 5. No versátil conta o nível da Versatilidade, não o nível usado. A linha só pode ser usada do Nv 5 em diante.
+  - Evoluções não podem ser puladas (Livro Básico, Evoluindo Efeitos): a Lâmina Nv 9 pede a Lâmina, a Nv 5 e a Nv 7 escolhidas antes. Usada abaixo do nível de uma evolução, a técnica fica sem o melhoramento dela.
+- **Pular evoluções (regra da mesa, opcional).** Vale para qualquer efeito, em qualquer poder. Com a regra ligada na etapa Conceito, o efeito já entra na evolução mais alta que o nível da escolha permite, com as anteriores junto, mesmo na 1ª escolha (Lâmina de Raios escolhida no nível 9 = Lâmina Nv 9, numa escolha só). Escolher de novo um efeito já evoluído leva à evolução seguinte possível. O pré-requisito do efeito (ex.: Espírito 8) continua valendo.
+- **Aprendizagem Rápida.** Pode ser comprada quantas vezes quiser (sem campo de categoria). Cada compra cria mais uma tabela de Versatilidade na etapa Poderes, e o catálogo mostra quantas tabelas estão liberadas.
+- **Fuuinjutsu Versátil em lista (regra da mesa, opcional).** Pelo livro, cada nível dá uma técnica, e a que ficou para trás se perde (Selo de Armazenamento no 1 e Misshi no 3, sem o Selo de Armazenamento Maior). Com a regra ligada na etapa Conceito, cada nível que o Fuuinjutsu recebe traz todas as técnicas até ele (Misshi no 3 também traz o Selo de Armazenamento Maior).
 - **Fuuinjutsu Versátil.** Lista na mesa as técnicas escolhidas nos níveis dele.
 - **4ª Versatilidade (regra da casa).** A 4ª compra traz 3 poderes versáteis em vez de 2 e pode repetir os de outras compras (mas não dentro dela mesma). O nível 1 vale para os três; do 2º em diante, cada nível é de um deles, com no máximo 2 seguidos no mesmo. Na mesa, um poder que aparece em mais de uma compra vira um grupo só, com os efeitos somados.
 - **Fichas antigas.** O app tenta ler os poderes versáteis do nome digitado ("Katon Versátil + Suiton Versátil"). Os níveis de cada poder precisam ser escolhidos de novo; até lá, a ficha mostra um aviso.
@@ -57,6 +65,12 @@ Conferido com a planilha do Ashihira: Vitalidade 134, Chakra 90, Iniciativa 36, 
 - **Não fica negativo.** Técnica, estado ou troca de forma sem chakra suficiente não sai, e nada é gasto. O botão fica desabilitado.
 - **Custo por turno.** Se não houver chakra para pagar, o estado desliga.
 - **Gasto manual e “Definir”.** Param no 0. Em 0, a pessoa fica exausta (Livro Básico, Chakra: Gasto e Recuperação).
+
+## Controle Perfeito (Livro Básico, Tensai)
+
+- Com Inteligência maior que o Espírito, a Inteligência substitui o Espírito em todos os parâmetros de poderes e aptidões, tudo junto: dano, dificuldade, alcance, tamanho e custo dos efeitos, Rasengan, Sopro do Elemento Natural: Katon, Kamui, Susanoo, Kyoudo Kyouka, Armadura de Raios, Voo do Kujaku e sensor do Modo Eremita. Também vale nos resumos de dano do construtor e da ficha.
+- Não vale para pré-requisitos (a Lâmina de Raios continua pedindo Espírito 8), para o chakra total nem para a afinidade elemental (Espírito 10).
+- Nível 2 (Inteligência 12): soma a Inteligência ao chakra total.
 
 ## Talento Natural
 

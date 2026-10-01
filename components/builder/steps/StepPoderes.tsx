@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
-import { allowedRestricted, budgetFor, evolutionIndex, evolutionLevel, isRepurchase, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
+import { allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, firstEvolution, isRepurchase, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
 import type { Efeito, Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, IconX, Stepper, StepHeader, Toggle } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
@@ -18,7 +18,9 @@ export function StepPoderes({ c, set }: StepProps) {
   const [showOthers, setShowOthers] = useState(false);
   const [pq, setPq] = useState("");
   const [pf, setPf] = useState<PowerFilter>("todos");
-  const halfEsp = Math.ceil(c.attrs.ESP / 2);
+  // Controle Perfeito: Inteligência no lugar do Espírito.
+  const halfEsp = Math.ceil(espParam(c).val / 2);
+  const pular = c.optionals.pularEvolucoes;
 
   const blocked = (p: Poder) => (p.restricted ? !allowed.powers.has(p.id) : c.originId === "samurai");
   const available = PODERES.filter((p) => showOthers || !blocked(p) || c.poderes.some((x) => x.id === p.id));
@@ -129,6 +131,8 @@ export function StepPoderes({ c, set }: StepProps) {
                       p={p}
                       slots={versatileSlots(c, idx)}
                       taken={c.poderes.flatMap((x, j) => (j !== idx && x.id === "versatilidade" ? (x.versatile ?? []) : []))}
+                      lista={c.optionals.fuuinjutsuLista}
+                      pular={pular}
                       edit={(fn) => edit(idx, fn)}
                     />
                   )}
@@ -145,10 +149,16 @@ export function StepPoderes({ c, set }: StepProps) {
                           .filter((e) => e && !others.includes(e.id))
                           .sort((a, b) => a.level - b.level);
                         // Evoluções: efeitos já escolhidos em outra escolha que ainda têm evolução.
+                        // Pular evoluções (regra opcional): vai direto à mais alta que o nível desta escolha permite.
+                        const evoAt = (id: string) => {
+                          const hyp = p.effects.slice();
+                          hyp[i] = id;
+                          return evolutionIndex(hyp, i, pular) || nextEvolution(id, others.filter((x) => x === id).length - 1, i + 1, pular);
+                        };
                         const evos = [...new Set(others)]
-                          .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, others.filter((x) => x === id).length) }))
+                          .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)) }))
                           .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null);
-                        const k = evolutionIndex(p.effects, i);
+                        const k = evolutionIndex(p.effects, i, pular);
                         const need = chosen && k ? evolutionLevel(chosen, k) : null;
                         const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
                         return (
@@ -158,7 +168,7 @@ export function StepPoderes({ c, set }: StepProps) {
                               label={`${i + 1}º efeito`}
                               context={`${name.split(" (")[0]} nível ${top}`}
                               value={chosen ?? null}
-                              {...effectChoices(p.id, top, fresh, evos, stale ? chosen : null)}
+                              {...effectChoices(p.id, top, fresh, evos, stale ? chosen : null, (id) => firstEvolution(id, i + 1, pular))}
                               onChange={(v) => edit(idx, (x) => void (x.effects[i] = v))}
                             />
                             <input
@@ -275,7 +285,13 @@ export function StepPoderes({ c, set }: StepProps) {
                     </span>
                     <span className="text-xs leading-snug text-muted">{p.desc}</span>
                     {hit && <span className="text-xs font-bold text-chakra">Tem: {hit}</span>}
-                    {again && <span className="text-xs font-bold text-ok">Você já tem. Comprar de novo: nível 1 grátis, mais efeitos.</span>}
+                    {again && p.id === "versatilidade" ? (
+                      <span className="text-xs font-bold text-ok">
+                        Cada tabela extra pede uma Aprendizagem Rápida: {c.poderes.filter((x) => x.id === "versatilidade").length} de {1 + c.aptidoes.filter((x) => x.id === "aprendizagem-rapida").length} tabela(s) liberada(s). Comprar a aptidão já cria a tabela.
+                      </span>
+                    ) : (
+                      again && <span className="text-xs font-bold text-ok">Você já tem. Comprar de novo: nível 1 grátis, mais efeitos.</span>
+                    )}
                     {p.reqText && <span className={`text-xs ${met ? "text-ok" : "text-bad"}`}>{met ? "✓" : "✗"} {p.reqText}</span>}
                     {blocked(p) && <span className="text-xs text-bad">{p.restricted ? `Restrito a: ${ownersText("poderes", p.id)}.` : "Samurais não compram poderes comuns."} Pode pegar, mas fica como observação.</span>}
                   </span>
@@ -314,7 +330,7 @@ export function StepPoderes({ c, set }: StepProps) {
  * efeito de nível 1 a todos; do 2º em diante, cada nível é de um deles, com no máximo 2 níveis seguidos no mesmo, e o
  * efeito tem nível igual ou menor.
  */
-function VersatileEditor({ p, slots, taken, edit }: { p: PowerEntry; slots: number; taken: string[]; edit: (fn: (x: PowerEntry) => void) => void }) {
+function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntry; slots: number; taken: string[]; lista: boolean; pular: boolean; edit: (fn: (x: PowerEntry) => void) => void }) {
   const ks = Array.from({ length: slots }, (_, k) => k);
   const vv = ks.map((k) => p.versatile?.[k] ?? "");
   const fourth = slots === 3;
@@ -392,7 +408,7 @@ function VersatileEditor({ p, slots, taken, edit }: { p: PowerEntry; slots: numb
                   context={`Versatilidade · nível ${lvl}`}
                   placeholder="Escolher poder e efeito…"
                   value={has ? `${k}|${p.effects[i]}` : null}
-                  {...versatileChoices(p, vv, i)}
+                  {...versatileChoices(p, vv, i, lista, pular)}
                   onChange={(v) => setLevel(i, v)}
                 />
               ) : (
@@ -434,7 +450,14 @@ function searchHit(p: Poder, q: string): string | null {
 const shortName = (id: string) => (PODER_BY_ID[id]?.name ?? id).split(" (")[0];
 
 /** Seletor de um poder de efeitos: exclusivos do elemento, evoluções, gerais e o que passa do nível do poder. */
-function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e: Efeito; need: number }[], stale: string | null) {
+/** Efeito novo no seletor. Pulando evoluções, ele já entra na evolução `ev` (ex.: Lâmina de Raios Nv 9). */
+function freshLabel(e: Efeito, ev: number) {
+  const need = ev ? evolutionLevel(e.id, ev) : null;
+  if (!need) return { name: e.name, level: e.level, desc: e.desc };
+  return { name: `${e.name} Nv ${need}`, level: e.level, desc: `Pular evoluções: já entra como ${e.name} Nv ${need}, com as evoluções anteriores. ${e.desc}` };
+}
+
+function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e: Efeito; need: number }[], stale: string | null, firstEv: (id: string) => number = () => 0) {
   const short = shortName(powerId);
   const kanji = KANJI_PODER[powerId];
   const excl = (id: string) => EXCLUSIVOS.includes(id);
@@ -444,7 +467,7 @@ function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e:
       .sort((a, b) => Number(excl(b.id)) - Number(excl(a.id)) || a.level - b.level)
       .map((e): PickOption => {
         const g = e.level > top ? "acima" : excl(e.id) ? "excl" : "geral";
-        return { value: e.id, name: e.name, level: e.level, desc: e.desc, source: e.source, tone: g, group: g };
+        return { value: e.id, ...freshLabel(e, firstEv(e.id)), source: e.source, tone: g, group: g };
       }),
     ...evos.map((o): PickOption => {
       const g = o.need > top ? "acima" : "evo";
@@ -470,7 +493,7 @@ function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e:
  * Seletor de um nível da Versatilidade: um grupo por poder versátil (exclusivos, evoluções e gerais de cada um).
  * O valor é "k|efeito" (k = índice do poder versátil).
  */
-function versatileChoices(p: PowerEntry, vv: string[], i: number) {
+function versatileChoices(p: PowerEntry, vv: string[], i: number, lista: boolean, pular: boolean) {
   const lvl = i + 1;
   const options: PickOption[] = [];
   const groups: PickGroup[] = [{ key: "fora", label: "Fora da regra", tone: "acima" }];
@@ -484,9 +507,20 @@ function versatileChoices(p: PowerEntry, vv: string[], i: number) {
     const blocked = i - 2 >= 1 && p.owner?.[i - 1] === k && p.owner?.[i - 2] === k;
     groups.push({ key: group, label: versatileName(id), hint: blocked ? "3º nível seguido: escolha outro poder" : undefined, kanji, tone: "excl" });
     tabs.push({ key: group, label: shortName(id), kanji, match: (o) => o.group === group });
-    const picks = versatilePicks(p, k).filter((x) => x.level !== lvl);
+    const all = versatilePicks(p, k, pular);
+    const picks = all.filter((x) => x.level !== lvl);
     const add = (eff: string, o: Omit<PickOption, "value" | "group" | "kanji" | "disabled">) => options.push({ ...o, value: `${k}|${eff}`, group, kanji, disabled: blocked });
 
+    if (def?.mode === "tecnicas" && lista) {
+      // Regra opcional da lista: o nível traz a técnica dele e as anteriores que faltaram.
+      const prev = picks.filter((x) => x.level < lvl && x.eff).reduce((m, x) => Math.max(m, x.level), 0);
+      const ts = def.techniques ?? [];
+      const n = ts.reduce((best, t, j) => (t.level <= lvl && t.level > prev && (best < 0 || t.level >= ts[best].level) ? j : best), -1);
+      if (n < 0) return;
+      const junto = ts.filter((t, j) => j !== n && t.level > prev && t.level <= lvl).map((t) => t.name);
+      add(tecId(n), { name: ts[n].name, level: ts[n].level, desc: junto.length ? `Lista (regra opcional): também traz ${junto.join(", ")}.` : undefined, tone: "tec" });
+      return;
+    }
     if (def?.mode === "tecnicas") {
       const used = picks.map((x) => x.eff);
       (def.techniques ?? []).forEach((t, n) => t.level <= lvl && !used.includes(tecId(n)) && add(tecId(n), { name: t.name, level: t.level, tone: "tec" }));
@@ -499,9 +533,10 @@ function versatileChoices(p: PowerEntry, vv: string[], i: number) {
       .map((e) => EFEITO_BY_ID[e])
       .filter((e) => e && e.level <= lvl && !others.includes(e.id))
       .sort((a, b) => Number(excl(b.id)) - Number(excl(a.id)) || a.level - b.level)
-      .forEach((e) => add(e.id, { name: e.name, level: e.level, desc: e.desc, source: e.source, tone: excl(e.id) ? "excl" : "geral" }));
+      .forEach((e) => add(e.id, { ...freshLabel(e, firstEvolution(e.id, lvl, pular)), source: e.source, tone: excl(e.id) ? "excl" : "geral" }));
     [...new Set(before)].forEach((e) => {
-      const need = evolutionLevel(e, before.filter((x) => x === e).length);
+      const prevEv = all.filter((x) => x.level < lvl && x.eff === e).reduce((m, x) => Math.max(m, x.ev), 0);
+      const need = evolutionLevel(e, nextEvolution(e, prevEv, lvl, pular));
       const ef = EFEITO_BY_ID[e];
       if (ef && need !== null && need <= lvl) add(e, { name: `${ef.name} → evolução`, level: need, desc: `Você já tem ${ef.name}. Escolher de novo evolui para o Nv ${need}.`, source: ef.source, tone: "evo" });
     });

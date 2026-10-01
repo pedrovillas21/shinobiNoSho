@@ -36,7 +36,7 @@ export const EFEITOS: Efeito[] = [
   { id: "afiar", name: "Afiar (Fuuton)", level: 6, source: "Básico", desc: "Lâmina de vento em armas." },
   { id: "lamina-vento", name: "Lâmina de Vento (Fuuton)", level: 7, source: "Básico", desc: "Corte de vento de alcance longo.", evolves: [10] },
   { id: "flutuar", name: "Flutuar (Fuuton – Leque)", level: 5, source: "Guia Avançado", desc: "Voa sobre o Leque Gigante. Requer Maestria." },
-  { id: "lamina-raios", name: "Lâmina de Raios (Raiton)", level: 2, source: "Básico", desc: "Chidori/Raikiri: técnica de toque cortante.", evolves: [5, 7, 9] },
+  { id: "lamina-raios", name: "Lâmina de Raios (Raiton)", level: 2, source: "Básico", desc: "Chidori/Raikiri: técnica de toque cortante. Pré-requisito: Espírito 8.", evolves: [5, 7, 9], reqText: "Espírito 8", req: [{ t: "attr", k: "ESP", min: 8 }] },
   { id: "arma-eletrica", name: "Arma Elétrica (Raiton)", level: 4, source: "Básico", desc: "Eletrifica armas.", evolves: [8] },
   { id: "descarga", name: "Descarga (Raiton)", level: 6, source: "Básico", desc: "Descarga elétrica em quem toca o usuário." },
   { id: "nevoa", name: "Névoa (Suiton)", level: 2, source: "Básico", desc: "Kirigakure no Jutsu: névoa que camufla.", evolves: [5] },

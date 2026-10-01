@@ -140,6 +140,18 @@ export function StepConceito({ c, set }: StepProps) {
           label="Dois ou mais clãs/hijutsus (Livro Básico)"
           hint="Sem ela, origens extras na etapa Clã aparecem como observação. Use com cautela."
         />
+        <Toggle
+          checked={c.optionals.fuuinjutsuLista}
+          onChange={(v) => set((d) => void (d.optionals.fuuinjutsuLista = v))}
+          label="Fuuinjutsu Versátil em lista (regra da mesa)"
+          hint="Pelo livro, cada nível dá uma técnica, e a que ficou para trás se perde (Selo de Armazenamento no 1, Misshi no 3: sem o Selo Maior). Com a lista, cada nível que o Fuuinjutsu recebe traz todas as técnicas até ele (Misshi no 3 também traz o Selo de Armazenamento Maior)."
+        />
+        <Toggle
+          checked={c.optionals.pularEvolucoes}
+          onChange={(v) => set((d) => void (d.optionals.pularEvolucoes = v))}
+          label="Pular evoluções (regra da mesa)"
+          hint="Pelo livro, não se pulam evoluções: a Lâmina de Raios Nv 9 pede a Nv 5 e a Nv 7 antes. Com esta regra, o efeito já entra na evolução mais alta que o nível da escolha permite, com as anteriores junto, mesmo na 1ª escolha (Lâmina de Raios escolhida no nível 9 = Lâmina Nv 9, numa escolha só)."
+        />
       </section>
     </div>
   );

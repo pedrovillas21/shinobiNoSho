@@ -89,10 +89,30 @@ export function powerLevel(c: Character, id: string): number {
   return c.poderes.filter((p) => p.id === id).reduce((m, p) => Math.max(m, p.level), 0);
 }
 
-/** Quantas vezes o efeito do nível `i` já foi escolhido antes nesta compra (0 = efeito novo, 1 = 1ª evolução…). */
-export function evolutionIndex(effects: (string | null)[], i: number): number {
+/** Evolução mais alta que o nível `lvl` permite para o efeito (0 = nenhuma). */
+export const reachEvolution = (effectId: string, lvl: number) => (EFEITO_BY_ID[effectId]?.evolves ?? []).filter((l) => l <= lvl).length;
+
+/**
+ * Evolução com que o efeito entra na 1ª escolha, no nível `lvl`. Pelo livro, nenhuma. Na regra opcional de pular
+ * evoluções, já entra na mais alta que o nível permite, com as anteriores junto (Lâmina de Raios no nível 9 = Nv 9).
+ */
+export const firstEvolution = (effectId: string, lvl: number, pular: boolean) => (pular ? reachEvolution(effectId, lvl) : 0);
+
+/**
+ * Evolução que uma repetição do efeito alcança, escolhida no nível `lvl` depois da evolução `ev`. Pelo livro, é sempre a
+ * seguinte (não se pulam evoluções). Na regra opcional, vai direto à mais alta que o nível permite, com as anteriores junto.
+ */
+export function nextEvolution(effectId: string, ev: number, lvl: number, pular: boolean): number {
+  return pular ? Math.max(ev + 1, reachEvolution(effectId, lvl)) : ev + 1;
+}
+
+/** Evolução do efeito escolhido no nível `i + 1` desta compra (0 = efeito novo, 1 = 1ª evolução…). */
+export function evolutionIndex(effects: (string | null)[], i: number, pular = false): number {
   const id = effects[i];
-  return id ? effects.slice(0, i).filter((x) => x === id).length : 0;
+  if (!id) return 0;
+  let ev = -1;
+  for (let j = 0; j <= i; j++) if (effects[j] === id) ev = ev < 0 ? firstEvolution(id, j + 1, pular) : nextEvolution(id, ev, j + 1, pular);
+  return ev;
 }
 
 /** Nível do poder exigido pela evolução `k` do efeito (1 = 1ª evolução), ou null se não existe. */
@@ -148,7 +168,7 @@ export interface VersatilePick {
  * O que um poder versátil (índice `k`) ganhou em cada nível. O nível 1 dá o efeito de nível 1 a todos (Canhão, ou a técnica
  * de nível 1 num poder de técnicas); do 2º em diante, cada nível é de um deles.
  */
-export function versatilePicks(p: PowerEntry, k: number): VersatilePick[] {
+export function versatilePicks(p: PowerEntry, k: number, pular = false): VersatilePick[] {
   const id = p.versatile?.[k];
   if (!id) return [];
   const tec = PODER_BY_ID[id]?.mode === "tecnicas";
@@ -156,9 +176,32 @@ export function versatilePicks(p: PowerEntry, k: number): VersatilePick[] {
   for (let i = 1; i < p.level; i++) {
     if (p.owner?.[i] !== k) continue;
     const eff = p.effects[i] ?? null;
-    out.push({ level: i + 1, eff, ev: eff && !tec ? out.filter((x) => x.eff === eff).length : 0, tech: p.techniques[i] ?? "" });
+    const prev = eff && !tec ? out.findLast((x) => x.eff === eff) : undefined;
+    const ev = !eff || tec ? 0 : prev ? nextEvolution(eff, prev.ev, i + 1, pular) : firstEvolution(eff, i + 1, pular);
+    out.push({ level: i + 1, eff, ev, tech: p.techniques[i] ?? "" });
   }
   return out;
+}
+
+/**
+ * Técnicas (índices em `techniques`) que um poder versátil de técnicas prontas (Fuuinjutsu) tem. Pelo livro, só as
+ * escolhidas em cada nível: pular um nível de técnica perde a técnica. Na regra opcional da lista, cada nível recebido
+ * traz todas as técnicas até ele, inclusive as que ficaram para trás (como no Fuuinjutsu comum).
+ */
+export function versatileTechs(p: PowerEntry, k: number, lista: boolean): number[] {
+  const techs = PODER_BY_ID[p.versatile?.[k] ?? ""]?.techniques ?? [];
+  const picks = versatilePicks(p, k);
+  if (!lista) return [...new Set(picks.map((x) => tecIndex(x.eff)).filter((n) => techs[n]))];
+  const top = picks.reduce((m, x) => (x.eff ? Math.max(m, x.level) : m), 0);
+  return techs.flatMap((t, n) => (t.level <= top ? [n] : []));
+}
+
+/**
+ * Controle Perfeito (Livro Básico, Tensai): Inteligência no lugar do Espírito em todos os parâmetros de poderes e
+ * aptidões (dano, tamanho, alcance, dificuldade, custo…). Troca tudo junto e não vale para pré-requisitos.
+ */
+export function espParam(c: Character, attrs: Record<AttrKey, number> = c.attrs): { label: "Esp" | "Int"; val: number } {
+  return hasApt(c, "controle-perfeito") && attrs.INT > attrs.ESP ? { label: "Int", val: attrs.INT } : { label: "Esp", val: attrs.ESP };
 }
 
 /** Escolha do Talento Natural: poder (versátil ou Hibon) e efeito que ganha com todas as evoluções. */
@@ -547,7 +590,10 @@ function validateVersatilidade(c: Character, push: (sev: Severity, step: string,
         push("erro", "poderes", `${tag}: ${ef?.name ?? eff} não é um efeito de ${versatileName(id)}.`);
         continue;
       }
-      const ev = versatilePicks(p, k).find((x) => x.level === lvl)?.ev ?? 0;
+      const vp = versatilePicks(p, k, c.optionals.pularEvolucoes);
+      const ev = vp.find((x) => x.level === lvl)?.ev ?? 0;
+      // O nível de Versatilidade substitui o nível do poder, não os atributos.
+      if (!vp.some((x) => x.eff === eff && x.level < lvl) && !reqsMet(c, ef.req)) push("erro", "poderes", `${tag}: ${ef.name} (${versatileName(id)}) pede ${ef.reqText}.`);
       if (!ev) {
         if (ef.level > lvl) push("erro", "poderes", `${tag}: ${ef.name} é de nível ${ef.level}, acima do nível ${lvl} em que foi escolhido.`);
         continue;
@@ -655,7 +701,7 @@ export function validate(c: Character): Issue[] {
   const dupes = new Map<string, number>();
   c.aptidoes.forEach((e) => {
     const a = APT_BY_ID[e.id];
-    if (!a || a.generic) return;
+    if (!a || a.generic || a.repeatable) return;
     dupes.set(e.id, (dupes.get(e.id) ?? 0) + 1);
   });
   dupes.forEach((n, id) => n > 1 && push("erro", "aptidoes", `${APT_BY_ID[id].name} foi adicionada ${n} vezes (use o nível).`));
@@ -691,7 +737,8 @@ export function validate(c: Character): Issue[] {
         if (!eid) return;
         const ef = EFEITO_BY_ID[eid];
         if (!ef) return;
-        const k = evolutionIndex(p.effects, i);
+        const k = evolutionIndex(p.effects, i, c.optionals.pularEvolucoes);
+        if (p.effects.indexOf(eid) === i && !reqsMet(c, ef.req)) push("erro", "poderes", `${def.name}: ${ef.name} pede ${ef.reqText}.`);
         if (!k) {
           if (ef.level > top) push("erro", "poderes", `${def.name}: ${ef.name} é de nível ${ef.level}, acima do nível ${top} do poder.`);
           return;
@@ -761,7 +808,7 @@ export function newCharacter(nc = 4): Character {
     history: "",
     goals: "",
     nc,
-    optionals: { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false },
+    optionals: { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false, fuuinjutsuLista: false, pularEvolucoes: false },
     originId: null,
     originOption: 0,
     extraOrigins: [],

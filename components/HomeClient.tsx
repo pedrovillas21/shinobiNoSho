@@ -46,7 +46,7 @@ export function HomeClient({ userId, username }: { userId: string; username: str
   };
 
   const list = Object.values(chars).sort((a, b) => b.updatedAt - a.updatedAt);
-  const b = budgetFor(nc, { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false });
+  const b = budgetFor(nc, { tresPontosPoder: false, aptidoesBanidas: false, danoExtraAuto: false, multiHijutsu: false, fuuinjutsuLista: false, pularEvolucoes: false });
 
   const onNew = () => router.push(`/ficha/${create(nc)}`);
   const onImport = async (f: File | undefined) => {
