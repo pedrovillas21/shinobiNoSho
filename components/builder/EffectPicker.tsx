@@ -155,10 +155,15 @@ export function EffectPicker({
     };
   }, [open]);
 
+  // Foca a busca assim que o painel aparece (ele só monta depois de calcular a posição), para já sair digitando.
+  // No celular, focar a busca abriria o teclado por cima da lista.
+  const shown = open && (mobile || !!pos);
+  useEffect(() => {
+    if (shown && window.matchMedia("(pointer: fine)").matches) input.current?.focus({ preventScroll: true });
+  }, [shown]);
+
   useEffect(() => {
     if (!open) return;
-    // No celular, focar a busca abriria o teclado por cima da lista.
-    if (window.matchMedia("(pointer: fine)").matches) input.current?.focus({ preventScroll: true });
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
       if (!panel.current?.contains(t) && !trigger.current?.contains(t)) close(false);

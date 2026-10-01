@@ -5,7 +5,7 @@ import { ATTRS, COMBAT } from "@/lib/data/base";
 import { budgetFor, combatTotal, hasApt, socialTests, spent } from "@/lib/rules";
 import type { CombatKey } from "@/lib/types";
 import { AnimatedNumber, NumberField, Stepper, StepHeader, Toggle } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 export function StepAtributos({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
@@ -27,7 +27,7 @@ export function StepAtributos({ c, set }: StepProps) {
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-4">
-        <StepHeader kicker="Etapa 3" title="Atributos">
+        <StepHeader kicker={stepKicker(c, "atributos")} title="Atributos">
           Cada nível custa 1 ponto. Pela regra, o máximo é o NC ({c.nc}) e todos os atributos precisam atingir o mínimo de {b.minAttr} antes de você distribuir o resto. Nada é travado: o que passar disso vira observação.
         </StepHeader>
         <div className="flex flex-wrap items-center gap-3">

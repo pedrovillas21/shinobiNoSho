@@ -3,7 +3,7 @@
 import { useId } from "react";
 import type { Character } from "@/lib/types";
 import { NumberField, StepHeader } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 const FIELDS: { key: keyof Pick<Character, "appearance" | "personality" | "goals" | "history" | "notes">; label: string; hint: string; rows: number }[] = [
   { key: "appearance", label: "Aparência", hint: "Rosto, roupas, marcas, bandana…", rows: 3 },
@@ -28,7 +28,7 @@ function Area({ label, hint, rows, value, onChange }: { label: string; hint: str
 export function StepHistoria({ c, set }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
-      <StepHeader kicker="Etapa 8" title="História">
+      <StepHeader kicker={stepKicker(c, "historia")} title="História">
         Não são regras, mas é o que torna o personagem único. Qual a personalidade? Como é a família? Ele tem objetivos?
       </StepHeader>
       {FIELDS.map((f) => (

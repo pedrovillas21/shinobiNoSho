@@ -3,6 +3,7 @@ import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
+import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
 import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 
@@ -16,6 +17,75 @@ function Row({ k, v }: { k: React.ReactNode; v: React.ReactNode }) {
       <span>{k}</span>
       <span className="font-bold tabular-nums">{v}</span>
     </div>
+  );
+}
+
+/** Pergaminho de Contrato: o poder Kuchiyose e a ficha de cada criatura. */
+function Contrato({ c }: { c: Character }) {
+  const k = contrato(c);
+  const e = especieDe(c);
+  if (!hasInvocacoes(c) || (!e && k.criaturas.length === 0)) return null;
+  const lvl = kuchiyoseLevel(c);
+  const forma = formaDe(c);
+  return (
+    <section className="flex flex-col gap-3">
+      <H>
+        Pergaminho de Contrato{e ? `: ${e.name}` : ""} · Kuchiyose {lvl} ({forma === "hijutsu" ? "Hijutsu" : "comum"})
+      </H>
+      <p className="text-sm text-paper-muted">
+        {qtyOptions(e)
+          .map((q) => `${q === 1 ? "1 criatura" : `${q} criaturas`} até NC ${ncMaxFor(lvl, q, e)}`)
+          .join(" · ")}{" "}
+        · custo {2 * lvl} de chakra · {forma === "hijutsu" ? "1 + 1 uso (comum) por cena" : "1 uso por cena"}
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {k.criaturas.map((inv) => {
+          const s = statsInvocacao(c, inv);
+          const power = inv.power ? `${e?.powers.find((p) => p.id === inv.power)?.name ?? inv.power} ${inv.powerLevel}` : "Nenhum";
+          const tecs = (e?.techniques ?? []).filter((t) => !tecnicaAtiva(inv, t)).map((t) => t.name);
+          return (
+            <div key={inv.uid} className="print-avoid flex flex-col gap-2 rounded-xl border-[1.5px] border-paper-ink p-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-display text-xl font-extrabold">{inv.name.trim() || "Criatura sem nome"}</span>
+                <span className="text-xs text-paper-muted">
+                  NC {inv.nc} · {s.size.n}
+                  {inv.qty > 1 ? ` · em grupo de ${inv.qty}` : ""}
+                </span>
+              </div>
+              <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-paper-3 text-center">
+                {ATTRS.map((a) => (
+                  <div key={a.key} className={`py-1 ${e?.main.includes(a.key) ? "bg-paper-2" : ""}`}>
+                    <div className={`text-[10px] font-bold ${e?.main.includes(a.key) ? "text-seal-dark" : "text-paper-muted"}`}>{a.key}</div>
+                    <div className="font-display text-lg font-extrabold leading-tight">{inv.attrs[a.key]}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm">
+                Vit <strong>{s.vit}</strong> · Chakra <strong>{s.chakra}</strong> · Dano CC <strong>{s.dano}</strong> · CC/CD/ESQ/LM{" "}
+                <strong>
+                  {s.combat.CC}/{s.combat.CD}/{s.combat.ESQ}/{s.combat.LM}
+                </strong>{" "}
+                · Desloc. <strong>{s.desloc}m</strong>
+              </p>
+              <dl className="grid grid-cols-[6rem_1fr] gap-x-2 gap-y-0.5 text-sm">
+                <dt className="text-paper-muted">Perícias</dt>
+                <dd>{s.skills.map((sk) => `${sk.name} ${sk.v}`).join(" · ") || "—"}</dd>
+                <dt className="text-paper-muted">Poder</dt>
+                <dd>{power}</dd>
+                <dt className="text-paper-muted">Aptidões</dt>
+                <dd>{inv.apts.length ? inv.apts.map((n, i) => (i < s.freeApts ? n : `${n} (paga)`)).join(", ") : "—"}</dd>
+                <dt className="text-paper-muted">Técnicas</dt>
+                <dd>{tecs.join(" · ") || "—"}</dd>
+                <dt className="text-paper-muted">Ataques</dt>
+                <dd>{e?.attacks ?? "—"}</dd>
+              </dl>
+              {inv.personality && <p className="text-xs text-paper-muted">{inv.personality}</p>}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-paper-muted">Fichas pelas regras do Kuchiyose (Livro Básico, pág. 224): Vitalidade já pela metade; tamanho pela Tabela de Tamanho (pág. 271).</p>
+    </section>
   );
 }
 
@@ -210,6 +280,8 @@ export function FichaSheet({ c }: { c: Character }) {
           </div>
         </div>
       </section>
+
+      <Contrato c={c} />
 
       <section className="grid gap-6 md:grid-cols-2">
         <div className="print-avoid flex flex-col gap-2">

@@ -71,7 +71,8 @@ export function useMembros(roomId: string, userId: string) {
         .on("postgres_changes", { event: "DELETE", schema: "public", table: "room_members" }, (pl) => {
           const old = pl.old as { room_id?: string; user_id?: string };
           if (!old.user_id || (old.room_id && old.room_id !== roomId)) return;
-          if (old.user_id === userId) setGone("deleted");
+          // Expulso continua vendo o aviso de expulsão quando o mestre gera um novo código (que apaga a expulsão).
+          if (old.user_id === userId) setGone((g) => g ?? "deleted");
           setMembers((prev) => {
             const next = { ...prev };
             delete next[old.user_id!];

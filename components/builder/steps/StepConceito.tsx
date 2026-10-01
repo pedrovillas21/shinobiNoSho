@@ -5,7 +5,7 @@ import { ALIGNMENTS, VILLAGES } from "@/lib/data/base";
 import { NC_MAX, NC_MIN, POWER_BONUS, POWER_BONUS_NCS, budgetFor, rankLabel } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 import { StepHeader, Toggle } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 function Text({ label, value, onChange, placeholder, className = "" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
   const id = useId();
@@ -44,7 +44,7 @@ export function StepConceito({ c, set }: StepProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <StepHeader kicker="Etapa 1" title="Conceito">
+      <StepHeader kicker={stepKicker(c, "conceito")} title="Conceito">
         Tudo aqui é seu: escreva o nome, a vila e a tendência que quiser (as sugestões são só atalhos). O Nível de Campanha define os pontos de toda a ficha.
       </StepHeader>
 

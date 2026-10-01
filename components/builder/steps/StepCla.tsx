@@ -8,7 +8,7 @@ import { BIJUUS, PODERES, PODER_BY_ID } from "@/lib/data/poderes";
 import { CUSTOM_ORIGIN } from "@/lib/rules";
 import type { Origin, Source } from "@/lib/types";
 import { Badge, IconCheck, IconDice, IconPlus, IconSearch, StepHeader } from "../../ui";
-import { norm, type Setter, type StepProps } from "../shared";
+import { norm, stepKicker, type Setter, type StepProps } from "../shared";
 
 const TABS = [
   { key: "all", label: "Todos" },
@@ -58,7 +58,7 @@ export function StepCla({ c, set }: StepProps) {
 
   return (
     <div ref={top} className="flex scroll-mt-24 flex-col gap-6">
-      <StepHeader kicker="Etapa 2" title="Clã ou Hijutsu">
+      <StepHeader kicker={stepKicker(c, "cla")} title="Clã ou Hijutsu">
         Escolher não custa pontos: libera a compra das aptidões e poderes restritos. Por regra, apenas um clã ou um hijutsu (Hachimon Tonkou pode ser somado); origens extras sem a regra opcional ficam como observação.
       </StepHeader>
 

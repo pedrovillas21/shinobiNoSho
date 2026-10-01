@@ -2,6 +2,7 @@ import { APT_BY_ID, BANNED_APTS } from "./data/aptidoes";
 import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
 import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
 import { EFEITO_BY_ID, EXCLUSIVOS, NINPOU_BASE, PODER_BY_ID, VERSATEIS } from "./data/poderes";
+import { validateKuchiyose } from "./kuchiyose";
 import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, Optionals, PowerEntry, Req, SkillKey } from "./types";
 
 /** Nível máximo de campanha da mesa (o livro vai até 20). */
@@ -754,6 +755,7 @@ export function validate(c: Character): Issue[] {
 
   validateVersatilidade(c, push);
   validateUchiha(c, push);
+  validateKuchiyose(c, push);
 
   // Aptidões que a ficha soma sozinha: avisa se o bônus também foi digitado em "Outros".
   if (hasApt(c, "reflexos") && (c.combatBonus.ESQ || 0) >= 1)
@@ -877,6 +879,7 @@ export function normalize(raw: Partial<Character>): Character {
     aptidoes,
     poderes,
     items: raw.items ?? [],
+    kuchiyose: raw.kuchiyose ? { forma: raw.kuchiyose.forma ?? null, especie: raw.kuchiyose.especie ?? null, criaturas: raw.kuchiyose.criaturas ?? [] } : undefined,
     extraOrigins: raw.extraOrigins ?? [],
     customOrigin: { ...base.customOrigin, ...(raw.customOrigin ?? {}) },
     customSkills: raw.customSkills ?? [],

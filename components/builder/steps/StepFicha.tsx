@@ -5,7 +5,7 @@ import { downloadJSON } from "@/lib/store";
 import type { Issue } from "@/lib/rules";
 import { FichaSheet } from "../../FichaSheet";
 import { IconDownload, IconPrint, StepHeader } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 export function StepFicha({ c, issues, goTo }: StepProps & { issues: Issue[]; goTo: (step: string) => void }) {
   const errors = issues.filter((i) => i.sev === "erro");
@@ -14,7 +14,7 @@ export function StepFicha({ c, issues, goTo }: StepProps & { issues: Issue[]; go
   return (
     <div className="flex flex-col gap-6">
       <div className="no-print flex flex-col gap-4">
-        <StepHeader kicker="Etapa 9" title="Ficha">
+        <StepHeader kicker={stepKicker(c, "ficha")} title="Ficha">
           Revise os pontos e pré-requisitos. Nada é travado: o que sair das regras normais aparece aqui como observação para a mesa decidir. Para jogar, entre numa sala e escolha esta ficha.
         </StepHeader>
         <div className="flex flex-wrap gap-2">

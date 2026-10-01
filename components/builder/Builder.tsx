@@ -3,11 +3,12 @@
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ETAPAS_CRIATURA, contrato, validarInvocacao } from "@/lib/kuchiyose";
 import { NC_MAX, NC_MIN, POWER_BONUS, POWER_BONUS_NCS, budgetFor, derived, rankLabel, spent, validate } from "@/lib/rules";
 import { downloadJSON, useChars, useCharsStatus, useHydrated } from "@/lib/store";
 import type { Character } from "@/lib/types";
 import { AnimatedNumber, IconAlert, IconDownload, IconLeft, IconList, IconRight, Logo, Sheet } from "../ui";
-import { STEPS, type StepKey } from "./shared";
+import { ABAS_CONTRATO, stepsFor, type InvNav, type StepKey } from "./shared";
 import { StepAptidoes } from "./steps/StepAptidoes";
 import { StepAtributos } from "./steps/StepAtributos";
 import { StepCla } from "./steps/StepCla";
@@ -15,27 +16,32 @@ import { StepConceito } from "./steps/StepConceito";
 import { StepEquipamento } from "./steps/StepEquipamento";
 import { StepFicha } from "./steps/StepFicha";
 import { StepHistoria } from "./steps/StepHistoria";
+import { CriaturaResumo, StepInvocacoes } from "./steps/StepInvocacoes";
 import { StepPericias } from "./steps/StepPericias";
 import { StepPoderes } from "./steps/StepPoderes";
+
+/** Próxima posição dentro da etapa Invocações, ou null quando é hora de sair dela. */
+function invMove(nav: InvNav, editing: boolean, d: 1 | -1): InvNav | null {
+  if (editing) {
+    const etapa = nav.etapa + d;
+    // Antes da 1ª sub-etapa ou depois da última ("Salvar criatura"): volta à lista de criaturas.
+    return etapa >= 1 && etapa <= ETAPAS_CRIATURA.length ? { ...nav, etapa } : { aba: 3, edit: null, etapa: 1 };
+  }
+  const aba = nav.aba + d;
+  return aba >= 1 && aba <= ABAS_CONTRATO.length ? { ...nav, aba, edit: null } : null;
+}
 
 export function Builder({ id }: { id: string }) {
   const hydrated = useHydrated();
   const status = useCharsStatus();
   const c = useChars((s) => s.chars[id]);
   const update = useChars((s) => s.update);
-  const [step, setStep] = useState(0);
+  const [stepKey, setStepKey] = useState<StepKey>("conceito");
   const [dir, setDir] = useState(1);
+  const [nav, setNav] = useState<InvNav>({ aba: 1, edit: null, etapa: 1 });
   const [summaryOpen, setSummaryOpen] = useState(false);
 
   const set = useCallback((fn: (d: Character) => void) => update(id, fn), [id, update]);
-
-  const go = useCallback((i: number) => {
-    setStep((cur) => {
-      setDir(i >= cur ? 1 : -1);
-      return Math.max(0, Math.min(STEPS.length - 1, i));
-    });
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
 
   useEffect(() => {
     if (!c) return;
@@ -56,23 +62,31 @@ export function Builder({ id }: { id: string }) {
       </div>
     );
 
-  return <BuilderView c={c} set={set} step={step} dir={dir} go={go} summaryOpen={summaryOpen} setSummaryOpen={setSummaryOpen} />;
+  return (
+    <BuilderView c={c} set={set} stepKey={stepKey} setStepKey={setStepKey} dir={dir} setDir={setDir} nav={nav} setNav={setNav} summaryOpen={summaryOpen} setSummaryOpen={setSummaryOpen} />
+  );
 }
 
 function BuilderView({
   c,
   set,
-  step,
+  stepKey,
+  setStepKey,
   dir,
-  go,
+  setDir,
+  nav,
+  setNav,
   summaryOpen,
   setSummaryOpen,
 }: {
   c: Character;
   set: (fn: (d: Character) => void) => void;
-  step: number;
+  stepKey: StepKey;
+  setStepKey: (k: StepKey) => void;
   dir: number;
-  go: (i: number) => void;
+  setDir: (d: number) => void;
+  nav: InvNav;
+  setNav: (n: InvNav) => void;
   summaryOpen: boolean;
   setSummaryOpen: (v: boolean) => void;
 }) {
@@ -84,7 +98,62 @@ function BuilderView({
     issues.filter((i) => i.sev === "erro").forEach((i) => (m[i.step] = (m[i.step] ?? 0) + 1));
     return m;
   }, [issues]);
-  const key = STEPS[step].key as StepKey;
+  const STEPS = stepsFor(c);
+  // Invocações some se o Kuchiyose deixar de existir: quem estava nela volta para Poderes.
+  const found = STEPS.findIndex((x) => x.key === stepKey);
+  const step = found >= 0 ? found : Math.max(0, STEPS.findIndex((x) => x.key === "poderes"));
+  const key = STEPS[step].key;
+
+  const scrollTop = () => typeof window !== "undefined" && window.scrollTo({ top: 0, behavior: "smooth" });
+  const go = (i: number, fromNext = true) => {
+    const t = Math.max(0, Math.min(STEPS.length - 1, i));
+    setDir(t >= step ? 1 : -1);
+    setStepKey(STEPS[t].key);
+    // Entrando em Invocações pelo "Anterior" (vindo de Equipamento), abre na última parte do contrato.
+    if (STEPS[t].key === "invocacoes" && STEPS[t].key !== key) setNav({ aba: fromNext ? 1 : ABAS_CONTRATO.length, edit: null, etapa: 1 });
+    scrollTop();
+  };
+  const goKey = (k: string) => {
+    go(Math.max(0, STEPS.findIndex((x) => x.key === k)));
+    // Observações de Invocações são, quase sempre, das criaturas: abre a lista delas.
+    if (k === "invocacoes") setNav({ aba: ABAS_CONTRATO.length, edit: null, etapa: 1 });
+  };
+
+  // Criatura aberta no editor da etapa Invocações.
+  const editing = key === "invocacoes" && nav.edit ? contrato(c).criaturas.find((x) => x.uid === nav.edit) : undefined;
+  const move = (d: 1 | -1) => {
+    if (key === "invocacoes") {
+      const r = invMove(nav, !!editing, d);
+      if (r) {
+        setDir(d);
+        setNav(r);
+        scrollTop();
+        return;
+      }
+    }
+    go(step + d, d > 0);
+  };
+  let prevLabel = step > 0 ? STEPS[step - 1].label : "Anterior";
+  let nextLabel: string | null = step < STEPS.length - 1 ? STEPS[step + 1].label : null;
+  if (editing) {
+    prevLabel = nav.etapa > 1 ? ETAPAS_CRIATURA[nav.etapa - 2] : "Criaturas";
+    nextLabel = nav.etapa < ETAPAS_CRIATURA.length ? ETAPAS_CRIATURA[nav.etapa] : "Salvar criatura";
+  } else if (key === "invocacoes") {
+    if (nav.aba > 1) prevLabel = ABAS_CONTRATO[nav.aba - 2];
+    if (nav.aba < ABAS_CONTRATO.length) nextLabel = ABAS_CONTRATO[nav.aba];
+  }
+  const canPrev = step > 0 || !!editing;
+  const resumoErr = editing ? validarInvocacao(c, editing).some((i) => i.sev === "erro") : issues.some((i) => i.sev === "erro");
+  const resumo = editing ? (
+    <CriaturaResumo
+      c={c}
+      inv={editing}
+      onGo={(etapa) => {
+        setSummaryOpen(false);
+        setNav({ ...nav, etapa });
+      }}
+    />
+  ) : null;
 
   const budgets = [
     { label: "Atributos", used: s.attr, total: b.attr },
@@ -191,19 +260,20 @@ function BuilderView({
               {key === "pericias" && <StepPericias c={c} set={set} />}
               {key === "aptidoes" && <StepAptidoes c={c} set={set} />}
               {key === "poderes" && <StepPoderes c={c} set={set} />}
+              {key === "invocacoes" && <StepInvocacoes c={c} set={set} nav={nav} setNav={setNav} />}
               {key === "equipamento" && <StepEquipamento c={c} set={set} />}
               {key === "historia" && <StepHistoria c={c} set={set} />}
-              {key === "ficha" && <StepFicha c={c} set={set} issues={issues} goTo={(k) => go(STEPS.findIndex((x) => x.key === k))} />}
+              {key === "ficha" && <StepFicha c={c} set={set} issues={issues} goTo={goKey} />}
             </motion.div>
           </AnimatePresence>
 
           <div className="no-print mt-10 hidden items-center justify-between lg:flex">
-            <button type="button" className="btn-ghost" onClick={() => go(step - 1)} disabled={step === 0}>
-              <IconLeft className="size-4" /> {step > 0 ? STEPS[step - 1].label : "Anterior"}
+            <button type="button" className="btn-ghost" onClick={() => move(-1)} disabled={!canPrev}>
+              <IconLeft className="size-4" /> {prevLabel}
             </button>
-            {step < STEPS.length - 1 ? (
-              <button type="button" className="btn-primary" onClick={() => go(step + 1)}>
-                {STEPS[step + 1].label} <IconRight className="size-4" />
+            {nextLabel ? (
+              <button type="button" className="btn-primary" onClick={() => move(1)}>
+                {nextLabel} <IconRight className="size-4" />
               </button>
             ) : (
               <Link href="/" className="btn-primary">
@@ -214,25 +284,23 @@ function BuilderView({
         </main>
 
         <aside className="no-print hidden lg:block">
-          <div className="sticky top-[200px] flex flex-col gap-4">
-            <Summary c={c} issues={issues} goTo={(k) => go(STEPS.findIndex((x) => x.key === k))} />
-          </div>
+          <div className="sticky top-[200px] flex flex-col gap-4">{resumo ?? <Summary c={c} issues={issues} goTo={goKey} />}</div>
         </aside>
       </div>
 
       {/* Barra inferior (celular) */}
       <div className="no-print fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink-2/95 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-          <button type="button" className="btn-ghost size-12 px-0" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Etapa anterior">
+          <button type="button" className="btn-ghost size-12 px-0" onClick={() => move(-1)} disabled={!canPrev} aria-label={`Voltar para ${prevLabel}`}>
             <IconLeft />
           </button>
           <button type="button" className="btn-ghost h-12 flex-1" onClick={() => setSummaryOpen(true)}>
             <IconList className="size-4" /> Resumo
-            {issues.some((i) => i.sev === "erro") && <IconAlert className="size-4 text-bad" />}
+            {resumoErr && <IconAlert className="size-4 text-bad" />}
           </button>
-          {step < STEPS.length - 1 ? (
-            <button type="button" className="btn-primary h-12 flex-1" onClick={() => go(step + 1)}>
-              {STEPS[step + 1].label} <IconRight className="size-4" />
+          {nextLabel ? (
+            <button type="button" className="btn-primary h-12 min-w-0 flex-1" onClick={() => move(1)}>
+              <span className="truncate">{nextLabel}</span> <IconRight className="size-4 shrink-0" />
             </button>
           ) : (
             <Link href="/" className="btn-primary h-12 flex-1">
@@ -242,15 +310,19 @@ function BuilderView({
         </div>
       </div>
 
-      <Sheet open={summaryOpen} onClose={() => setSummaryOpen(false)} title="Resumo da ficha">
-        <Summary
-          c={c}
-          issues={issues}
-          goTo={(k) => {
-            setSummaryOpen(false);
-            go(STEPS.findIndex((x) => x.key === k));
-          }}
-        />
+      <Sheet open={summaryOpen} onClose={() => setSummaryOpen(false)} title={editing ? "Resumo da criatura" : "Resumo da ficha"}>
+        {resumo ? (
+          <div className="flex flex-col gap-4">{resumo}</div>
+        ) : (
+          <Summary
+            c={c}
+            issues={issues}
+            goTo={(k) => {
+              setSummaryOpen(false);
+              goKey(k);
+            }}
+          />
+        )}
       </Sheet>
     </div>
   );

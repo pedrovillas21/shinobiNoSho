@@ -35,7 +35,7 @@ export function SalaCliente({
     return (
       <Aviso
         title={gone === "kicked" ? "Você foi removido desta sala" : "Esta sala foi encerrada"}
-        text={gone === "kicked" ? "O mestre tirou você da mesa. Fale com ele se foi engano." : "O mestre apagou a sala ou você saiu dela."}
+        text={gone === "kicked" ? "O mestre tirou você da mesa. Se ele gerar um novo código, você pode entrar de novo com ele." : "O mestre apagou a sala ou você saiu dela."}
       />
     );
   }
@@ -347,7 +347,7 @@ function SalaAcoes({ room, isAdm }: { room: SalaInfo; isAdm: boolean }) {
       <div className="flex gap-2">
         {isAdm ? (
           <>
-            <button type="button" className={small} onClick={() => void novoCodigo()}>
+            <button type="button" className={small} onClick={() => void novoCodigo()} title="O código antigo para de funcionar. Quem foi expulso pode voltar com o novo.">
               Novo código
             </button>
             {confirm ? (

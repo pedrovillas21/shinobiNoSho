@@ -26,7 +26,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
 
   const { data } = await sb.rpc("room_preview", { p_code: clean }).maybeSingle<Preview>();
   if (!data) return <Aviso title="Sala não encontrada" text="Confira o código com o mestre. Se ele gerou um código novo, o antigo deixa de valer." />;
-  if (data.my_status === "kicked") return <Aviso title="Você foi removido desta sala" text="O mestre tirou você da mesa. Fale com ele se foi engano." />;
+  if (data.my_status === "kicked") return <Aviso title="Você foi removido desta sala" text="O mestre tirou você da mesa. Se ele gerar um novo código, você pode entrar de novo com ele." />;
 
   const room: SalaInfo = { id: data.id, code: data.code, name: data.name, ownerUsername: data.owner_username };
   if (data.my_status !== "active") return <EscolherFicha room={room} />;

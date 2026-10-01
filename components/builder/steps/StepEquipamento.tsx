@@ -6,7 +6,7 @@ import { ITEM_PRESETS, VILLAGE_ITEMS_NOTE } from "@/lib/data/base";
 import { budgetFor, compLimit, hasApt, spent, uid } from "@/lib/rules";
 import type { ItemEntry } from "@/lib/types";
 import { IconPlus, IconTrash, NumberField, StepHeader } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 export function StepEquipamento({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
@@ -22,7 +22,7 @@ export function StepEquipamento({ c, set }: StepProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <StepHeader kicker="Etapa 7" title="Equipamento">
+      <StepHeader kicker={stepKicker(c, "equipamento")} title="Equipamento">
         {b.rank} começa com {b.ryos.toLocaleString("pt-BR")} ryos. {VILLAGE_ITEMS_NOTE}
       </StepHeader>
 

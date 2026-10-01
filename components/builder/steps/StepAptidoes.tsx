@@ -9,7 +9,7 @@ import { SENSOR_LIMITES } from "@/lib/estados";
 import { APT_COST, FREE_APTS, MANGEKYOU_PARES, allowedRestricted, aptCost, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, Stepper, StepHeader, Toggle } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
@@ -65,7 +65,7 @@ export function StepAptidoes({ c, set }: StepProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <StepHeader kicker="Etapa 5" title="Aptidões">
+      <StepHeader kicker={stepKicker(c, "aptidoes")} title="Aptidões">
         Você tem {FREE_APTS} aptidões gratuitas (das opções marcadas como gratuitas, ou restritas alcançáveis por um Genin). Cada aptidão adicional custa {APT_COST} pontos de poder, e cada nível a mais de uma aptidão evolutiva é uma nova compra de {APT_COST} pontos, mesmo numa gratuita. Qualquer aptidão pode ser adicionada; o que não seria possível pelas regras normais ganha uma observação.
       </StepHeader>
 

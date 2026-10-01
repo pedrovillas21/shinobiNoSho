@@ -7,7 +7,7 @@ import { allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel,
 import type { Efeito, Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, IconX, Stepper, StepHeader, Toggle } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
-import { norm, type StepProps } from "../shared";
+import { norm, stepKicker, type StepProps } from "../shared";
 
 export function StepPoderes({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
@@ -36,7 +36,7 @@ export function StepPoderes({ c, set }: StepProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <StepHeader kicker="Etapa 6" title="Poderes">
+      <StepHeader kicker={stepKicker(c, "poderes")} title="Poderes">
         Cada nível custa 1 ponto de poder e, pela regra, o nível máximo é {b.cap} (metade do NC). Poderes de efeitos ganham um efeito novo a cada nível, de nível igual ou menor, ou evoluem um efeito que já têm (ex.: Raio escolhido de novo com o poder no nível 5 vira Raio Nv 5). A ordem das escolhas não importa: qualquer efeito até o nível do poder pode ir em qualquer escolha. Dá para comprar o mesmo poder outra vez para ter mais efeitos: o nível 1 da nova compra é grátis e vale o nível mais alto. No NC estendido, poderes passam do nível 10. Nada é travado: o que sair da regra vira observação.
       </StepHeader>
       <div className="flex flex-wrap gap-2">

@@ -208,6 +208,36 @@ export interface CustomSkill {
   bonus: number;
 }
 
+/* ---------- Kuchiyose ---------- */
+
+export type SizeKey = "miudo" | "pequeno" | "medio" | "grande" | "enorme" | "imenso";
+
+/** Ficha de uma criatura invocada (Livro Básico, pág. 225–226). */
+export interface Invocacao {
+  uid: string;
+  name: string;
+  personality: string;
+  /** Quantas criaturas a invocação pensada traz (define o NC máximo). */
+  qty: number;
+  nc: number;
+  size: SizeKey;
+  attrs: Record<AttrKey, number>;
+  /** Id do poder da espécie, ou null. */
+  power: string | null;
+  powerLevel: number;
+  /** Aptidões da lista da espécie; as 3 primeiras são as gratuitas. */
+  apts: string[];
+  /** Usa arma marcial (+1 de dano base). */
+  marcial: boolean;
+}
+
+export interface ContratoKuchiyose {
+  /** null = automático pela origem. */
+  forma: "hijutsu" | "comum" | null;
+  especie: string | null;
+  criaturas: Invocacao[];
+}
+
 export interface Character {
   id: string;
   createdAt: number;
@@ -246,6 +276,8 @@ export interface Character {
   aptidoes: AptEntry[];
   poderes: PowerEntry[];
   items: ItemEntry[];
+  /** Contrato e fichas das invocações (poder Kuchiyose). */
+  kuchiyose?: ContratoKuchiyose;
   extraRyos: number;
   bonus: { vit: number; chakra: number; desloc: number; ini: number };
   notes: string;

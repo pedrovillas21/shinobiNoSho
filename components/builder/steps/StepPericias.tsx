@@ -6,7 +6,7 @@ import { ATTRS, SKILLS } from "@/lib/data/base";
 import { budgetFor, hasApt, skillTotal, spent, uid } from "@/lib/rules";
 import type { AttrKey, CustomSkill } from "@/lib/types";
 import { AnimatedNumber, Badge, IconLock, IconPlus, IconTrash, Stepper, StepHeader } from "../../ui";
-import type { StepProps } from "../shared";
+import { stepKicker, type StepProps } from "../shared";
 
 function BonusInput({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
   return (
@@ -35,7 +35,7 @@ export function StepPericias({ c, set }: StepProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <StepHeader kicker="Etapa 4" title="Perícias">
+      <StepHeader kicker={stepKicker(c, "pericias")} title="Perícias">
         O nível inicial é metade do atributo (arredondado para cima). Cada ponto soma +1, e pela regra você gasta no máximo {b.cap} pontos por perícia. Perícias treinadas só podem ser usadas com ao menos 1 ponto. Nada é travado: o que passar vira observação.
       </StepHeader>
       <span className={`self-start rounded-xl px-3 py-2 text-sm font-bold ${left < 0 ? "bg-bad/15 text-bad" : left === 0 ? "bg-ok/15 text-ok" : "bg-chakra/15 text-chakra"}`}>
