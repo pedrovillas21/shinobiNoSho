@@ -1,3 +1,4 @@
+import { armaPorNivel } from "./dano";
 import { BIJUUS } from "./data/poderes";
 import { aptLevel, custoVisao, espParam, hasApt, hasMangekyouTec, powerLevel, skillTotal, uid } from "./rules";
 import type { Character, ModTarget, PlayCounter, PlayEffect, PlayMod } from "./types";
@@ -128,9 +129,6 @@ const sensorVariant = (c: Character) => {
   const v = c.aptidoes.find((a) => a.id === "sensor")?.variant ?? "";
   return SENSOR_LIMITES[v] ? v : "";
 };
-
-/** Dano de arma das garras do Shikakyu e da Potência da Besta pelo nível do poder. */
-const beastWeapon = (lvl: number) => (lvl >= 6 ? 4 : lvl === 5 ? 3 : lvl === 4 ? 2 : 1);
 
 export const ESTADOS: EstadoDef[] = [
   /* ---------- Livro Básico ---------- */
@@ -266,7 +264,7 @@ export const ESTADOS: EstadoDef[] = [
       e.src = "Inuzuka · técnica quadrúpede";
       e.costChk = 1;
       e.mods = [on("ini", 2)];
-      e.hint = `Ação parcial, contínua. Garras e mordida com dano letal: ½ Força + ${beastWeapon(powerLevel(c, "shikakyu"))} de dano de arma. Intimidação +1. O Companheiro Animal também pode usar.`;
+      e.hint = `Ação parcial, contínua. Garras e mordida com dano letal: ½ Força + ${armaPorNivel(powerLevel(c, "shikakyu"))} de dano de arma. Intimidação +1. O Companheiro Animal também pode usar.`;
     },
   },
   {
@@ -352,7 +350,7 @@ export const ESTADOS: EstadoDef[] = [
       e.costChk = s === 4 ? 10 : ct ? lvl : 0;
       e.hint = text(
         "Presença é ação livre; Manto e Modo são ação parcial com o modo anterior ativo; voltar é livre. Ataques desarmados letais.",
-        `Potência da Besta: dano de corpo com ½ Espírito + ${beastWeapon(lvl)} de arma.`,
+        `Potência da Besta: dano de corpo com ½ Espírito + ${armaPorNivel(lvl)} de arma.`,
         ct
           ? "Controle Total: chakra igual ao nível pago uma vez, troca de modo sem custo e sem limite de duração."
           : `Duração segura: ${1 + lvl} turnos; depois o dano na Vitalidade dobra e até a Presença machuca. Vitalidade em 0: teste de domínio (2 dados contra 9).`,

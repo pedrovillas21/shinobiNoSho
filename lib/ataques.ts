@@ -1,6 +1,7 @@
+import { ataquesBasicos, critText, letalText, type DanoCtx } from "./dano";
 import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { custoVisao, espParam, evolutionIndex, hasApt, hasChakraExpandido, hasHipnose, katonLevel, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
+import { custoVisao, espParam, evolutionIndex, hasApt, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -70,7 +71,7 @@ function laminaRaiosNote(ev: number): string {
 
 /** O que mostrar nos efeitos que não causam dano: dureza da criação, dificuldade do teste do alvo ou só o texto. */
 interface UtilSpec {
-  show: "dureza" | "dif" | "texto";
+  show: "dureza" | "dif" | "texto" | "absorcao";
   /** Rótulo do número (ex.: "Força ou Escapar"). */
   label?: string;
   txt: string | ((x: { meia: number }) => string);
@@ -99,7 +100,15 @@ export const EFEITO_UTIL: Record<string, UtilSpec> = {
   nevoa: { show: "dureza", label: "Dureza imaginária", txt: "Círculo de 30m + 3m por Espírito: além de 1m, camuflagem parcial (Nv 5: total). Sustentada." },
   "prisao-agua": { show: "dureza", durezaHalf: true, txt: "Alvo a 1m fica paralisado (Força com Dif comum para se soltar). Concentração." },
   "infligir-medo": { show: "dif", label: "Inteligência", difAdj: -2, txt: "Alvo assustado por 2 rodadas (Nv 5: amedrontado; Nv 7: aterrorizado). −1 na Dif por alvo extra." },
+  "espelhos-demoniacos": {
+    show: "absorcao",
+    label: "Absorção de cada espelho",
+    txt: "21 espelhos de gelo em cúpula; teste de CD contra Evadir para prender quem está na área. Entrar num espelho é ação livre; trocar de espelho, ação de movimento (acelerado, com finta acelerada à distância). Ataque contra você: 1 dado, com 4 ou menos acerta um reflexo. Fugir pelas frestas dá ataque oportuno. Reconstruir: ação de movimento. Chakra por turno.",
+  },
 };
+
+/** Espelhos Demoníacos Nv 8: dureza 2, trocar de espelho com ação parcial, Flechas na finta e no ataque oportuno, 4 de chakra por turno. */
+const ESPELHOS_NV8 = " Nv 8: dureza 2, trocar de espelho é ação parcial e dá para usar Flechas na finta e no ataque oportuno.";
 
 /* ---------------- alcance e área ---------------- */
 
@@ -204,6 +213,8 @@ function geo(eff: string, x: { A: number; T: number; lvl: number; ev: number; ke
       return { alcance: "1m", area: "1 criatura" };
     case "arma-eletrica":
       return { alcance: "pessoal · lâmina estende até 5m" };
+    case "espelhos-demoniacos":
+      return { alcance: "ao seu redor", area: `meia-esfera de ${m(lvl)} de diâmetro` };
     default:
       // Energizar, Criar Arma, Afiar, Pele de Pedra, Imergir, Flutuar…
       return { alcance: "pessoal" };
@@ -213,6 +224,7 @@ function geo(eff: string, x: { A: number; T: number; lvl: number; ev: number; ke
 /** Dureza extra das criações do elemento. */
 const DUREZA: Record<string, number> = {
   doton: 2,
+  hyouton: 2,
 };
 
 /** Bônus de dano do elemento (“Dano Adicional”). */
@@ -232,6 +244,7 @@ const ELEMENTO: Record<string, number> = {
 /** “Dificuldade de Resistência Aumentada” de alguns poderes. */
 const DIF_PODER: Record<string, number> = {
   "hebi-ninpou": 1,
+  hyouton: 1,
 };
 
 /** Poderes que contam como “Ninpou e elementos” para a aptidão Capacidade. */
@@ -286,6 +299,8 @@ export interface AtkRow {
   plusHalf?: boolean;
   /** Efeito que não causa dano. */
   util?: boolean;
+  /** Ataque sem nível de poder (taijutsu e armas): mostra `tags` no lugar do nível. */
+  tags?: string[];
   calc: (lvl: number, o: { free?: boolean; pot?: PotMode }) => Calc;
 }
 
@@ -298,6 +313,10 @@ export interface AtkGroup {
   level: number;
   keyLabel: string;
   keyVal: number;
+  /** Texto no lugar de "atributo chave" e nível (grupo de taijutsu e armas). */
+  info?: string;
+  /** Aviso sobre o grupo inteiro (ex.: Hachimon aberto). */
+  notice?: string;
   /** Alcance e tamanho comum do poder, em metros. */
   alcance?: number;
   tamanho?: number;
@@ -340,6 +359,8 @@ interface EffPick {
   talento?: boolean;
   /** De onde veio o efeito, quando não foi escolhido no poder (ex.: Elemento Natural). */
   tag?: string;
+  /** Nível máximo usado acima do nível do poder (Canhão grátis da kekkei genkai, no nível dela). */
+  nivel?: number;
 }
 
 /** Junta a mesma escolha feita em compras diferentes, guardando a evolução mais alta. */
@@ -350,6 +371,7 @@ function addPick(picks: EffPick[], x: EffPick) {
     cur.ev = Math.max(cur.ev, x.ev);
     if (!cur.tech) cur.tech = x.tech;
     if (!cur.tag) cur.tag = x.tag;
+    if (x.nivel) cur.nivel = Math.max(cur.nivel ?? 0, x.nivel);
   }
 }
 
@@ -388,6 +410,12 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
   const natural = hasApt(c, "elemento-natural-katon");
   const katonG = byId.get("katon");
   if (natural && katonG && katonG.level >= 4) addPick(katonG.picks, { eff: "sopro", tech: "", ev: katonG.level >= 10 ? 2 : katonG.level >= 7 ? 1 : 0, tag: "Elemento Natural" });
+  // Kekkei genkai de elemento: 1 nível grátis nos elementos que a formam, com o Canhão no nível da kekkei genkai.
+  for (const g of kekkeiGratis(c)) {
+    const el = byId.get(g.el) ?? { level: 1, picks: [] };
+    byId.set(g.el, el);
+    addPick(el.picks, { eff: "canhao", tech: "", ev: 0, tag: `grátis pelo ${PODER_BY_ID[g.from].name.split(" (")[0]}`, nivel: g.lvl });
+  }
   for (const [id, g] of byId) {
     if (id === "hibon" && tn?.target === "hibon") addTalento(g, tn.eff);
     if (g.picks.length) groups.push(effectGroup(c, v, p, { key: id, powerId: id, title: PODER_BY_ID[id].name, level: g.level, picks: g.picks }));
@@ -701,7 +729,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
 
   const rows: AtkRow[] = o.picks
-    .flatMap(({ eff, tech, ev, talento, tag: from }): AtkRow[] => {
+    .flatMap(({ eff, tech, ev, talento, tag: from, nivel }): AtkRow[] => {
       const e = EFEITO_BY_ID[eff];
       const spec = DANO_EFEITO[eff];
       const tag = talento ? "Talento Natural" : (from ?? "");
@@ -716,7 +744,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
         sub: [tech ? effName : "", evoTxt, tag].filter(Boolean).join(" · "),
         note: eff === "lamina-raios" ? laminaRaiosNote(ev) : spec.note,
         min: e.level,
-        max: spec.costFixed ? e.level : Math.max(e.level, level),
+        max: spec.costFixed ? e.level : Math.max(e.level, level, nivel ?? 0),
         meta,
         free: !!spec.free,
         calc: (lvl, opt) => ({
@@ -833,7 +861,11 @@ function utilRow(groupKey: string, powerId: string, eff: string, tech: string, e
       const cost = spec.costFixed ?? lvl;
       const { alcance: A, tamanho: T } = alcanceTamanho(powerId, k.val);
       const out: Calc = { base: 0, cost, dif, parts: [], noDif: true, info: { txt }, geo: geo(eff, { A, T, lvl, ev, key: k.val }) };
-      if (spec.show === "dureza") {
+      if (spec.show === "absorcao") {
+        // Espelhos Demoníacos (Livro de Hijutsus, Hyouton): absorção 8 por nível usado, dureza 0 sem bônus de elemento.
+        out.cost = ev >= 1 ? 4 : 3;
+        out.info = { v: 8 * lvl, label: spec.label ?? "Absorção", txt: `${txt} Dureza ${ev >= 1 ? 2 : 0}.${ev >= 1 ? ESPELHOS_NV8 : ""}` };
+      } else if (spec.show === "dureza") {
         // Barreira Nv 9 (evolução): dureza +2.
         const full = comum + (DUREZA[powerId] ?? 0) + (eff === "barreira" && ev >= 2 ? 2 : 0);
         out.info = { v: spec.durezaHalf ? half(full) : full, label: spec.label ?? "Dureza", txt };
@@ -885,6 +917,64 @@ export function outrosPoderes(c: Character): OutroPoder[] {
     });
   }
   return out;
+}
+
+/* ---------------- taijutsu e armas ---------------- */
+
+/** Força dos estados ligados com esta origem (ex.: tamanho do Baika). */
+const forDe = (p: PlayState, pred: (e: PlayState["effects"][number]) => boolean) =>
+  p.effects.filter((e) => e.active && pred(e)).reduce((t, e) => t + e.mods.filter((m) => m.on && m.t === "FOR").reduce((s, m) => s + m.v, 0), 0);
+
+/** Contexto de dano na mesa: atributos com os estados, Hachimon, Modo Kurama e Armadura de Raios. */
+export function mesaDanoCtx(c: Character, v: PlayView, p: PlayState, o: { energizar?: boolean; poderoso?: boolean }): DanoCtx {
+  const gate = p.effects.find((e) => e.active && e.gate);
+  // Hachimon (Livro Básico, pág. 202):o bônus de Força do portão dobra no dano e anula os outros bônus de Força e de dano;
+  // a Força de tamanho continua valendo.
+  const hachimon = gate ? { gate: gate.gate!, forDano: c.attrs.FOR + forDe(p, (e) => e.auto === "baika") + 2 * forDe(p, (e) => e === gate) } : undefined;
+  return {
+    attrs: v.attrs,
+    combat: v.combat,
+    dano: v.dano,
+    hachimon,
+    energizar: o.energizar,
+    poderoso: o.poderoso,
+    kurama: p.effects.some((e) => e.active && e.auto === "jinchuuriki" && e.stage === 4),
+    armaduraRaios: p.effects.some((e) => e.active && e.auto === "armadura-raios"),
+  };
+}
+
+/** Ataque desarmado, armas do equipamento e golpes de clã (Juuken, Shikakyu…), com o dano já calculado. */
+export function grupoBasico(c: Character, v: PlayView, p: PlayState, o: { energizar?: boolean; poderoso?: boolean }): AtkGroup {
+  const x = mesaDanoCtx(c, v, p, o);
+  const extra = p.dmgExtra?.basico ?? 0;
+  const rows: AtkRow[] = ataquesBasicos(c, x).map((a) => ({
+    key: `basico:${a.key}`,
+    name: a.name,
+    sub: [a.tag, `teste de ${a.test} ${v.combat[a.test]}`, a.tipo].filter(Boolean).join(" · "),
+    note: [a.note, ...a.warn.map((w) => `⚠ ${w}`)].filter(Boolean).join(" "),
+    min: a.lvl?.min ?? 1,
+    max: a.lvl?.max ?? 1,
+    meta: false,
+    free: false,
+    tags: [letalText(a.letal), `crítico ${critText(a.crit)}`],
+    calc: (lvl) => {
+      const r = a.lvl ? a.lvl.calc(lvl) : a;
+      const parts = extra ? [...r.parts, `extra ${extra}`] : r.parts;
+      return { base: Math.max(0, r.base + extra), cost: a.cost, dif: 0, parts, noDif: true, geo: { alcance: a.alcance } };
+    },
+  }));
+  return {
+    id: "basico",
+    title: "Taijutsu e armas",
+    level: 0,
+    keyLabel: "",
+    keyVal: 0,
+    info: `For ${x.hachimon ? `${x.hachimon.forDano} no dano` : v.attrs.FOR} · Des ${v.attrs.DES} · ½ atributo + dano de arma`,
+    notice: x.hachimon ? `Hachimon ${x.hachimon.gate} aberto: o bônus de Força do portão conta em dobro no dano e anula os outros bônus de Força e de dano (tamanho, dano de arma e Dano Extra continuam).` : undefined,
+    bonus: [],
+    extra,
+    rows,
+  };
 }
 
 /** Dano final de cada grau (1 a 4). Técnica Poderosa soma 0,5 ao grau e arredonda para cima. */

@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { GRAU_2D8, ataques, graus, outrosPoderes, partsText, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
+import { GRAU_2D8, ataques, graus, grupoBasico, outrosPoderes, partsText, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
+import { podeEnergizar } from "@/lib/dano";
 import { checkChakra, olhoPendente, payChakra, sg, sharinganTravado, spendVisao } from "@/lib/play";
 import { hasApt, uid } from "@/lib/rules";
 import { AnimatedNumber, IconMinus, IconPlus, IconTrash } from "../ui";
@@ -15,7 +16,14 @@ const COLS = "@2xl:grid-cols-[minmax(0,1fr)_repeat(4,3.75rem)_6.75rem]";
 
 export function Ataques(props: MesaProps) {
   const { c, p, v, commit, patch } = props;
-  const groups = useMemo(() => ataques(c, v, p), [c, v, p]);
+  // Golpes energizados e Ataque Poderoso valem para o taijutsu e as armas; ficam ligados até a pessoa desligar.
+  const [energ, setEnerg] = useState(false);
+  const [poderoso, setPoderoso] = useState(false);
+  const canEnerg = podeEnergizar(c);
+  const canPoderoso = hasApt(c, "ataque-poderoso");
+  const basico = useMemo(() => grupoBasico(c, v, p, { energizar: canEnerg && energ, poderoso: canPoderoso && poderoso }), [c, v, p, canEnerg, energ, canPoderoso, poderoso]);
+  const poderes = useMemo(() => ataques(c, v, p), [c, v, p]);
+  const groups = useMemo(() => [basico, ...poderes], [basico, poderes]);
   const outros = useMemo(() => outrosPoderes(c), [c]);
   const canPot = hasApt(c, "potencializar");
   const canTP = hasApt(c, "tecnica-poderosa");
@@ -61,17 +69,17 @@ export function Ataques(props: MesaProps) {
     }
   };
 
-  const empty = groups.length === 0 && custom.length === 0 && outros.length === 0;
-
   return (
     <section aria-labelledby="h-atk" className="@container card flex flex-col gap-4 p-4 sm:p-5">
       <SectionTitle id="h-atk" title="Técnicas e ataques">
         Tudo o que a ficha tem para usar em combate. Dano final = dano base × grau; o grau sai do 2d8 do teste de ataque e 15 ou 16 é acerto crítico (grau 4, alvo sangrando).
       </SectionTitle>
 
-      {(canPot || canTP || v.dano !== 0) && (
+      {(canPot || canTP || canEnerg || canPoderoso || v.dano !== 0) && (
         <div className="flex flex-wrap items-center gap-2">
           {v.dano !== 0 && <span className="chip border-chakra text-[#ffd3a8]">Estados: dano base {sg(v.dano)}</span>}
+          {canEnerg && <MetaChip on={energ} onClick={() => setEnerg(!energ)} label="Golpe energizado" hint="Espírito no dano" />}
+          {canPoderoso && <MetaChip on={poderoso} onClick={() => setPoderoso(!poderoso)} label="Ataque Poderoso" hint="+1 dano, −1 acerto" />}
           {canPot &&
             (Object.keys(POT_LABEL) as PotMode[]).map((m) => (
               <MetaChip key={m} on={pot === m} onClick={() => setPot(pot === m ? null : m)} label="Potencializar" hint={POT_LABEL[m]} />
@@ -81,180 +89,175 @@ export function Ataques(props: MesaProps) {
         </div>
       )}
 
-      {empty ? (
-        <p className="rounded-xl bg-ink-2 px-4 py-6 text-center text-sm text-muted">
-          Nenhum poder na ficha ainda. Escolha poderes e efeitos na criação, ou anote um ataque abaixo.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-5">
-          {/* Cabeçalho dos graus (no celular, cada célula traz o próprio rótulo) */}
-          <div className={`hidden items-end gap-2 px-3 @2xl:grid ${COLS}`} aria-hidden="true">
-            <span className="label">Técnica</span>
-            {GRAU_2D8.map((r, i) => (
-              <span key={r} className={`flex flex-col items-center leading-tight ${i === 3 ? "text-[#ff9a80]" : "text-muted"}`}>
-                <span className="text-[11px] font-bold uppercase tracking-wider">Grau {i + 1}</span>
-                <span className="text-[10px] text-faint">{i === 0 ? `${r} · base` : r}</span>
-              </span>
-            ))}
-            <span />
-          </div>
-
-          {groups.map((g) => (
-            <div key={g.id} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line-2 pb-2">
-                <h3 className="font-display text-lg font-extrabold text-paper">
-                  {g.title} <span className="text-sm font-bold text-chakra">Nv {g.level}</span>
-                </h3>
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
-                  <span>
-                    {g.keyLabel} {g.keyVal}
-                  </span>
-                  {g.alcance !== undefined && (
-                    <span title="Alcance e tamanho comuns do poder (dá para usar menos, trocando o atributo pelo nível usado)">
-                      Alcance {g.alcance}m · Tamanho {g.tamanho}m
-                    </span>
-                  )}
-                  {g.bonus.map((b) => (
-                    <span key={b.label} className="text-[#ffd3a8]">
-                      {b.label} +{b.v}
-                    </span>
-                  ))}
-                  {g.extra !== 0 && <span className="text-[#ffd3a8]">extra {sg(g.extra)}</span>}
-                  <button type="button" className="font-bold text-faint underline-offset-2 hover:text-text hover:underline" aria-expanded={adjust === g.id} onClick={() => setAdjust(adjust === g.id ? null : g.id)}>
-                    Ajustar
-                  </button>
-                </div>
-              </div>
-              {adjust === g.id && (
-                <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink-2 px-3 py-2.5">
-                  <span className="flex-1 text-xs leading-snug text-muted">
-                    Bônus de dano que a ficha não calcula (Hibon, Satetsu, Domínio Simples, item…). Soma em todos os ataques de {g.title}.
-                  </span>
-                  <MiniStepper
-                    label={`Bônus extra de ${g.title}`}
-                    value={g.extra}
-                    onChange={(n) => patch((pl) => void (pl.dmgExtra = { ...pl.dmgExtra, [g.id]: n }))}
-                    min={-20}
-                    max={20}
-                    signed
-                  />
-                </div>
-              )}
-              <ul className="flex flex-col gap-2">
-                {g.rows.map((row, ri) => {
-                  const divider = row.util && !g.rows[ri - 1]?.util;
-                  const lvl = Math.min(row.max, Math.max(row.min, lvls[row.key] ?? row.max));
-                  const isFree = !!free[row.key] && row.free && lvl >= 2;
-                  const r = row.calc(lvl, { free: isFree, pot: pot && row.meta && !isFree ? pot : undefined });
-                  const half = row.plusHalf || (tp && row.meta && r.cost > 0);
-                  return (
-                    <Fragment key={row.key}>
-                      {divider && (
-                        <li className="flex items-center gap-2 pt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-faint" aria-hidden="true">
-                          Sem dano <span className="h-px flex-1 bg-line" />
-                        </li>
-                      )}
-                    <AttackRow
-                      name={row.name}
-                      sub={row.sub}
-                      note={row.note}
-                      r={r}
-                      short={r.cost > p.chk}
-                      halfGrade={!!half}
-                      minGrau={row.minGrau}
-                      level={
-                        row.min === row.max ? (
-                          <span className="text-xs font-bold text-chakra">Nv {lvl}</span>
-                        ) : (
-                          <MiniStepper label={`Nível usado de ${row.name}`} value={lvl} min={row.min} max={row.max} prefix="Nv" onChange={(n) => setLvls((s) => ({ ...s, [row.key]: n }))} />
-                        )
-                      }
-                      extra={
-                        row.free && lvl >= 2 ? (
-                          <button
-                            type="button"
-                            aria-pressed={isFree}
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-bold transition ${isFree ? "border-chakra bg-chakra/15 text-[#ffd3a8]" : "border-line-2 text-faint hover:text-text"}`}
-                            onClick={() => setFree((s) => ({ ...s, [row.key]: !s[row.key] }))}
-                          >
-                            Sem chakra (½ dano)
-                          </button>
-                        ) : null
-                      }
-                      onUse={() => use(row, lvl, r)}
-                    />
-                    </Fragment>
-                  );
-                })}
-              </ul>
-            </div>
+      <div className="flex flex-col gap-5">
+        {/* Cabeçalho dos graus (no celular, cada célula traz o próprio rótulo) */}
+        <div className={`hidden items-end gap-2 px-3 @2xl:grid ${COLS}`} aria-hidden="true">
+          <span className="label">Técnica</span>
+          {GRAU_2D8.map((r, i) => (
+            <span key={r} className={`flex flex-col items-center leading-tight ${i === 3 ? "text-[#ff9a80]" : "text-muted"}`}>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Grau {i + 1}</span>
+              <span className="text-[10px] text-faint">{i === 0 ? `${r} · base` : r}</span>
+            </span>
           ))}
+          <span />
+        </div>
 
-          {outros.map((o) => (
-            <div key={o.id} className="flex flex-col gap-2">
-              <div className="border-b border-line-2 pb-2">
-                <h3 className="font-display text-lg font-extrabold text-paper">
-                  {o.title} {o.level > 0 && <span className="text-sm font-bold text-chakra">Nv {o.level}</span>}
-                </h3>
+        {groups.map((g) => (
+          <div key={g.id} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line-2 pb-2">
+              <h3 className="font-display text-lg font-extrabold text-paper">
+                {g.title} {g.level > 0 && <span className="text-sm font-bold text-chakra">Nv {g.level}</span>}
+              </h3>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
+                <span>{g.info ?? `${g.keyLabel} ${g.keyVal}`}</span>
+                {g.alcance !== undefined && (
+                  <span title="Alcance e tamanho comuns do poder (dá para usar menos, trocando o atributo pelo nível usado)">
+                    Alcance {g.alcance}m · Tamanho {g.tamanho}m
+                  </span>
+                )}
+                {g.bonus.map((b) => (
+                  <span key={b.label} className="text-[#ffd3a8]">
+                    {b.label} +{b.v}
+                  </span>
+                ))}
+                {g.extra !== 0 && <span className="text-[#ffd3a8]">extra {sg(g.extra)}</span>}
+                <button type="button" className="font-bold text-faint underline-offset-2 hover:text-text hover:underline" aria-expanded={adjust === g.id} onClick={() => setAdjust(adjust === g.id ? null : g.id)}>
+                  Ajustar
+                </button>
               </div>
-              {o.items.length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {o.items.map((t) => (
-                    <li key={t} className="rounded-lg border border-line bg-ink-2 px-2.5 py-1.5 text-sm text-text">
-                      {t}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                !o.note && <p className="text-xs text-faint">Técnicas deste poder ficam no livro; anote custos e danos em “Anotar ataque”.</p>
-              )}
-              {o.note && <p className="whitespace-pre-line text-xs leading-snug text-muted">{o.note}</p>}
             </div>
-          ))}
-
-          {custom.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <div className="border-b border-line-2 pb-2">
-                <h3 className="font-display text-lg font-extrabold text-paper">Anotados</h3>
+            {g.notice && <p className="rounded-xl border border-chakra/40 bg-chakra/10 px-3 py-2 text-xs leading-snug text-[#ffd3a8]">{g.notice}</p>}
+            {adjust === g.id && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink-2 px-3 py-2.5">
+                <span className="flex-1 text-xs leading-snug text-muted">
+                  Bônus de dano que a ficha não calcula (Hibon, Satetsu, Domínio Simples, item…). Soma em todos os ataques de {g.title}.
+                </span>
+                <MiniStepper
+                  label={`Bônus extra de ${g.title}`}
+                  value={g.extra}
+                  onChange={(n) => patch((pl) => void (pl.dmgExtra = { ...pl.dmgExtra, [g.id]: n }))}
+                  min={-20}
+                  max={20}
+                  signed
+                />
               </div>
-              <ul className="flex flex-col gap-2">
-                {custom.map((a) => {
-                  const r: Calc = { base: Math.max(0, a.base + v.dano), cost: a.cost, dif: 0, parts: v.dano ? [`${a.base}`, `estado ${v.dano}`] : [`${a.base}`] };
-                  return (
-                    <AttackRow
-                      key={a.id}
-                      name={a.name}
-                      sub="Anotado na mesa"
-                      note={a.note}
-                      r={r}
-                      short={a.cost > p.chk}
-                      halfGrade={false}
-                      noDif
-                      level={
+            )}
+            <ul className="flex flex-col gap-2">
+              {g.rows.map((row, ri) => {
+                const divider = row.util && !g.rows[ri - 1]?.util;
+                const lvl = Math.min(row.max, Math.max(row.min, lvls[row.key] ?? row.max));
+                const isFree = !!free[row.key] && row.free && lvl >= 2;
+                const r = row.calc(lvl, { free: isFree, pot: pot && row.meta && !isFree ? pot : undefined });
+                const half = row.plusHalf || (tp && row.meta && r.cost > 0);
+                return (
+                  <Fragment key={row.key}>
+                    {divider && (
+                      <li className="flex items-center gap-2 pt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-faint" aria-hidden="true">
+                        Sem dano <span className="h-px flex-1 bg-line" />
+                      </li>
+                    )}
+                  <AttackRow
+                    name={row.name}
+                    sub={row.sub}
+                    note={row.note}
+                    r={r}
+                    short={r.cost > p.chk}
+                    halfGrade={!!half}
+                    minGrau={row.minGrau}
+                    level={
+                      row.tags && row.min === row.max ? (
+                        <span className="text-xs text-muted">{row.tags.join(" · ")}</span>
+                      ) : row.min === row.max ? (
+                        <span className="text-xs font-bold text-chakra">Nv {lvl}</span>
+                      ) : (
+                        <MiniStepper label={`Nível usado de ${row.name}`} value={lvl} min={row.min} max={row.max} prefix="Nv" onChange={(n) => setLvls((s) => ({ ...s, [row.key]: n }))} />
+                      )
+                    }
+                    extra={
+                      row.free && lvl >= 2 ? (
                         <button
                           type="button"
-                          className="grid size-7 place-items-center rounded-lg text-faint hover:text-bad"
-                          aria-label={`Apagar ataque ${a.name}`}
-                          onClick={() => patch((pl) => void (pl.attacks = (pl.attacks ?? []).filter((x) => x.id !== a.id)))}
+                          aria-pressed={isFree}
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold transition ${isFree ? "border-chakra bg-chakra/15 text-[#ffd3a8]" : "border-line-2 text-faint hover:text-text"}`}
+                          onClick={() => setFree((s) => ({ ...s, [row.key]: !s[row.key] }))}
                         >
-                          <IconTrash className="size-4" />
+                          Sem chakra (½ dano)
                         </button>
-                      }
-                      onUse={() =>
-                        commit((pl, log) => {
-                          if (!payChakra(pl, a.cost, a.name, log)) return;
-                          log(`${a.name} · base ${r.base}${a.cost ? ` · −${a.cost} chakra` : ""}`, a.cost ? "chk" : "n");
-                          checkChakra(pl, log);
-                        })
-                      }
-                    />
-                  );
-                })}
-              </ul>
+                      ) : null
+                    }
+                    onUse={() => use(row, lvl, r)}
+                  />
+                  </Fragment>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+
+        {outros.map((o) => (
+          <div key={o.id} className="flex flex-col gap-2">
+            <div className="border-b border-line-2 pb-2">
+              <h3 className="font-display text-lg font-extrabold text-paper">
+                {o.title} {o.level > 0 && <span className="text-sm font-bold text-chakra">Nv {o.level}</span>}
+              </h3>
             </div>
-          )}
-        </div>
-      )}
+            {o.items.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {o.items.map((t) => (
+                  <li key={t} className="rounded-lg border border-line bg-ink-2 px-2.5 py-1.5 text-sm text-text">
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !o.note && <p className="text-xs text-faint">Técnicas deste poder ficam no livro; anote custos e danos em “Anotar ataque”.</p>
+            )}
+            {o.note && <p className="whitespace-pre-line text-xs leading-snug text-muted">{o.note}</p>}
+          </div>
+        ))}
+
+        {custom.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="border-b border-line-2 pb-2">
+              <h3 className="font-display text-lg font-extrabold text-paper">Anotados</h3>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {custom.map((a) => {
+                const r: Calc = { base: Math.max(0, a.base + v.dano), cost: a.cost, dif: 0, parts: v.dano ? [`${a.base}`, `estado ${v.dano}`] : [`${a.base}`] };
+                return (
+                  <AttackRow
+                    key={a.id}
+                    name={a.name}
+                    sub="Anotado na mesa"
+                    note={a.note}
+                    r={r}
+                    short={a.cost > p.chk}
+                    halfGrade={false}
+                    noDif
+                    level={
+                      <button
+                        type="button"
+                        className="grid size-7 place-items-center rounded-lg text-faint hover:text-bad"
+                        aria-label={`Apagar ataque ${a.name}`}
+                        onClick={() => patch((pl) => void (pl.attacks = (pl.attacks ?? []).filter((x) => x.id !== a.id)))}
+                      >
+                        <IconTrash className="size-4" />
+                      </button>
+                    }
+                    onUse={() =>
+                      commit((pl, log) => {
+                        if (!payChakra(pl, a.cost, a.name, log)) return;
+                        log(`${a.name} · base ${r.base}${a.cost ? ` · −${a.cost} chakra` : ""}`, a.cost ? "chk" : "n");
+                        checkChakra(pl, log);
+                      })
+                    }
+                  />
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
 
       <NovoAtaque onAdd={(a) => patch((pl) => void (pl.attacks = [...(pl.attacks ?? []), a]))} />
     </section>

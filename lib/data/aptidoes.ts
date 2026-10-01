@@ -17,7 +17,7 @@ const COMUNS: Aptidao[] = [
   { id: "arremessador-utilitarios", name: "Arremessador de Utilitários", cat: "combate", source: "Guia Avançado", reqText: "Destreza 7; Inteligência 4", req: [A("DES", 7), A("INT", 4)], desc: "Usa utilitários ninjas (bombas, tarjas) com mais eficiência." },
   { id: "arremessador-eficiente", name: "Arremessador Eficiente", cat: "combate", source: "Guia Avançado", reqText: "Combate à Distância 8", req: [C("CD", 8)], desc: "Melhora ataques com armas de arremesso." },
   { id: "ataque-em-movimento", name: "Ataque em Movimento", cat: "combate", free: true, source: "Básico", reqText: "Agilidade 4", req: [A("AGI", 4)], desc: "Move-se antes e depois de atacar." },
-  { id: "atirador", name: "Atirador", cat: "combate", source: "Básico", reqText: "Destreza 12", req: [A("DES", 12)], desc: "Aumenta o dano de ataques com projéteis (arcos ou armas de arremesso)." },
+  { id: "atirador", name: "Atirador", cat: "combate", source: "Básico", reqText: "Destreza 12", req: [A("DES", 12)], desc: "À escolha: +1 de dano com arcos ou +3 com armas simples de arremesso à distância." },
   { id: "avaliador-perigo", name: "Avaliador do Perigo", cat: "combate", source: "Guia Avançado", reqText: "Inteligência ou Percepção 4", req: [ANY(A("INT", 4), A("PER", 4))], desc: "Avalia ameaças e reage melhor ao perigo." },
   { id: "bloqueio-ambidestro", name: "Bloqueio Ambidestro", cat: "combate", source: "Básico", reqText: "Ambidestria", req: [AP("ambidestria")], desc: "Melhora o bloqueio ao usar duas armas ou arma dupla." },
   { id: "combate-defensivo", name: "Combate Defensivo", cat: "combate", free: true, source: "Básico", reqText: "Combate Corporal 9", req: [C("CC", 9)], desc: "Reduz a precisão corpo-a-corpo para melhorar a esquiva." },

@@ -29,6 +29,8 @@ export type Req =
   | { t: "combat"; k: CombatKey; min: number }
   | { t: "apt"; id: string; level?: number }
   | { t: "power"; id: string; min: number }
+  /** Efeito já escolhido em algum poder (ex.: Espelhos Demoníacos pedem Imergir). */
+  | { t: "effect"; id: string }
   | { t: "noOrigin" }
   | { t: "any"; of: Req[] };
 
@@ -171,6 +173,8 @@ export interface ItemEntry {
   price: number;
   comps: number;
   note?: string;
+  /** Arma do catálogo (lib/data/armas.ts) que este item é, para o cálculo de dano. */
+  arma?: string;
 }
 
 export interface Optionals {

@@ -43,13 +43,23 @@ export const EFEITOS: Efeito[] = [
   { id: "prisao-agua", name: "Prisão de Água (Suiton)", level: 3, source: "Básico", desc: "Aprisiona o alvo em uma esfera de água.", evolves: [9] },
   { id: "colisao-ondas", name: "Colisão de Ondas (Suiton)", level: 6, source: "Básico", desc: "Grande onda que varre o campo.", evolves: [8, 10] },
   { id: "infligir-medo", name: "Infligir Medo (Hebi)", level: 2, source: "Hijutsus 2", desc: "Teste de Inteligência (Dif comum −2, −1 por alvo extra) ou fica assustado por 2 rodadas. Custo: 1 por nível usado.", evolves: [5, 7] },
+  {
+    id: "espelhos-demoniacos",
+    name: "Espelhos Demoníacos (Hyouton)",
+    level: 6,
+    source: "Hijutsus 1",
+    desc: "Makyō Hyōshō: 21 espelhos de gelo em cúpula; você se move entre eles e os reflexos confundem os ataques.",
+    evolves: [8],
+    reqText: "Ataque em Movimento (aptidão); Imergir (efeito)",
+    req: [{ t: "apt", id: "ataque-em-movimento" }, { t: "effect", id: "imergir" }],
+  },
   { id: "bracos-serpente", name: "Braços de Serpente (Hebi)", level: 4, source: "Hijutsus 2", desc: "Serpentes saem das mangas: arma longa simples de 6m e 3 de dano de arma, bloqueia ataques; pode usar Destreza no dano. Custo 4, contínua." },
 ];
 
 export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.map((e) => [e.id, e]));
 
 /** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
-export const EXCLUSIVOS = ["bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"];
+export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"];
 
 /** Símbolo de cada poder elemental (e dos que costumam virar versáteis), usado nos seletores. */
 export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木" };
@@ -148,7 +158,7 @@ export const PODERES: Poder[] = [
   { id: "jinchuuriki", name: "Jinchuuriki", mode: "livre", restricted: true, source: "Básico", desc: "Poder da Bijuu selada: Chakra Bijuu, Presença, Manto, Modo e Forma Bijuu, Bijuudama…" },
   { id: "magen", name: "Magen (Ilusão Demoníaca)", mode: "livre", restricted: true, source: "Básico", reqText: "Inteligência 6; Fascinar; Miragem; Ilusão Profunda", req: [A("INT", 6), { t: "apt", id: "fascinar" }, { t: "apt", id: "miragem" }, { t: "apt", id: "ilusao-profunda" }], desc: "Genjutsus: Amedrontar, Confundir, Segurar, Adormecer, Paralisar…" },
   { id: "versatilidade", name: "Versatilidade (Tensai)", mode: "efeitos", restricted: true, source: "Básico", desc: "Dois poderes versáteis em um (Ninpou, Suiton, Katon, Doton, Fuuton, Raiton, Fuuinjutsu).", effects: [...NINPOU_BASE, "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "dano-continuo", "deslocamento-vacuo", "purificar"] },
-  { id: "hyouton", name: "Hyouton (Gelo)", mode: "efeitos", restricted: true, source: "Hijutsus 1", desc: "Vento + Água: gelo (clã Yuki).", effects: [...NINPOU_BASE, "deslocamento-vacuo", "dano-continuo", "imergir"] },
+  { id: "hyouton", name: "Hyouton (Gelo)", mode: "efeitos", restricted: true, source: "Hijutsus 1", desc: "Vento + Água: gelo (clã Yuki).", effects: [...NINPOU_BASE, "deslocamento-vacuo", "dano-continuo", "imergir", "espelhos-demoniacos"] },
   { id: "sabaku", name: "Sabaku Hijutsu (Areia)", mode: "efeitos", restricted: true, source: "Hijutsus 1", reqText: "Jinchuuriki 1 (Ichibi) ou opção de hijutsu", desc: "Técnica secreta do deserto: armadura, terceiro olho, pirâmide.", effects: NINPOU_BASE },
   { id: "jiton", name: "Jiton (Magnetismo)", mode: "efeitos", restricted: true, source: "Hijutsus 1", desc: "Satetsu (areia de ferro) ou Sakin (pó de ouro).", effects: [...NINPOU_BASE, "deslocamento-vacuo", "colisao-ondas"] },
   { id: "kami-ninpou", name: "Kami Ninpou (Papéis)", mode: "efeitos", restricted: true, source: "Hijutsus 1", desc: "Arte secreta dos papéis (Kamijutsu).", effects: [...NINPOU_BASE] },
@@ -170,6 +180,27 @@ export const PODERES: Poder[] = [
   { id: "shakuton", name: "Shakuton (Calor)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Fogo + Vento: calor que seca.", effects: [...NINPOU_BASE, "dano-continuo"] },
   { id: "shouton", name: "Shouton (Cristal)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Cristal.", effects: [...NINPOU_BASE, "dano-continuo", "deslocamento-vacuo"] },
 ];
+
+/**
+ * Kekkei genkai de elemento (Livro Básico, Mokuton; Livros de Hijutsus): 1 nível grátis em cada elemento que a forma,
+ * com o Canhão desses elementos usando o nível da kekkei genkai; níveis a mais nesses elementos são comprados à parte.
+ * `restrito`: o personagem só aprende a kekkei genkai e esses elementos (Restrição de Elemento).
+ */
+export const KEKKEI_ELEMENTOS: Record<string, { gratis: string[]; restrito: boolean }> = {
+  mokuton: { gratis: ["doton", "suiton"], restrito: true },
+  hyouton: { gratis: ["fuuton", "suiton"], restrito: true },
+  sabaku: { gratis: ["fuuton", "doton"], restrito: true },
+  jiton: { gratis: ["fuuton", "doton"], restrito: true },
+  youton: { gratis: ["doton", "katon"], restrito: true },
+  futton: { gratis: ["katon", "suiton"], restrito: true },
+  ranton: { gratis: ["raiton", "suiton"], restrito: true },
+  shakuton: { gratis: ["katon", "fuuton"], restrito: true },
+  shouton: { gratis: ["doton"], restrito: true },
+  bakuton: { gratis: ["doton", "raiton"], restrito: true },
+  jinton: { gratis: ["doton", "fuuton", "katon"], restrito: true },
+  ototon: { gratis: ["fuuton"], restrito: false },
+  "kibaku-nendo": { gratis: ["doton"], restrito: false },
+};
 
 export const PODER_BY_ID: Record<string, Poder> = Object.fromEntries(PODERES.map((p) => [p.id, p]));
 

@@ -1,12 +1,29 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ataquesBasicos, fichaCtx } from "@/lib/dano";
+import { ARMAS, ARMA_BY_ID, ARMA_CAT_LABEL, armaDoItem, type Arma } from "@/lib/data/armas";
 import { ITEM_PRESETS, VILLAGE_ITEMS_NOTE } from "@/lib/data/base";
 import { budgetFor, compLimit, hasApt, spent, uid } from "@/lib/rules";
 import type { ItemEntry } from "@/lib/types";
 import { IconPlus, IconTrash, NumberField, StepHeader } from "../../ui";
 import { stepKicker, type StepProps } from "../shared";
+
+const danoTxt = (a: Arma) => (a.cat === "explosivo" ? `dano base ${a.dano}` : `+${a.dano}${a.par ? ` (par +${a.par})` : ""}`);
+
+/** Compartimentos de uma arma que ocupa espaço inteiro ("1 por 2 comp." = 2); as que vêm em lote ficam com 0. */
+const armaComps = (a: Arma) => {
+  const m = /^1 (?:par )?por (\d+ )?comp/.exec(a.perComp);
+  return m ? Number(m[1] ?? 1) : 0;
+};
+
+/** Seções do seletor de armas, na ordem da Tabela de Armas. */
+const GRUPOS_ARMAS: [string, Arma[]][] = (["simples", "marcial", "especial"] as const).flatMap((g) =>
+  (Object.keys(ARMA_CAT_LABEL) as Arma["cat"][])
+    .map((cat): [string, Arma[]] => [`${g === "simples" ? "Simples" : g === "marcial" ? "Marciais" : "Especiais"} · ${ARMA_CAT_LABEL[cat]}`, ARMAS.filter((a) => a.grupo === g && a.cat === cat && a.cat !== "desarmado")])
+    .filter(([, l]) => l.length > 0),
+);
 
 export function StepEquipamento({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
@@ -15,6 +32,8 @@ export function StepEquipamento({ c, set }: StepProps) {
   const left = total - s.ryos;
   const limit = compLimit(c);
   const [name, setName] = useState("");
+  // Dano base de cada arma com os números da ficha (o mesmo da ficha impressa).
+  const danos = useMemo(() => new Map(ataquesBasicos(c, fichaCtx(c)).map((r) => [r.key, r])), [c]);
 
   const addItem = (item: Partial<ItemEntry> & { name: string }) =>
     set((d) => void d.items.push({ uid: uid(), qty: 1, price: 0, comps: 0, ...item }));
@@ -53,6 +72,26 @@ export function StepEquipamento({ c, set }: StepProps) {
             </motion.button>
           ))}
         </div>
+        <select
+          className="field"
+          value=""
+          aria-label="Adicionar arma da Tabela de Armas"
+          onChange={(e) => {
+            const a = ARMA_BY_ID[e.target.value];
+            if (a) addItem({ name: a.name, price: a.price, comps: armaComps(a), arma: a.id, note: `${ARMA_CAT_LABEL[a.cat]} ${a.grupo} · ${danoTxt(a)} · ${a.perComp}` });
+          }}
+        >
+          <option value="">Adicionar arma da tabela…</option>
+          {GRUPOS_ARMAS.map(([label, list]) => (
+            <optgroup key={label} label={label}>
+              {list.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} · {danoTxt(a)} · {a.price}R
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -77,6 +116,7 @@ export function StepEquipamento({ c, set }: StepProps) {
                 <span className="text-xs text-faint">Item</span>
                 <input className="field py-2" value={i.name} onChange={(e) => edit(i.uid, (x) => void (x.name = e.target.value))} />
                 {i.note && <span className="text-[11px] text-faint">{i.note}</span>}
+                <DanoArma item={i} danos={danos} />
               </label>
               <NumberField label="Qtd." value={i.qty} onChange={(n) => edit(i.uid, (x) => void (x.qty = Math.max(0, n)))} />
               <NumberField label="Preço (un.)" value={i.price} onChange={(n) => edit(i.uid, (x) => void (x.price = Math.max(0, n)))} />
@@ -90,5 +130,23 @@ export function StepEquipamento({ c, set }: StepProps) {
       </motion.ul>
       {c.items.length === 0 && <p className="card px-4 py-6 text-center text-sm text-muted">Mochila vazia.</p>}
     </div>
+  );
+}
+
+/** Dano base da arma do item, como sai na ficha, e o que falta para usá-la. */
+function DanoArma({ item, danos }: { item: ItemEntry; danos: Map<string, ReturnType<typeof ataquesBasicos>[number]> }) {
+  const a = armaDoItem(item);
+  if (!a) return null;
+  const r = danos.get(`arma:${a.id}`);
+  if (!r) return null;
+  return (
+    <span className="text-[11px] leading-snug">
+      <span className="font-bold text-chakra">Dano base {r.base}</span> <span className="text-faint">({r.parts.join(" + ")})</span>
+      {r.warn.map((w) => (
+        <span key={w} className="block text-bad">
+          {w}
+        </span>
+      ))}
+    </span>
   );
 }

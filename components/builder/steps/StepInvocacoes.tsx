@@ -623,10 +623,32 @@ function CriaturaEditor({ c, set, nav, setNav, inv }: InvProps & { inv: Invocaca
               <div className="card flex flex-col gap-2 p-4 sm:p-5">
                 <h3 className="label">Ataque</h3>
                 <span className="text-sm text-muted">{e?.attacks ?? "—"}</span>
-                <div className="flex items-center gap-3">
-                  <AnimatedNumber value={s.dano} className="font-display text-4xl font-extrabold text-paper" />
-                  <span className="text-sm leading-snug text-faint">dano base corpo a corpo: Força − 3 (mín. 3), sem dividir a Força nem somar a arma</span>
+                <div className="flex items-center gap-4 rounded-xl border border-line bg-ink-2 px-4 py-3">
+                  <div className="flex shrink-0 flex-col items-center">
+                    <AnimatedNumber value={s.dano} className="font-display text-4xl font-extrabold leading-none text-paper" />
+                    <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-faint">dano base</span>
+                  </div>
+                  <p className="min-w-0 text-xs leading-snug text-muted">
+                    {inv.nc < 4 ? (
+                      "Abaixo de NC 4 os ataques não causam dano."
+                    ) : (
+                      <>
+                        Corpo-a-corpo: Força {s.forT} − 3{s.forT - 3 < 3 ? " (mínimo 3)" : ""}
+                        {inv.marcial ? " + 1 da arma marcial" : ""}. Não divide a Força nem soma o dano de arma.
+                      </>
+                    )}
+                  </p>
                 </div>
+                {s.dano > 0 && (
+                  <div className="grid grid-cols-4 gap-1.5 text-center" aria-label="Dano final por grau">
+                    {[1, 2, 3, 4].map((g) => (
+                      <div key={g} className={`rounded-lg py-1.5 ${g === 4 ? "bg-[#3d1f18] ring-1 ring-[#6b3526]" : "bg-panel"}`}>
+                        <span className={`block text-[10px] font-bold uppercase tracking-wider ${g === 4 ? "text-[#ff9a80]" : "text-faint"}`}>Grau {g}</span>
+                        <span className={`font-display text-lg font-extrabold tabular-nums ${g === 4 ? "text-vit" : "text-paper"}`}>{s.dano * g}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <Toggle checked={inv.marcial} onChange={(v) => edit((x) => void (x.marcial = v))} label="Usa arma marcial" hint="+1 de dano base." />
               </div>
             </section>

@@ -1,7 +1,7 @@
 import { APT_BY_ID, BANNED_APTS } from "./data/aptidoes";
 import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
 import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
-import { EFEITO_BY_ID, EXCLUSIVOS, NINPOU_BASE, PODER_BY_ID, VERSATEIS } from "./data/poderes";
+import { EFEITO_BY_ID, EXCLUSIVOS, KEKKEI_ELEMENTOS, NINPOU_BASE, PODER_BY_ID, VERSATEIS } from "./data/poderes";
 import { validateKuchiyose } from "./kuchiyose";
 import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, Optionals, PowerEntry, Req, SkillKey } from "./types";
 
@@ -87,7 +87,34 @@ export function aptCost(e: AptEntry): number {
 }
 
 export function powerLevel(c: Character, id: string): number {
-  return c.poderes.filter((p) => p.id === id).reduce((m, p) => Math.max(m, p.level), 0);
+  const comprado = c.poderes.filter((p) => p.id === id).reduce((m, p) => Math.max(m, p.level), 0);
+  // Kekkei genkai de elemento: 1 nível grátis em cada elemento que a forma.
+  return comprado || (kekkeiDe(c, id) ? 1 : 0);
+}
+
+/** Elementos grátis das kekkei genkai da ficha, com o nível da kekkei genkai (o Canhão usa esse nível). */
+export function kekkeiGratis(c: Character): { el: string; from: string; lvl: number }[] {
+  const out: { el: string; from: string; lvl: number }[] = [];
+  for (const [k, v] of Object.entries(KEKKEI_ELEMENTOS)) {
+    const lvl = c.poderes.filter((p) => p.id === k).reduce((m, p) => Math.max(m, p.level), 0);
+    if (!lvl) continue;
+    for (const el of v.gratis) {
+      const cur = out.find((x) => x.el === el);
+      if (!cur) out.push({ el, from: k, lvl });
+      else if (lvl > cur.lvl) Object.assign(cur, { from: k, lvl });
+    }
+  }
+  return out;
+}
+
+/** Kekkei genkai da ficha que dá o elemento de graça (a de nível mais alto), ou null. */
+export const kekkeiDe = (c: Character, el: string) => kekkeiGratis(c).find((x) => x.el === el)?.from ?? null;
+
+/** A compra `idx` é a 1ª do elemento que uma kekkei genkai dá: o nível 1 dela não custa pontos. Devolve a kekkei genkai. */
+export function nivelGratis(c: Character, idx: number): string | null {
+  const p = c.poderes[idx];
+  if (c.poderes.findIndex((x) => x.id === p.id) !== idx) return null;
+  return kekkeiDe(c, p.id);
 }
 
 /** Evolução mais alta que o nível `lvl` permite para o efeito (0 = nenhuma). */
@@ -371,6 +398,8 @@ export function checkReq(c: Character, r: Req): boolean {
       return hasApt(c, r.id, r.level ?? 1);
     case "power":
       return Math.max(powerLevel(c, r.id), versatileLevel(c, r.id)) >= r.min;
+    case "effect":
+      return c.poderes.some((p) => p.effects.slice(0, p.level).includes(r.id));
     case "noOrigin":
       return !c.originId;
     case "any":
@@ -391,6 +420,7 @@ function geninReachable(r: Req): boolean {
     case "power":
       return r.min <= 2;
     case "apt":
+    case "effect":
     case "noOrigin":
       return true;
     case "any":
@@ -506,8 +536,9 @@ export function derived(c: Character) {
 export function spent(c: Character) {
   const attr = ATTRS.reduce((t, a) => t + (c.attrs[a.key] || 0), 0);
   const skill = SKILLS.reduce((t, s) => t + (c.skills[s.key] || 0), 0) + c.customSkills.reduce((t, s) => t + (s.pts || 0), 0);
-  // Comprar o mesmo poder de novo: o nível 1 da nova compra é gratuito (Livro Básico, pág. 95).
-  const powerLevels = c.poderes.reduce((t, p, i) => t + p.level - (isRepurchase(c, i) ? 1 : 0), 0);
+  // Comprar o mesmo poder de novo: o nível 1 da nova compra é gratuito (Livro Básico, pág. 95). O 1º nível de um
+  // elemento que a kekkei genkai já dá também.
+  const powerLevels = c.poderes.reduce((t, p, i) => t + p.level - (isRepurchase(c, i) || nivelGratis(c, i) ? 1 : 0), 0);
   const paidApts = c.aptidoes.reduce((t, a) => t + aptCost(a), 0);
   const freeUsed = c.aptidoes.filter((a) => a.free).length;
   const social = c.social.car + c.social.man;
@@ -713,7 +744,17 @@ export function validate(c: Character): Issue[] {
   if (s.power > b.power) push("erro", "poderes", `Pontos de poder: ${s.power - b.power} acima do limite (${b.power}).`);
   else if (s.power < b.power) push("aviso", "poderes", `Pontos de poder: faltam ${b.power - s.power} para gastar.`);
   const naturals = new Set(Object.entries(NATURAL).filter(([apt]) => hasApt(c, apt)).map(([, el]) => el));
+  // Elementos que a kekkei genkai dá não contam na afinidade.
+  for (const g of kekkeiGratis(c)) naturals.add(g.el);
   const elems = c.poderes.filter((p) => ELEMENTS.includes(p.id) && !naturals.has(p.id));
+  // Restrição de Elemento: com a kekkei genkai, só ela e os elementos que a formam.
+  const restritas = Object.keys(KEKKEI_ELEMENTOS).filter((k) => KEKKEI_ELEMENTOS[k].restrito && c.poderes.some((p) => p.id === k));
+  if (restritas.length) {
+    const ok = new Set(restritas.flatMap((k) => [k, ...KEKKEI_ELEMENTOS[k].gratis]));
+    const fora = new Set(c.poderes.filter((p) => (ELEMENTS.includes(p.id) || p.id in KEKKEI_ELEMENTOS) && !ok.has(p.id)).map((p) => p.id));
+    const nome = (id: string) => (PODER_BY_ID[id]?.name ?? id).split(" (")[0];
+    if (fora.size) push("erro", "poderes", `Restrição de Elemento: com ${restritas.map(nome).join(" e ")}, só se aprende ${[...ok].map(nome).join(", ")} (fora: ${[...fora].map(nome).join(", ")}).`);
+  }
   // Mímica Sharingan (Nidan Sharingan): Novo Elemento dá uma afinidade elemental a mais.
   const novoElemento = hasApt(c, "nidan-sharingan");
   const elemLimit = (c.attrs.ESP >= 10 ? 2 : 1) + (novoElemento ? 1 : 0);

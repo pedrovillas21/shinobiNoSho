@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { APTIDOES, APT_BY_ID, APT_CATEGORIES, BANNED_APTS } from "@/lib/data/aptidoes";
 import { JUUINKA_BONUS, JUUINKA_ICHI_PICKS, JUUINKA_NI_DEFAULT, JUUINKA_SELOS, niChoices } from "@/lib/data/juuinka";
 import { EFEITO_BY_ID } from "@/lib/data/poderes";
+import { ATIRADOR } from "@/lib/dano";
 import { SENSOR_LIMITES } from "@/lib/estados";
 import { APT_COST, FREE_APTS, MANGEKYOU_PARES, allowedRestricted, aptCost, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
@@ -121,6 +122,7 @@ export function StepAptidoes({ c, set }: StepProps) {
                       {a && (a.id === "juuinka-ichi" || a.id === "juuinka-ni") && <JuuinkaChoices e={e} set={set} />}
                       {a?.id === "talento-natural" && <TalentoChoices c={c} e={e} set={set} />}
                       {a?.id === "sensor" && <SensorChoice e={e} set={set} />}
+                      {a?.id === "atirador" && <AtiradorChoice e={e} set={set} />}
                       {a?.id === "mangekyou" && <MangekyouChoice c={c} e={e} set={set} />}
                       {!a && (
                         <textarea
@@ -355,6 +357,23 @@ function SensorChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
         {Object.entries(SENSOR_LIMITES).map(([k, l]) => (
           <option key={k} value={k}>
             Limitado ({l}) · 3 chakra
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Atirador: arcos (+1 de dano) ou armas simples de arremesso (+3 de dano). */
+function AtiradorChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
+  return (
+    <label className="mt-1 flex max-w-sm flex-col gap-1 text-xs text-muted">
+      Tipo de arma
+      <select className="field py-1.5 text-sm" value={e.variant ?? ""} onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.variant = ev.target.value))}>
+        <option value="">Escolher…</option>
+        {Object.entries(ATIRADOR).map(([k, l]) => (
+          <option key={k} value={k}>
+            {l[0].toUpperCase() + l.slice(1)}
           </option>
         ))}
       </select>

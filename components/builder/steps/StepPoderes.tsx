@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
-import { allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, firstEvolution, isRepurchase, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
+import { allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, firstEvolution, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
 import type { Efeito, Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconSearch, IconTrash, IconX, Stepper, StepHeader, Toggle } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
@@ -48,6 +48,16 @@ export function StepPoderes({ c, set }: StepProps) {
         </span>
       </div>
 
+      {kekkeiGratis(c).length > 0 && (
+        <p className="rounded-xl border border-ok/40 bg-ok/10 px-4 py-3 text-sm leading-relaxed text-text">
+          Kekkei genkai:{" "}
+          {kekkeiGratis(c)
+            .map((g) => `${PODER_BY_ID[g.el].name.split(" (")[0]} 1 grátis pelo ${PODER_BY_ID[g.from].name.split(" (")[0]} (Canhão até o nível ${g.lvl})`)
+            .join(" · ")}
+          . Para mais efeitos nesses elementos, compre o poder: o nível 1 já vem pago e eles não contam na afinidade elemental.
+        </p>
+      )}
+
       <motion.ul layout className="flex flex-col gap-4">
         <AnimatePresence initial={false}>
           {c.poderes.map((p, idx) => {
@@ -55,6 +65,7 @@ export function StepPoderes({ c, set }: StepProps) {
             const name = def?.name ?? p.customName ?? "Poder";
             const met = def ? reqsMet(c, def.req) : true;
             const again = isRepurchase(c, idx);
+            const gratis = nivelGratis(c, idx);
             const nth = c.poderes.slice(0, idx + 1).filter((x) => x.id === p.id).length;
             const top = powerLevel(c, p.id);
             return (
@@ -71,6 +82,7 @@ export function StepPoderes({ c, set }: StepProps) {
                         </span>
                       )}
                       {again && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">{nth}ª compra · nível 1 grátis</span>}
+                      {gratis && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">nível 1 grátis pelo {PODER_BY_ID[gratis].name.split(" (")[0]}</span>}
                       {p.level > b.cap && <span className="rounded-full bg-seal-dark px-2 py-0.5 text-[11px] font-bold text-white">acima do limite {b.cap}</span>}
                     </div>
                     {def?.reqText && <span className={`text-xs ${met ? "text-paper-muted" : "font-bold text-seal-dark"}`}>Pré-requisito: {def.reqText}</span>}

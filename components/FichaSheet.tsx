@@ -1,10 +1,11 @@
 import { APT_BY_ID } from "@/lib/data/aptidoes";
 import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka";
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
+import { ATIRADOR, ataquesBasicos, critText, fichaCtx, letalText } from "@/lib/dano";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
 import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
-import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, isRepurchase, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
+import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, isRepurchase, kekkeiGratis, nivelGratis, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 
 function H({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,46 @@ function Row({ k, v }: { k: React.ReactNode; v: React.ReactNode }) {
       <span>{k}</span>
       <span className="font-bold tabular-nums">{v}</span>
     </div>
+  );
+}
+
+/** Ataque desarmado, armas do equipamento e golpes de clã, com o dano base pelos números da ficha (sem estados). */
+function Ataques({ c }: { c: Character }) {
+  const x = fichaCtx(c);
+  const rows = ataquesBasicos(c, x);
+  return (
+    <section className="flex flex-col gap-2">
+      <H>Taijutsu e armas</H>
+      <ul className="grid gap-x-6 md:grid-cols-2">
+        {rows.map((a) => (
+          <li key={a.key} className="print-avoid flex items-start justify-between gap-3 border-b border-dotted border-[#b8a27f] py-1.5">
+            <div className="flex min-w-0 flex-col">
+              <span className="text-sm">
+                <strong>{a.name}</strong>
+                {a.tag && <span className="text-paper-muted"> · {a.tag}</span>}
+              </span>
+              <span className="text-xs text-paper-muted">
+                {a.test} {x.combat[a.test]} · {letalText(a.letal)} · {a.tipo} · {a.alcance} · crítico {critText(a.crit)}
+                {a.cost > 0 && ` · ${a.cost} chakra`}
+              </span>
+              {a.note && <span className="text-xs leading-snug text-paper-muted">{a.note}</span>}
+              {a.warn.map((w) => (
+                <span key={w} className="text-xs font-bold text-seal-dark">
+                  {w}
+                </span>
+              ))}
+            </div>
+            <div className="flex shrink-0 flex-col items-end">
+              <span className="font-display text-2xl font-extrabold leading-none tabular-nums">{a.base}</span>
+              <span className="max-w-40 text-right text-[10px] leading-tight text-paper-muted">{a.parts.join(" + ")}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-paper-muted">
+        Dano base: ½ Força + dano de arma no corpo-a-corpo, ½ Destreza + dano de arma à distância (Livro Básico, pág. 257). Dano final = base × grau do 2d8. Estados (Hachimon, Baika, Selo…) entram na Mesa.
+      </p>
+    </section>
   );
 }
 
@@ -169,6 +210,8 @@ export function FichaSheet({ c }: { c: Character }) {
         </div>
       </section>
 
+      <Ataques c={c} />
+
       <section className="grid gap-6 md:grid-cols-2">
         <div className="print-avoid flex flex-col gap-2">
           <H>Perícias</H>
@@ -202,6 +245,7 @@ export function FichaSheet({ c }: { c: Character }) {
                       {e.id === "juuinka-ni" ? ` · ${niChoices(e.choices).map(juuinkaChoiceLabel).join(", ")}${e.variant ? ` · ${JUUINKA_SELOS.find((x) => x.k === e.variant)?.label}` : ""}` : ""}
                       {e.id === "talento-natural" && e.choices?.[1] ? `: ${EFEITO_BY_ID[e.choices[1]]?.name} (${e.choices[0] === "hibon" ? "Hibon Ninpou" : versatileName(e.choices[0])})` : ""}
                       {e.id === "sensor" && SENSOR_LIMITES[e.variant ?? ""] ? ` limitado (${SENSOR_LIMITES[e.variant!]})` : ""}
+                      {e.id === "atirador" && ATIRADOR[e.variant ?? ""] ? `: ${ATIRADOR[e.variant!]}` : ""}
                       {e.id === "mangekyou" && ms ? `: ${ms.par ? [...ms.tecs, ms.susanoo].map((t) => (t.ok ? t.name : `${t.name} (a despertar)`)).join(", ") : "par de técnicas a escolher"}${ms.eterno ? "" : " · 10 pontos de visão"}` : ""}
                     </li>
                   );
@@ -220,6 +264,17 @@ export function FichaSheet({ c }: { c: Character }) {
           <div className="flex flex-col gap-2">
             <H>Poderes</H>
             {c.poderes.length === 0 && <p className="text-sm text-paper-muted">—</p>}
+            {kekkeiGratis(c)
+              .filter((g) => !c.poderes.some((p) => p.id === g.el))
+              .map((g) => (
+                <div key={g.el} className="print-avoid flex justify-between gap-2 rounded-xl bg-paper-2 p-3">
+                  <span>
+                    <span className="font-display font-extrabold">{PODER_BY_ID[g.el].name}</span>
+                    <span className="block text-xs text-paper-muted">Grátis pelo {PODER_BY_ID[g.from].name.split(" (")[0]}: Canhão até o nível {g.lvl}.</span>
+                  </span>
+                  <span className="shrink-0 text-sm font-bold">Nível 1</span>
+                </div>
+              ))}
             {c.poderes.map((p, i) => {
               const def = PODER_BY_ID[p.id];
               const title = p.customName && def ? `${def.name} — ${p.customName}` : def?.name ?? p.customName;
@@ -232,6 +287,7 @@ export function FichaSheet({ c }: { c: Character }) {
                     <span className="shrink-0 text-sm font-bold">
                       Nível {p.level}
                       {isRepurchase(c, i) ? " · nova compra" : ""}
+                      {nivelGratis(c, i) ? ` · nível 1 grátis (${PODER_BY_ID[nivelGratis(c, i)!].name.split(" (")[0]})` : ""}
                     </span>
                   </div>
                   {p.id === "versatilidade" &&

@@ -48,7 +48,8 @@ export function Logo({ className = "size-9" }: IconProps) {
 
 export function AnimatedNumber({ value, className }: { value: number | string; className?: string }) {
   return (
-    <span className={`relative inline-flex overflow-hidden tabular-nums ${className ?? ""}`}>
+    // shrink-0: numa linha flex com texto longo ao lado, o número não pode encolher (o overflow-hidden cortaria os dígitos).
+    <span className={`relative inline-flex shrink-0 overflow-hidden tabular-nums ${className ?? ""}`}>
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={String(value)}
