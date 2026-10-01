@@ -4,9 +4,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { ataquesBasicos, fichaCtx } from "@/lib/dano";
 import { ARMAS, ARMA_BY_ID, ARMA_CAT_LABEL, armaDoItem, type Arma } from "@/lib/data/armas";
-import { ITEM_PRESETS, VILLAGE_ITEMS_NOTE } from "@/lib/data/base";
+import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
+import { ITEM_GRUPOS, ITEM_PRESETS, VILLAGE_ITEMS_NOTE } from "@/lib/data/base";
 import { budgetFor, compLimit, hasApt, spent, uid } from "@/lib/rules";
-import type { ItemEntry } from "@/lib/types";
+import type { ItemEntry, ItemPreset } from "@/lib/types";
 import { IconPlus, IconTrash, NumberField, StepHeader } from "../../ui";
 import { stepKicker, type StepProps } from "../shared";
 
@@ -25,6 +26,43 @@ const GRUPOS_ARMAS: [string, Arma[]][] = (["simples", "marcial", "especial"] as 
     .filter(([, l]) => l.length > 0),
 );
 
+const DISTANCIA: Arma["cat"][] = ["arremesso", "disparo", "fogo", "explosivo"];
+
+/** Seletor de armas no mesmo formato do seletor de efeitos: busca, abas (simples, marciais, à distância) e grupos. */
+const ARMA_PICK = {
+  options: GRUPOS_ARMAS.flatMap(([label, list]) =>
+    list.map(
+      (a): PickOption => ({
+        value: a.id,
+        name: a.name,
+        level: 0,
+        pill: a.cat === "explosivo" ? String(a.dano) : `+${a.dano}`,
+        desc: [a.par ? `par +${a.par}` : "", a.tipo, a.alcance ? `alcance ${a.alcance}` : "", a.crit < 15 ? `crítico ${a.crit}-16` : "", `${a.price}R`, a.perComp, a.note ?? ""].filter(Boolean).join(" · "),
+        source: a.source,
+        tone: a.grupo === "especial" ? "tec" : "geral",
+        group: label,
+      }),
+    ),
+  ),
+  groups: GRUPOS_ARMAS.map(([label]): PickGroup => ({ key: label, label })),
+  tabs: [
+    { key: "simples", label: "Simples", match: (o) => ARMA_BY_ID[o.value]?.grupo === "simples" },
+    { key: "marcial", label: "Marciais", match: (o) => ARMA_BY_ID[o.value]?.grupo === "marcial" },
+    { key: "distancia", label: "À distância", match: (o) => DISTANCIA.includes(ARMA_BY_ID[o.value]?.cat) },
+    { key: "especial", label: "Especiais", match: (o) => ARMA_BY_ID[o.value]?.grupo === "especial" },
+  ] satisfies PickTab[],
+};
+
+/** Seletor de itens (ferramentas, munição, armaduras e itens gerais), no mesmo formato. */
+const ITEM_PICK = {
+  options: ITEM_GRUPOS.flatMap(([cat, list]) =>
+    list.map((p): PickOption => ({ value: p.name, name: p.name, level: 0, pill: `${p.price}R`, desc: [p.perComp, p.note].filter(Boolean).join(" · "), tone: "geral", group: cat })),
+  ),
+  groups: ITEM_GRUPOS.map(([cat]): PickGroup => ({ key: cat, label: cat })),
+  tabs: ITEM_GRUPOS.map(([cat]): PickTab => ({ key: cat, label: cat.split(" ")[0], match: (o) => o.group === cat })),
+};
+const ITEM_BY_NAME = new Map(ITEM_GRUPOS.flatMap(([, list]) => list.map((p) => [p.name, p] as const)));
+
 export function StepEquipamento({ c, set }: StepProps) {
   const b = budgetFor(c.nc, c.optionals);
   const s = spent(c);
@@ -37,6 +75,7 @@ export function StepEquipamento({ c, set }: StepProps) {
 
   const addItem = (item: Partial<ItemEntry> & { name: string }) =>
     set((d) => void d.items.push({ uid: uid(), qty: 1, price: 0, comps: 0, ...item }));
+  const addPreset = (p: ItemPreset) => addItem({ name: p.name, price: p.price, note: [p.perComp, p.note].filter(Boolean).join(" · ") });
   const edit = (u: string, fn: (i: ItemEntry) => void) => set((d) => fn(d.items.find((x) => x.uid === u)!));
 
   return (
@@ -67,31 +106,41 @@ export function StepEquipamento({ c, set }: StepProps) {
         <span className="label">Adicionar rápido</span>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
           {ITEM_PRESETS.map((p) => (
-            <motion.button whileTap={{ scale: 0.94 }} key={p.name} type="button" onClick={() => addItem({ name: p.name, price: p.price, note: p.perComp })} className="chip shrink-0 text-text hover:border-muted">
+            <motion.button whileTap={{ scale: 0.94 }} key={p.name} type="button" onClick={() => addPreset(p)} className="chip shrink-0 text-text hover:border-muted">
               <IconPlus className="size-3.5" /> {p.name} <span className="text-faint">{p.price}R</span>
             </motion.button>
           ))}
         </div>
-        <select
-          className="field"
-          value=""
-          aria-label="Adicionar arma da Tabela de Armas"
-          onChange={(e) => {
-            const a = ARMA_BY_ID[e.target.value];
-            if (a) addItem({ name: a.name, price: a.price, comps: armaComps(a), arma: a.id, note: `${ARMA_CAT_LABEL[a.cat]} ${a.grupo} · ${danoTxt(a)} · ${a.perComp}` });
-          }}
-        >
-          <option value="">Adicionar arma da tabela…</option>
-          {GRUPOS_ARMAS.map(([label, list]) => (
-            <optgroup key={label} label={label}>
-              {list.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} · {danoTxt(a)} · {a.price}R
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <EffectPicker
+            value={null}
+            {...ARMA_PICK}
+            onChange={(id) => {
+              const a = id ? ARMA_BY_ID[id] : undefined;
+              if (a) addItem({ name: a.name, price: a.price, comps: armaComps(a), arma: a.id, note: `${ARMA_CAT_LABEL[a.cat]} ${a.grupo} · ${danoTxt(a)} · ${a.perComp}` });
+            }}
+            label="Adicionar arma"
+            context="Tabela de Armas"
+            placeholder="Adicionar arma da tabela…"
+            noun="arma"
+            none="Nenhuma arma"
+            searchHint="Nome, tipo ou alcance (katana, corte, 20m…)"
+          />
+          <EffectPicker
+            value={null}
+            {...ITEM_PICK}
+            onChange={(name) => {
+              const it = name ? ITEM_BY_NAME.get(name) : undefined;
+              if (it) addPreset(it);
+            }}
+            label="Adicionar item"
+            context="Ferramentas, munição, armaduras e itens gerais"
+            placeholder="Adicionar item (ferramentas, munição, armaduras…)"
+            noun="item"
+            none="Nenhum item"
+            searchHint="Nome ou o que faz (fumaça, prende, surdo…)"
+          />
+        </div>
         <form
           className="flex gap-2"
           onSubmit={(e) => {

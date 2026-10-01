@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconCheck, IconSearch, IconX } from "../ui";
 import { norm } from "./shared";
@@ -13,8 +13,12 @@ export interface PickOption {
   /** Identifica a opção (único na lista). */
   value: string;
   name: string;
+  /** Nome no botão quando a opção está escolhida, se diferente do da lista (ex.: sem "→ evolução"). */
+  label?: string;
   /** Texto da etiqueta de nível (ex.: 5 → "Nv 5"). */
   level: number;
+  /** Etiqueta no lugar de "Nv {level}" (ex.: "+3" numa arma, "10R" num item). */
+  pill?: string;
   desc?: string;
   source?: string;
   tone: PickTone;
@@ -69,6 +73,10 @@ export function EffectPicker({
   context,
   placeholder = "Escolher efeito…",
   compact = false,
+  badge,
+  noun = "efeito",
+  none = "Nenhum efeito",
+  searchHint = "Nome ou o que faz (área, prende, cega…)",
 }: {
   value: string | null;
   options: PickOption[];
@@ -82,6 +90,14 @@ export function EffectPicker({
   placeholder?: string;
   /** Botão mais baixo, para tabelas densas (matriz da Versatilidade). */
   compact?: boolean;
+  /** Etiqueta no botão, depois do nome (ex.: "evolui o 2º"). */
+  badge?: ReactNode;
+  /** O que se escolhe, para os textos da busca (ex.: "arma"). */
+  noun?: string;
+  /** Início da mensagem de lista vazia (ex.: "Nenhuma arma"). */
+  none?: string;
+  /** Texto de ajuda dentro da busca. */
+  searchHint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -220,9 +236,10 @@ export function EffectPicker({
       >
         {current ? (
           <>
-            <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold ${PILL[current.tone]}`}>Nv {current.level}</span>
+            <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold ${PILL[current.tone]}`}>{current.pill ?? `Nv ${current.level}`}</span>
             {current.kanji && !compact && <span className="shrink-0 font-display text-sm font-extrabold text-chakra">{current.kanji}</span>}
-            <span className="min-w-0 flex-1 truncate font-bold text-text">{current.name}</span>
+            <span className="min-w-0 flex-1 truncate font-bold text-text">{current.label ?? current.name}</span>
+            {badge}
           </>
         ) : (
           <span className="flex-1 pl-1.5 text-muted">{placeholder}</span>
@@ -289,7 +306,7 @@ export function EffectPicker({
                 <div className="flex flex-col gap-2.5 border-b border-line p-3">
                   <label className="flex h-11 items-center gap-2.5 rounded-xl border border-line-2 bg-ink-2 pr-1.5 pl-3 focus-within:border-chakra">
                     <IconSearch className="size-4.5 shrink-0 text-muted" />
-                    <span className="sr-only">Buscar efeito</span>
+                    <span className="sr-only">Buscar {noun}</span>
                     <input
                       ref={input}
                       type="text"
@@ -299,7 +316,7 @@ export function EffectPicker({
                       aria-activedescendant={activeValue ? `${listId}-${activeValue}` : undefined}
                       value={q}
                       onChange={(e) => (setQ(e.target.value), setActive(0))}
-                      placeholder="Nome ou o que faz (área, prende, cega…)"
+                      placeholder={searchHint}
                       className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint"
                     />
                     {q && (
@@ -358,7 +375,7 @@ export function EffectPicker({
                               sel ? "bg-chakra/12" : act ? "bg-panel-2" : ""
                             }`}
                           >
-                            <span className={`rounded-lg py-0.5 text-center text-xs font-bold ${PILL[o.tone]}`}>Nv {o.level}</span>
+                            <span className={`rounded-lg py-0.5 text-center text-xs font-bold ${PILL[o.tone]}`}>{o.pill ?? `Nv ${o.level}`}</span>
                             <span className="flex min-w-0 flex-col gap-0.5">
                               <span className={`font-bold ${o.tone === "acima" ? "text-muted" : "text-text"}`}>{o.name}</span>
                               {o.desc && <span className="text-[13px] leading-snug text-muted">{o.desc}</span>}
@@ -377,7 +394,7 @@ export function EffectPicker({
                       <span className="font-display text-3xl text-line-2" aria-hidden="true">
                         無
                       </span>
-                      <span className="text-sm font-bold">{q ? `Nenhum efeito com “${q}”` : "Nenhum efeito nesta aba"}</span>
+                      <span className="text-sm font-bold">{q ? `${none} com “${q}”` : `${none} nesta aba`}</span>
                       <span className="text-[13px] text-muted">Tente outra palavra ou volte para “Todos”.</span>
                     </div>
                   )}

@@ -3,8 +3,8 @@
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
-import { allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, firstEvolution, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
-import type { Character, Efeito, Poder, PowerEntry } from "@/lib/types";
+import { HIBON_BONUS, HIBON_ELEMENTOS, allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, exclusivosDe, firstEvolution, hibonBonus, hibonEffects, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
+import type { Character, Efeito, HibonBonus, Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconLeft, IconPlus, IconRight, IconSearch, IconTrash, IconX, RulesNote, Sheet, Stepper, StepHeader, Toggle, corPoder, tintPoder } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
 import { norm, stepKicker, type StepProps } from "../shared";
@@ -143,6 +143,46 @@ function brokenLevels(o: (number | null)[]) {
   return out;
 }
 
+type EffTone = "excl" | "evo" | "geral";
+
+/**
+ * Cada escolha de um poder de efeitos, na ordem: a 1ª vez que um efeito aparece é o efeito novo e cada repetição
+ * depois dela é uma evolução. `lvl` é o nível do efeito naquela escolha (null = passou das evoluções que existem);
+ * `from`/`next` apontam a escolha anterior/seguinte do mesmo efeito (-1 = nenhuma).
+ */
+function effectRows(p: PowerEntry, pular: boolean) {
+  const eff = p.effects.slice(0, p.level);
+  return Array.from({ length: p.level }, (_, i) => {
+    const id = eff[i] ?? null;
+    if (!id) return { id: null, k: 0, lvl: null, tone: null, from: -1, next: -1 };
+    const k = evolutionIndex(eff, i, pular);
+    const tone: EffTone = k ? "evo" : EXCLUSIVOS.includes(id) ? "excl" : "geral";
+    return { id, k, lvl: k ? evolutionLevel(id, k) : (EFEITO_BY_ID[id]?.level ?? null), tone, from: eff.slice(0, i).lastIndexOf(id), next: eff.indexOf(id, i + 1) };
+  });
+}
+
+/** Efeitos distintos da compra, cada um no nível mais alto que alcançou. */
+function effectTotals(rows: ReturnType<typeof effectRows>) {
+  const out = new Map<string, { id: string; lvl: number | null; tone: EffTone }>();
+  for (const r of rows) {
+    if (!r.id || !r.tone) continue;
+    const cur = out.get(r.id);
+    if (!cur || (r.k > 0 && r.lvl !== null)) out.set(r.id, { id: r.id, lvl: r.lvl, tone: cur && r.k ? "evo" : r.tone });
+  }
+  return [...out.values()];
+}
+
+const CELL: Record<EffTone, string> = {
+  excl: "bg-seal/35 text-[#ffb4a1]",
+  evo: "bg-ok/20 text-ok",
+  geral: "bg-line-2 text-text",
+};
+const PILL_FICHA: Record<EffTone, string> = {
+  excl: "bg-seal text-white",
+  evo: "bg-ok/20 text-ok",
+  geral: "bg-panel-2 text-text",
+};
+
 /* ---------------- lista ---------------- */
 
 function PowerRow({ c, idx, on, warn, onPick }: { c: Character; idx: number; on: boolean; warn: boolean; onPick: () => void }) {
@@ -155,6 +195,8 @@ function PowerRow({ c, idx, on, warn, onPick }: { c: Character; idx: number; on:
   const vv = (p.versatile ?? []).filter(Boolean);
   const done = isV ? (vv.length ? 1 : 0) + Array.from({ length: Math.max(0, p.level - 1) }, (_, j) => j + 1).filter((i) => p.owner?.[i] != null && p.effects[i]).length : p.effects.slice(0, p.level).filter(Boolean).length;
   const hasProgress = isV || def?.mode === "efeitos";
+  const rows = !isV && def?.mode === "efeitos" ? effectRows(p, c.optionals.pularEvolucoes) : null;
+  const chosen = rows ? rows.filter((r) => r.id).length : 0;
   const o = owners(p);
   const broken = brokenLevels(o);
   return (
@@ -189,12 +231,26 @@ function PowerRow({ c, idx, on, warn, onPick }: { c: Character; idx: number; on:
                 {shortName(id)}
               </span>
             ))}
+            {rows && chosen > 0 && (
+              <span className="text-xs text-muted">
+                {effectTotals(rows).length} efeito(s) · {rows.filter((r) => r.k > 0).length} evolução(ões)
+              </span>
+            )}
             {hasProgress && (
               <span className={`ml-auto inline-flex items-center gap-1 text-xs ${done >= p.level ? "text-ok" : "text-muted"}`}>
                 {done >= p.level && <IconCheck className="size-3.5" />}
                 {done}/{p.level}
               </span>
             )}
+          </span>
+        )}
+        {rows && chosen > 0 && (
+          <span className="flex w-full gap-0.5" aria-hidden="true">
+            {rows.map((r, i) => (
+              <span key={i} className={`grid h-5 flex-1 place-items-center rounded-md text-[11px] font-bold ${r.tone ? CELL[r.tone] : "bg-ink-2 text-faint"}`}>
+                {r.tone ? (r.lvl ?? "?") : "·"}
+              </span>
+            ))}
           </span>
         )}
         {isV && vv.length > 0 && p.level > 1 && (
@@ -322,70 +378,10 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
           />
         )}
 
+        {p.id === "hibon" && <HibonEditor c={c} p={p} edit={edit} />}
+
         {def?.mode === "efeitos" && p.id !== "versatilidade" && (
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-end">
-              <button type="button" aria-pressed={showDesc} onClick={() => setShowDesc(!showDesc)} className={`chip min-h-9 text-xs ${showDesc ? "border-chakra text-[#ffd3a8]" : "text-muted hover:border-muted"}`}>
-                {showDesc ? "Esconder descrições" : "Mostrar descrições"}
-              </button>
-            </div>
-            <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-xl border border-line">
-              {Array.from({ length: p.level }, (_, i) => {
-                const chosen = p.effects[i];
-                // A ordem das escolhas não importa: qualquer efeito do poder cabe em qualquer escolha.
-                const others = p.effects.slice(0, p.level).filter((x, j): x is string => j !== i && !!x);
-                // Efeitos novos: ainda não escolhidos nas outras escolhas desta compra.
-                const fresh = (def.effects ?? [])
-                  .map((id) => EFEITO_BY_ID[id])
-                  .filter((e) => e && !others.includes(e.id))
-                  .sort((a, b) => a.level - b.level);
-                // Evoluções: efeitos já escolhidos em outra escolha que ainda têm evolução.
-                // Pular evoluções (regra opcional): vai direto à mais alta que o nível desta escolha permite.
-                const evoAt = (id: string) => {
-                  const hyp = p.effects.slice();
-                  hyp[i] = id;
-                  return evolutionIndex(hyp, i, pular) || nextEvolution(id, others.filter((x) => x === id).length - 1, i + 1, pular);
-                };
-                const evos = [...new Set(others)]
-                  .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)) }))
-                  .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null);
-                const k = evolutionIndex(p.effects, i, pular);
-                const need = chosen && k ? evolutionLevel(chosen, k) : null;
-                const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
-                return (
-                  <li key={i} className="grid items-center gap-x-2 gap-y-1.5 px-2.5 py-2 grid-cols-[2rem_minmax(0,1fr)] sm:grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,14rem)]">
-                    <span className="text-sm font-bold text-chakra">{i + 1}º</span>
-                    <EffectPicker
-                      compact
-                      label={`${i + 1}º efeito`}
-                      context={`${name.split(" (")[0]} nível ${top}`}
-                      value={chosen ?? null}
-                      {...effectChoices(p.id, top, fresh, evos, stale ? chosen : null, (id) => firstEvolution(id, i + 1, pular))}
-                      onChange={(v) => edit((x) => void (x.effects[i] = v))}
-                    />
-                    <input
-                      aria-label={`Nome da técnica do ${i + 1}º efeito`}
-                      className="field col-start-2 py-1.5 text-sm sm:col-start-auto"
-                      placeholder="Nome da técnica (opcional)"
-                      value={p.techniques[i] ?? ""}
-                      onChange={(e) => edit((x) => void (x.techniques[i] = e.target.value))}
-                    />
-                    {chosen && k && (
-                      <span className="col-start-2 text-xs font-bold text-ok sm:col-end-4">
-                        Evolução {EFEITO_BY_ID[chosen]?.name} Nv {need ?? "?"}
-                      </span>
-                    )}
-                    {chosen && !k && showDesc && (
-                      <span className="col-start-2 text-xs text-faint sm:col-end-4">
-                        {EFEITO_BY_ID[chosen]?.desc}
-                        {EFEITO_BY_ID[chosen]?.evolves && <span className="text-muted"> Evolui no Nv {EFEITO_BY_ID[chosen].evolves!.join(" e ")}.</span>}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
+          <EffectsEditor p={p} effects={p.id === "hibon" ? hibonEffects(hibonEntry(c)?.hibonElement) : (def.effects ?? [])} name={name} top={top} pular={pular} showDesc={showDesc} setShowDesc={setShowDesc} edit={edit} />
         )}
 
         {def?.mode === "tecnicas" && (
@@ -420,6 +416,219 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
         </details>
       </div>
     </motion.article>
+  );
+}
+
+/**
+ * Hibon Ninpou (Livro Básico, pág. 212): duas bonificações (diferentes, ou o Dano Adicional duas vezes) e o elemento
+ * básico de onde vêm os efeitos exclusivos. As escolhas ficam na 1ª compra e valem para todas.
+ */
+function HibonEditor({ c, p, edit }: { c: Character; p: PowerEntry; edit: (fn: (x: PowerEntry) => void) => void }) {
+  if (hibonEntry(c) !== p) return <p className="rounded-xl bg-ink-2 px-3 py-2 text-xs leading-relaxed text-muted">As bonificações e o elemento do Hibon Ninpou ficam na 1ª compra e valem para esta também.</p>;
+  const b = [p.hibonBonus?.[0] ?? null, p.hibonBonus?.[1] ?? null];
+  const hb = hibonBonus(c);
+  const setBonus = (k: number, v: string) =>
+    edit((x) => {
+      const cur = [x.hibonBonus?.[0] ?? null, x.hibonBonus?.[1] ?? null];
+      cur[k] = (v || null) as HibonBonus | null;
+      x.hibonBonus = cur;
+    });
+  const efeitos = [hb.dano ? `+${hb.dano} de dano em todo efeito` : "", hb.dureza ? `+${hb.dureza} de dureza nas criações` : "", hb.dif ? `+${hb.dif} na dificuldade de resistência` : ""].filter(Boolean);
+  const el = p.hibonElement ?? "";
+  return (
+    <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-ink-2 p-3">
+      <div className="grid gap-2 sm:grid-cols-3">
+        {[0, 1].map((k) => (
+          <label key={k} className="flex flex-col gap-1">
+            <span className="label">{k + 1}ª bonificação</span>
+            <select className="field py-2" value={b[k] ?? ""} onChange={(e) => setBonus(k, e.target.value)}>
+              <option value="">Escolher…</option>
+              {HIBON_BONUS.map((o) => (
+                <option key={o.id} value={o.id} disabled={o.id !== "dano" && b[1 - k] === o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+        <label className="flex flex-col gap-1">
+          <span className="label">Elemento dos exclusivos</span>
+          <select className="field py-2" value={el} onChange={(e) => edit((x) => void (x.hibonElement = e.target.value || null))}>
+            <option value="">Escolher…</option>
+            {HIBON_ELEMENTOS.map((id) => (
+              <option key={id} value={id}>
+                {PODER_BY_ID[id]?.name ?? id}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="text-xs leading-relaxed text-muted">
+        {efeitos.length ? (
+          <>
+            <strong className="text-text">Na mesa:</strong> {efeitos.join(" · ")}.{" "}
+          </>
+        ) : (
+          "Escolha duas bonificações diferentes, ou o Dano Adicional duas vezes. "
+        )}
+        {el
+          ? `Exclusivos do ${(PODER_BY_ID[el]?.name ?? el).split(" (")[0]}: ${exclusivosDe(el)
+              .map((id) => EFEITO_BY_ID[id]?.name ?? id)
+              .join(", ")}. O Hibon continua sendo um elemento próprio: não conta para aptidões do ${(PODER_BY_ID[el]?.name ?? el).split(" (")[0]}.`
+          : "Sem elemento escolhido, o seletor mostra os exclusivos de todos os elementos."}
+      </p>
+    </div>
+  );
+}
+
+/** Etiqueta de evolução: na repetição ("evolui o 2º") e no efeito que ainda vai evoluir ("evolui no 5º"). */
+function EvoTag({ r, need }: { r: ReturnType<typeof effectRows>[number]; need: number | null }) {
+  if (r.k > 0)
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ok/20 px-2 py-0.5 text-[11px] font-bold whitespace-nowrap text-ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden="true">
+          <path d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+        {r.from >= 0 ? `evolui o ${r.from + 1}º` : `já entra no Nv ${need ?? "?"}`}
+      </span>
+    );
+  if (r.next >= 0) return <span className="shrink-0 text-[11px] whitespace-nowrap text-faint">evolui no {r.next + 1}º</span>;
+  return null;
+}
+
+/**
+ * Poder de efeitos (tudo menos a Versatilidade): uma linha por nível, no mesmo formato da matriz da Versatilidade.
+ * A evolução aparece na própria linha, ligada à escolha que ela evolui, e "Na ficha" resume cada efeito no nível final.
+ */
+function EffectsEditor({ p, effects, name, top, pular, showDesc, setShowDesc, edit }: { p: PowerEntry; effects: string[]; name: string; top: number; pular: boolean; showDesc: boolean; setShowDesc: (v: boolean) => void; edit: (fn: (x: PowerEntry) => void) => void }) {
+  const rows = effectRows(p, pular);
+  const totals = effectTotals(rows);
+  const evolutions = rows.filter((r) => r.k > 0).length;
+  const kanji = KANJI_PODER[p.id];
+  const cols = "grid-cols-[2rem_minmax(0,1fr)] sm:grid-cols-[2.25rem_minmax(0,1fr)_minmax(0,14rem)]";
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <p className="hidden flex-1 text-xs leading-relaxed text-muted sm:block">Cada nível é uma escolha: um efeito novo ou a evolução de um que você já tem.</p>
+        <button type="button" aria-pressed={showDesc} onClick={() => setShowDesc(!showDesc)} className={`chip ml-auto min-h-9 text-xs ${showDesc ? "border-chakra text-[#ffd3a8]" : "text-muted hover:border-muted"}`}>
+          {showDesc ? "Esconder descrições" : "Mostrar descrições"}
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-line">
+        <div className={`grid items-center gap-x-2 bg-ink-2 px-2.5 py-2 ${cols}`}>
+          <span className="text-[11px] font-bold tracking-[0.14em] text-faint">NV</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {kanji && (
+              <span className="font-display text-lg font-extrabold" style={{ color: corPoder(p.id) }} aria-hidden="true">
+                {kanji}
+              </span>
+            )}
+            <span className="truncate text-sm font-bold text-text">{name.split(" (")[0]}</span>
+            {totals.length > 0 && (
+              <span className="shrink-0 text-xs text-faint">
+                {totals.length} efeito(s) · {evolutions} evolução(ões)
+              </span>
+            )}
+          </span>
+          <span className="hidden text-[11px] font-bold tracking-[0.14em] text-faint sm:block">NOME DA TÉCNICA</span>
+        </div>
+        <ol className="flex flex-col divide-y divide-line border-t border-line">
+          {rows.map((r, i) => {
+            const chosen = r.id;
+            // Efeitos novos: os que não foram escolhidos ANTES desta escolha (a 1ª vez de um efeito é sempre o efeito novo).
+            const earlier = p.effects.slice(0, i).filter((x): x is string => !!x);
+            const fresh = effects
+              .map((id) => EFEITO_BY_ID[id])
+              .filter((e) => e && !earlier.includes(e.id))
+              .sort((a, b) => a.level - b.level);
+            // Evoluções: efeitos escolhidos antes que ainda têm evolução. Pulando evoluções, vai à mais alta que esta escolha permite.
+            const evoAt = (id: string) => {
+              const hyp = p.effects.slice(0, i + 1);
+              hyp[i] = id;
+              return evolutionIndex(hyp, i, pular);
+            };
+            const evos = [...new Set(earlier)]
+              .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)) }))
+              .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null);
+            const need = chosen && r.k ? r.lvl : null;
+            const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
+            const ef = chosen ? EFEITO_BY_ID[chosen] : undefined;
+            const tag = chosen ? <EvoTag r={r} need={need} /> : null;
+            const hasTag = !!chosen && (r.k > 0 || r.next >= 0);
+            return (
+              <li key={i} className={`grid items-center gap-x-2 gap-y-1.5 px-2.5 py-2 ${cols}`}>
+                <span className="text-sm font-bold text-chakra">{i + 1}º</span>
+                <EffectPicker
+                  compact
+                  label={`${i + 1}º efeito`}
+                  context={`${name.split(" (")[0]} nível ${top}`}
+                  value={chosen ?? null}
+                  {...effectChoices(p.id, top, fresh, evos, stale ? chosen : null, (id) => firstEvolution(id, i + 1, pular))}
+                  onChange={(v) => edit((x) => void (x.effects[i] = v))}
+                  badge={hasTag ? <span className="hidden sm:contents">{tag}</span> : undefined}
+                />
+                {hasTag && <span className="col-start-2 flex sm:hidden">{tag}</span>}
+                <input
+                  aria-label={`Nome da técnica do ${i + 1}º efeito`}
+                  className="field col-start-2 py-1.5 text-sm sm:col-start-auto"
+                  placeholder="Nome da técnica (opcional)"
+                  value={p.techniques[i] ?? ""}
+                  onChange={(e) => edit((x) => void (x.techniques[i] = e.target.value))}
+                />
+                {showDesc && ef && (
+                  <span className="col-start-2 text-xs leading-relaxed text-faint sm:col-end-4">
+                    {r.k > 0 ? (
+                      r.from >= 0 ? (
+                        `O ${ef.name} escolhido no ${r.from + 1}º passa para o Nv ${need ?? "?"}.`
+                      ) : (
+                        `Pular evoluções: já entra como ${ef.name} Nv ${need ?? "?"}, com as evoluções anteriores.`
+                      )
+                    ) : (
+                      <>
+                        {ef.desc}
+                        {ef.evolves && <span className="text-muted"> Evolui no Nv {ef.evolves.join(" e ")}.</span>}
+                      </>
+                    )}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      {totals.length > 0 && (
+        <div className="flex flex-col gap-2.5 rounded-xl bg-ink-2 p-3">
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="label">Na ficha</span>
+            <span className="text-xs text-faint">cada efeito no nível mais alto que alcançou</span>
+          </div>
+          <ul className="flex flex-wrap gap-1.5">
+            {totals.map((t) => (
+              <li key={t.id} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-2 py-0.5 pr-2.5 pl-1 text-[13px] font-bold">
+                <span className={`rounded-full px-1.5 py-px text-[11px] ${PILL_FICHA[t.tone]}`}>Nv {t.lvl ?? "?"}</span>
+                {EFEITO_BY_ID[t.id]?.name ?? t.id}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-faint">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-[3px] bg-seal" aria-hidden="true" />
+              exclusivo do elemento
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-[3px] bg-ok" aria-hidden="true" />
+              evoluído
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-[3px] bg-line-2" aria-hidden="true" />
+              geral
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -768,7 +977,7 @@ function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e:
       }),
     ...evos.map((o): PickOption => {
       const g = o.need > top ? "acima" : "evo";
-      return { value: o.e.id, name: `${o.e.name} → evolução`, level: o.need, desc: `Você já tem ${o.e.name}. Escolher de novo evolui para o Nv ${o.need}.`, source: o.e.source, tone: g, group: g };
+      return { value: o.e.id, name: `${o.e.name} → evolução`, label: o.e.name, level: o.need, desc: `Você já tem ${o.e.name}. Escolher de novo evolui para o Nv ${o.need}.`, source: o.e.source, tone: g, group: g };
     }),
   ];
   const groups: PickGroup[] = [

@@ -60,7 +60,7 @@ export const ARMAS: Arma[] = [
   { id: "tacape", name: "Tacape", cat: "pesada", grupo: S, dano: 4, crit: 15, tipo: "esmagamento", price: 0, perComp: "1 por comp.", source: "Básico" },
   // Simples · arremesso
   { id: "kunai", name: "Kunai", cat: "arremesso", grupo: S, dano: 1, qtd: 3, cc: true, crit: 15, tipo: "perfuração", alcance: "15m", price: 2, perComp: "10 por comp.", source: "Básico" },
-  { id: "shuriken", name: "Shuriken", cat: "arremesso", grupo: S, dano: 1, qtd: 3, crit: 15, tipo: "perfuração", alcance: "20m", price: 3, perComp: "18 por comp.", source: "Básico" },
+  { id: "shuriken", name: "Shuriken", cat: "arremesso", grupo: S, dano: 1, qtd: 3, crit: 15, tipo: "perfuração", alcance: "20m", price: 3, perComp: "30 por comp.", source: "Básico" },
   { id: "senbon", name: "Senbon", cat: "arremesso", grupo: S, dano: 1, qtd: 3, cc: true, crit: 15, tipo: "perfuração", alcance: "20m", price: 3, perComp: "15 por comp.", source: "Básico" },
   // Simples · disparo
   { id: "arco-curto", name: "Arco Curto", cat: "disparo", grupo: S, dano: 1, crit: 15, tipo: "perfuração", alcance: "25m", price: 30, perComp: "1 por comp.", source: "Básico" },

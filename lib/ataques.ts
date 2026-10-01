@@ -1,7 +1,7 @@
 import { ataquesBasicos, critText, letalText, type DanoCtx } from "./dano";
 import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { custoVisao, espParam, evolutionIndex, hasApt, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
+import { custoVisao, espParam, evolutionIndex, hasApt, hibonBonus, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -246,6 +246,12 @@ const DIF_PODER: Record<string, number> = {
   "hebi-ninpou": 1,
   hyouton: 1,
 };
+
+/** Dificuldade de resistência a mais do poder (a do Hibon Ninpou depende da bonificação escolhida). */
+const difPoder = (c: Character, id: string) => (DIF_PODER[id] ?? 0) + (id === "hibon" ? hibonBonus(c).dif : 0);
+
+/** Dureza a mais das criações do poder (idem). */
+const durezaPoder = (c: Character, id: string) => (DUREZA[id] ?? 0) + (id === "hibon" ? hibonBonus(c).dureza : 0);
 
 /** Poderes que contam como “Ninpou e elementos” para a aptidão Capacidade. */
 const NINPOU_E_ELEMENTOS = ["ninpou", "doton", "fuuton", "katon", "raiton", "suiton", "versatilidade", "hibon"];
@@ -722,6 +728,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   const elem = ELEMENTO[id] ?? 0;
   const bonus: AtkGroup["bonus"] = [];
   if (elem) bonus.push({ label: (PODER_BY_ID[id]?.name ?? o.title).split(" (")[0], v: elem });
+  if (id === "hibon" && hibonBonus(c).dano) bonus.push({ label: "Hibon: Dano Adicional", v: hibonBonus(c).dano });
   if (id === "suiton" && hasApt(c, "elemento-natural-suiton")) bonus.push({ label: "Elemento Natural", v: 2 });
   if (id === "doton" && hasApt(c, "elemento-natural-terra")) bonus.push({ label: "Elemento Natural", v: 1 });
   const capacidade = hasApt(c, "capacidade") && NINPOU_E_ELEMENTOS.includes(id);
@@ -733,7 +740,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
       const e = EFEITO_BY_ID[eff];
       const spec = DANO_EFEITO[eff];
       const tag = talento ? "Talento Natural" : (from ?? "");
-      if (!spec) return [utilRow(key, id, eff, tech, ev, level, k, v, tag)];
+      if (!spec) return [utilRow(c, key, id, eff, tech, ev, level, k, v, tag)];
       const effName = e.name.replace(/ \(.*\)$/, "");
       const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
       const evoTxt = evoLvl ? `evoluído Nv ${evoLvl}` : "";
@@ -772,7 +779,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
       return [row, investida];
       function dmgCalc(lvl: number, opt: { free?: boolean; pot?: PotMode }): Calc {
         const comum = lvl + half(k.val);
-        const dif = 9 + lvl + half(k.val) + v.dif + (DIF_PODER[id] ?? 0);
+        const dif = 9 + lvl + half(k.val) + v.dif + difPoder(c, id);
         // Orbe Nv 7 (evolução): usado no nível 7 ou mais, custa metade do chakra.
         const cost = spec.costFixed ?? (eff === "orbe" && ev >= 1 && lvl >= 7 ? Math.ceil(lvl / 2) : lvl * (spec.costX ?? 1));
         const kind = spec.kind;
@@ -839,7 +846,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   return { id: key, title: o.title, level, keyLabel: k.label, keyVal: k.val, alcance: at.alcance, tamanho: at.tamanho, bonus, extra, rows };
 }
 
-function utilRow(groupKey: string, powerId: string, eff: string, tech: string, ev: number, level: number, k: { label: string; val: number }, v: PlayView, tag = ""): AtkRow {
+function utilRow(c: Character, groupKey: string, powerId: string, eff: string, tech: string, ev: number, level: number, k: { label: string; val: number }, v: PlayView, tag = ""): AtkRow {
   const e = EFEITO_BY_ID[eff];
   const spec: UtilSpec = EFEITO_UTIL[eff] ?? { show: "texto", txt: e.desc };
   const effName = e.name.replace(/ \(.*\)$/, "");
@@ -857,7 +864,7 @@ function utilRow(groupKey: string, powerId: string, eff: string, tech: string, e
     util: true,
     calc: (lvl) => {
       const comum = lvl + half(k.val);
-      const dif = 9 + comum + v.dif + (DIF_PODER[powerId] ?? 0);
+      const dif = 9 + comum + v.dif + difPoder(c, powerId);
       const cost = spec.costFixed ?? lvl;
       const { alcance: A, tamanho: T } = alcanceTamanho(powerId, k.val);
       const out: Calc = { base: 0, cost, dif, parts: [], noDif: true, info: { txt }, geo: geo(eff, { A, T, lvl, ev, key: k.val }) };
@@ -867,7 +874,7 @@ function utilRow(groupKey: string, powerId: string, eff: string, tech: string, e
         out.info = { v: 8 * lvl, label: spec.label ?? "Absorção", txt: `${txt} Dureza ${ev >= 1 ? 2 : 0}.${ev >= 1 ? ESPELHOS_NV8 : ""}` };
       } else if (spec.show === "dureza") {
         // Barreira Nv 9 (evolução): dureza +2.
-        const full = comum + (DUREZA[powerId] ?? 0) + (eff === "barreira" && ev >= 2 ? 2 : 0);
+        const full = comum + durezaPoder(c, powerId) + (eff === "barreira" && ev >= 2 ? 2 : 0);
         out.info = { v: spec.durezaHalf ? half(full) : full, label: spec.label ?? "Dureza", txt };
       } else if (spec.show === "dif") {
         out.info = { v: dif + (spec.difAdj ?? 0), label: `Dif · ${spec.label ?? "resistência"}`, txt };

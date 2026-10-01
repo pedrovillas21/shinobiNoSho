@@ -95,25 +95,67 @@ export const JUTSUS_BASICOS = [
   { name: "Tadayou", rank: "D", desc: "Caminha sobre a água. 1 PC." },
 ];
 
-export const ITEM_PRESETS: ItemPreset[] = [
-  { name: "Kunai", price: 2, perComp: "10 por comp." },
-  { name: "Shuriken", price: 3, perComp: "18 por comp." },
-  { name: "Senbon", price: 3, perComp: "15 por comp." },
-  { name: "Tarja Explosiva", price: 10, perComp: "6 por comp." },
-  { name: "Bomba de Fumaça", price: 10, perComp: "6 por comp." },
-  { name: "Bomba Luminosa", price: 10, perComp: "6 por comp." },
-  { name: "Coldre / Bolsa com cinto", price: 1, perComp: "+1 comp." },
-  { name: "Corda (15m)", price: 1, perComp: "1 por comp." },
-  { name: "Kit de Medicamentos (5 usos)", price: 50, perComp: "1 por comp." },
-  { name: "Kit de Ferramentas (5 usos)", price: 30, perComp: "1 por comp." },
-  { name: "Kit de Artesão (5 usos)", price: 30, perComp: "1 por comp." },
-  { name: "Kit de Laboratório (5 usos)", price: 50, perComp: "1 por comp." },
-  { name: "Pílulas do Soldado (frasco c/ 10)", price: 50, perComp: "1 por comp." },
-  { name: "Ração de Viagem (dia)", price: 1, perComp: "6 por comp." },
-  { name: "Pergaminho (escrita)", price: 1, perComp: "6 por comp." },
-  { name: "Colete Ninja", price: 100, perComp: "armadura leve" },
-  { name: "Colete Ninja Resistente", price: 150, perComp: "armadura leve, +10 abs." },
+const FERRAMENTA = "Ferramentas Shinobi Utilitárias";
+const MUNICAO = "Munição";
+const ARMADURA = "Armaduras e roupas";
+const GERAL = "Itens gerais";
+
+/**
+ * Itens da Tabela de Itens Gerais e de Armaduras (Livro Básico, pág. 137–139) e as Ferramentas Shinobi Utilitárias do
+ * Guia Avançado (pág. 59–70). As armas ficam em armas.ts.
+ */
+export const ITENS: ItemPreset[] = [
+  // Armas de arremesso e explosivos que a vila costuma ceder: atalhos para a tabela de armas.
+  { name: "Kunai", price: 2, perComp: "10 por comp.", cat: "Armas", quick: true },
+  { name: "Shuriken", price: 3, perComp: "30 por comp.", cat: "Armas", quick: true },
+  { name: "Senbon", price: 3, perComp: "15 por comp.", cat: "Armas", quick: true },
+  { name: "Tarja Explosiva", price: 10, perComp: "6 por comp.", cat: FERRAMENTA, quick: true },
+
+  { name: "Boleadeira", price: 10, perComp: "6 por comp.", note: "Ataque à distância (6m) que deixa o alvo Caído. Pede Destreza 10.", cat: FERRAMENTA },
+  { name: "Bomba de Fumaça", price: 10, perComp: "6 por comp.", note: "Cortina de fumaça de 10m de diâmetro. Até 2 por ação padrão.", cat: FERRAMENTA, quick: true },
+  { name: "Bomba de Marcação", price: 10, perComp: "6 por comp.", note: "Tinta e cheiro numa área de 10m: Agilidade ou Prontidão (Dif 9 + Int) ou fica marcado.", cat: FERRAMENTA },
+  { name: "Bomba Luminosa", price: 10, perComp: "6 por comp.", note: "Meia-esfera de 10m: Prontidão ou Agilidade (Dif 9 + Int) ou Ofuscado por 3 turnos.", cat: FERRAMENTA, quick: true },
+  { name: "Bomba Som de Trovão", price: 10, perComp: "6 por comp.", note: "Esfera de 100m: Vigor Dif 18 ou Surdo por 10 turnos. Ouvida a 1km.", cat: FERRAMENTA },
+  { name: "Estrepes", price: 10, perComp: "2 por comp.", note: "Área de 5m a até 6m: Lento e 1 de dano por metro andado.", cat: FERRAMENTA },
+  { name: "Kousen (15m)", price: 2, perComp: "1 por comp.", note: "Fio de aço. Arma marcial leve sem dano; ferramenta utilitária só na manobra Amarrar.", cat: FERRAMENTA },
+  { name: "Rede", price: 10, perComp: "2 por comp.", note: "Contra alvo desprevenido ou indefeso, CD −2: acertando, o alvo fica Impedido.", cat: FERRAMENTA },
+  { name: "Tampões de Ouvido", price: 1, perComp: "—", note: "Protege de efeitos sonoros, mas deixa Surdo. Pôr: ação de movimento.", cat: FERRAMENTA },
+
+  { name: "Flechas para arcos", price: 1, perComp: "20 por comp.", cat: MUNICAO },
+  { name: "Virotes para bestas", price: 1, perComp: "20 por comp.", cat: MUNICAO },
+  { name: "Munição para arma de fogo", price: 1, perComp: "20 por comp.", cat: MUNICAO },
+
+  { name: "Roupa Comum", price: 10, perComp: "armadura leve, +0 abs.", cat: ARMADURA },
+  { name: "Manopla", price: 5, perComp: "armadura leve, +0 abs.", cat: ARMADURA },
+  { name: "Colete Ninja", price: 100, perComp: "armadura leve, +1 comp.", cat: ARMADURA, quick: true },
+  { name: "Colete Ninja Resistente", price: 150, perComp: "armadura leve, +10 abs., −1 comp.", cat: ARMADURA },
+  { name: "Armadura de Batalha", price: 250, perComp: "armadura pesada, +15 abs., −1 comp.", note: "Penalidade de armadura 0 (−2).", cat: ARMADURA },
+  { name: "Armadura de Batalha Reforçada", price: 600, perComp: "armadura pesada, +20 abs., −2 comp.", note: "Penalidade de armadura −2 (−4).", cat: ARMADURA },
+
+  { name: "Algemas", price: 15, perComp: "1 por comp.", cat: GERAL },
+  { name: "Caneta", price: 1, perComp: "—", cat: GERAL },
+  { name: "Coldre / Bolsa com cinto", price: 1, perComp: "+1 comp.", cat: GERAL, quick: true },
+  { name: "Corda (15m)", price: 1, perComp: "1 por comp.", cat: GERAL, quick: true },
+  { name: "Instrumento Musical", price: 50, perComp: "1 por comp.", cat: GERAL },
+  { name: "Kit de Artesão (5 usos)", price: 30, perComp: "1 por comp.", cat: GERAL },
+  { name: "Kit de Ferramentas (5 usos)", price: 30, perComp: "1 por comp.", cat: GERAL },
+  { name: "Kit de Laboratório (5 usos)", price: 50, perComp: "1 por comp.", cat: GERAL },
+  { name: "Kit de Medicamentos (5 usos)", price: 50, perComp: "1 por comp.", cat: GERAL, quick: true },
+  { name: "Lanterna", price: 7, perComp: "1 por comp.", cat: GERAL },
+  { name: "Mochila", price: 2, perComp: "+4 comp.", cat: GERAL },
+  { name: "Pergaminho (escrita)", price: 1, perComp: "6 por comp.", cat: GERAL },
+  { name: "Pergaminho (jutsus)", price: 10, perComp: "1 por comp.", cat: GERAL },
+  { name: "Pílulas do Soldado (frasco c/ 10)", price: 50, perComp: "1 por comp.", cat: GERAL, quick: true },
+  { name: "Ração de Viagem (dia)", price: 1, perComp: "6 por comp.", cat: GERAL, quick: true },
+  { name: "Saco de Dormir", price: 1, perComp: "1 por 2 comp.", cat: GERAL },
+  { name: "Tarja Especial (selos)", price: 10, perComp: "6 por comp.", cat: GERAL },
 ];
+
+/** Botões de adicionar rápido: os itens de toda missão. */
+export const ITEM_PRESETS = ITENS.filter((i) => i.quick);
+
+/** Seções do seletor de itens, na ordem da lista (as armas têm seletor próprio). */
+export const ITEM_GRUPOS: [string, ItemPreset[]][] = [FERRAMENTA, MUNICAO, ARMADURA, GERAL].map((cat) => [cat, ITENS.filter((i) => i.cat === cat)]);
 
 /** Custo de itens é gratuito quando fornecido pela vila. */
 export const VILLAGE_ITEMS_NOTE =

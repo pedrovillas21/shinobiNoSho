@@ -21,6 +21,8 @@ Isso cria:
 | `room_members` | quem está em cada sala, a ficha aberta agora + resumo de Vit/Chakra do balão | membros da sala; só jogador publica resumo |
 | `room_characters` | cada ficha usada na sala, com vida, chakra, condições e histórico | só o dono da ficha |
 
+E no **Storage**, o bucket `retratos`: a imagem de cada ficha, já reduzida no navegador (~110 KB no máximo). A ficha guarda só o endereço, então abrir a lista não baixa as imagens de novo; o navegador as mantém em cache. Cada conta só envia e apaga na própria pasta; o bucket é público para leitura, mas os nomes são aleatórios e só o dono da ficha conhece o endereço. Fichas com o retrato ainda dentro do JSON (de antes do Storage, ou importadas) têm a imagem movida sozinha quando o dono abre o site. O `.json` exportado continua com a imagem dentro.
+
 O mestre pode pôr várias fichas dele na sala e trocar entre elas; o jogador fica com a que escolheu ao entrar. As fichas do mestre não aparecem para os jogadores.
 
 Criar sala, entrar, pôr/tirar fichas do mestre, expulsar e gerar código novo passam por funções no banco que conferem quem está pedindo. Não existe forma de expulsar alguém sem ser o mestre, nem de ler a ficha de outra pessoa.

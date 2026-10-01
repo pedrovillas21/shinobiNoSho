@@ -1,8 +1,12 @@
+import { currentUserId, supabase } from "./supabase/client";
 import type { PortraitFrame } from "./types";
 
 /*
- * Retrato da ficha. A imagem fica dentro da própria ficha (data URL), reduzida e comprimida no navegador:
- * assim vai junto ao exportar/importar e não precisa de armazenamento à parte no Supabase.
+ * Retrato da ficha. A imagem é reduzida e comprimida no navegador e vai para o Supabase Storage
+ * (bucket "retratos"); a ficha guarda só o endereço. Assim a lista de fichas continua leve e o
+ * navegador baixa cada imagem uma vez só (nome único por envio, cache de um ano).
+ * No arquivo exportado a imagem volta para dentro da ficha (data URL), e a importação a envia de novo.
+ * Ficha antiga, ou envio que falhou, ainda pode ter a data URL: ela aparece normal e é movida depois.
  */
 
 export const DEFAULT_FRAME: PortraitFrame = { zoom: 1, x: 50, y: 50 };
@@ -69,4 +73,56 @@ function encode(bmp: ImageBitmap, scale: number): string | null {
     if (url.length <= MAX_URL) return url;
   }
   return null;
+}
+
+/* ---------------- Storage ---------------- */
+
+const BUCKET = "retratos";
+const PUBLIC_MARK = `/storage/v1/object/public/${BUCKET}/`;
+
+/** Imagem ainda dentro da ficha (antiga, importada ou envio que falhou). */
+export const isEmbedded = (src: string | undefined): src is string => Boolean(src?.startsWith("data:"));
+
+/** Caminho do arquivo no bucket, se o endereço for um retrato enviado por este site. */
+function storagePath(src: string): string | null {
+  const i = src.indexOf(PUBLIC_MARK);
+  return i < 0 ? null : decodeURIComponent(src.slice(i + PUBLIC_MARK.length));
+}
+
+/** Envia a imagem (data URL) para a pasta da conta e devolve o endereço público. */
+export async function uploadPortrait(dataUrl: string): Promise<string> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("Entre na sua conta para enviar o retrato.");
+  const blob = await (await fetch(dataUrl)).blob();
+  const ext = blob.type === "image/jpeg" ? "jpg" : "webp";
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const bucket = supabase().storage.from(BUCKET);
+  // Nome novo a cada envio: o arquivo nunca muda, então pode ficar em cache por um ano.
+  const { error } = await bucket.upload(path, blob, { contentType: blob.type, cacheControl: "31536000", upsert: false });
+  if (error) throw error;
+  return bucket.getPublicUrl(path).data.publicUrl;
+}
+
+/** Apaga do bucket um retrato que nenhuma ficha usa mais. Falha em silêncio: no pior caso sobra um arquivo. */
+export function deletePortrait(src: string) {
+  const path = storagePath(src);
+  if (path) void supabase().storage.from(BUCKET).remove([path]);
+}
+
+/** Para exportar: traz a imagem de volta para dentro da ficha. Sem rede, mantém o endereço. */
+export async function embedPortrait(src: string): Promise<string> {
+  if (isEmbedded(src)) return src;
+  try {
+    const res = await fetch(src);
+    if (!res.ok) return src;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return src;
+  }
 }

@@ -131,6 +131,10 @@ export interface ItemPreset {
   price: number;
   perComp: string;
   note?: string;
+  /** Seção do seletor de itens (ex.: "Ferramentas Shinobi Utilitárias"). */
+  cat: string;
+  /** Também aparece nos botões de adicionar rápido. */
+  quick?: boolean;
 }
 
 /* ---------- Ficha ---------- */
@@ -148,7 +152,14 @@ export interface PowerEntry {
   versatile?: string[];
   /** Versatilidade: de qual poder versátil (índice em `versatile`) é cada nível. O nível 1 vale para todos. */
   owner?: (number | null)[];
+  /** Hibon Ninpou (1ª compra): as duas bonificações. Só o Dano Adicional pode repetir. */
+  hibonBonus?: (HibonBonus | null)[];
+  /** Hibon Ninpou (1ª compra): elemento básico de onde vêm os efeitos exclusivos. */
+  hibonElement?: string | null;
 }
+
+/** Bonificações do Hibon Ninpou (Livro Básico, pág. 212). */
+export type HibonBonus = "dano" | "dureza" | "dificuldade";
 
 export interface AptEntry {
   uid: string;
@@ -265,7 +276,7 @@ export interface Character {
   personality: string;
   history: string;
   goals: string;
-  /** Retrato (data URL já reduzida, ver lib/retrato.ts) e o enquadramento escolhido. */
+  /** Retrato (endereço no Storage, ou data URL até ser enviada; ver lib/retrato.ts) e o enquadramento escolhido. */
   portrait?: string;
   portraitFrame?: PortraitFrame;
   // mesa

@@ -5,7 +5,7 @@ import { ATIRADOR, ataquesBasicos, critText, fichaCtx, letalText } from "@/lib/d
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
 import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
-import { CUSTOM_ORIGIN, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, isRepurchase, kekkeiGratis, nivelGratis, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
+import { CUSTOM_ORIGIN, HIBON_BONUS, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 import { RetratoFicha } from "./Retrato";
 
@@ -292,6 +292,13 @@ export function FichaSheet({ c }: { c: Character }) {
                       {nivelGratis(c, i) ? ` · nível 1 grátis (${PODER_BY_ID[nivelGratis(c, i)!].name.split(" (")[0]})` : ""}
                     </span>
                   </div>
+                  {p.id === "hibon" && hibonEntry(c) === p && (
+                    <p className="text-sm leading-snug">
+                      <strong>Bonificações:</strong>{" "}
+                      {(p.hibonBonus ?? []).filter(Boolean).map((b) => HIBON_BONUS.find((x) => x.id === b)?.name).join(" + ") || "não escolhidas"}
+                      {p.hibonElement ? ` · exclusivos do ${(PODER_BY_ID[p.hibonElement]?.name ?? p.hibonElement).split(" (")[0]}` : ""}
+                    </p>
+                  )}
                   {p.id === "versatilidade" &&
                     (p.versatile ?? []).map((id, k) =>
                       id ? (

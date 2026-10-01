@@ -3,7 +3,7 @@ import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
 import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
 import { EFEITO_BY_ID, EXCLUSIVOS, KEKKEI_ELEMENTOS, NINPOU_BASE, PODER_BY_ID, VERSATEIS } from "./data/poderes";
 import { validateKuchiyose } from "./kuchiyose";
-import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, Optionals, PowerEntry, Req, SkillKey } from "./types";
+import type { AptEntry, Aptidao, AttrKey, Character, CombatKey, HibonBonus, Optionals, PowerEntry, Req, SkillKey } from "./types";
 
 /** Nível máximo de campanha da mesa (o livro vai até 20). */
 export const NC_MIN = 4;
@@ -249,6 +249,51 @@ export function talentoTargets(c: Character): string[] {
 
 /** Efeitos que o Talento Natural pode dar a um poder: os do poder que não são exclusivos de elemento. */
 export const talentoEffects = (target: string) => (PODER_BY_ID[target]?.effects ?? NINPOU_BASE).filter((id) => !EXCLUSIVOS.includes(id));
+
+/* ---------------- Hibon Ninpou (Livro Básico, pág. 212) ---------------- */
+
+/** As três bonificações: escolhem-se duas diferentes, ou o Dano Adicional duas vezes. */
+export const HIBON_BONUS: { id: HibonBonus; name: string; desc: string }[] = [
+  { id: "dano", name: "Dano Adicional", desc: "+1 de dano em todo efeito, como bônus de elemento. Pode ser escolhida duas vezes." },
+  { id: "dureza", name: "Dureza Adicional", desc: "+2 de dureza em toda criação." },
+  { id: "dificuldade", name: "Dificuldade de Resistência Aumentada", desc: "+1 na dificuldade de resistência dos alvos." },
+];
+
+/** Elementos básicos de onde o Hibon Ninpou pode tirar os efeitos exclusivos. */
+export const HIBON_ELEMENTOS = ["doton", "fuuton", "katon", "raiton", "suiton"];
+
+/** Efeitos exclusivos de um elemento. */
+export const exclusivosDe = (el: string) => (PODER_BY_ID[el]?.effects ?? []).filter((id) => EXCLUSIVOS.includes(id));
+
+/** A compra que guarda as escolhas do Hibon Ninpou: a 1ª. */
+export const hibonEntry = (c: Character) => c.poderes.find((p) => p.id === "hibon");
+
+/** Bônus das bonificações escolhidas: dano, dureza das criações e dificuldade de resistência. */
+export function hibonBonus(c: Character) {
+  const b = (hibonEntry(c)?.hibonBonus ?? []).slice(0, 2);
+  const n = (id: HibonBonus) => b.filter((x) => x === id).length;
+  return { dano: n("dano"), dureza: n("dureza") ? 2 : 0, dif: n("dificuldade") ? 1 : 0 };
+}
+
+/** Efeitos do Hibon Ninpou: os do Ninpou e os exclusivos do elemento escolhido (sem elemento ainda, os de todos). */
+export const hibonEffects = (el: string | null | undefined) => (el ? [...NINPOU_BASE, ...exclusivosDe(el)] : (PODER_BY_ID.hibon?.effects ?? NINPOU_BASE));
+
+function validateHibon(c: Character, push: (sev: Severity, step: string, text: string) => void) {
+  const p = hibonEntry(c);
+  if (!p) return;
+  const b = (p.hibonBonus ?? []).slice(0, 2).filter((x): x is HibonBonus => !!x);
+  if (b.length < 2) push("aviso", "poderes", "Hibon Ninpou: escolha as duas bonificações.");
+  else if (b[0] === b[1] && b[0] !== "dano") push("erro", "poderes", `Hibon Ninpou: ${HIBON_BONUS.find((x) => x.id === b[0])?.name} não pode ser escolhida duas vezes (só o Dano Adicional).`);
+  const el = p.hibonElement;
+  if (!el) push("aviso", "poderes", "Hibon Ninpou: escolha o elemento dos efeitos exclusivos.");
+  else {
+    const ok = hibonEffects(el);
+    const fora = new Set(c.poderes.filter((x) => x.id === "hibon").flatMap((x) => x.effects.slice(0, x.level)).filter((id): id is string => !!id && EXCLUSIVOS.includes(id) && !ok.includes(id)));
+    const nome = (PODER_BY_ID[el]?.name ?? el).split(" (")[0];
+    for (const id of fora) push("erro", "poderes", `Hibon Ninpou: ${EFEITO_BY_ID[id]?.name ?? id} não é exclusivo do ${nome}, o elemento escolhido.`);
+  }
+  if (c.poderes.some((x) => x.id === "versatilidade")) push("erro", "poderes", "Hibon Ninpou e Versatilidade não podem estar na mesma ficha (Livro Básico, pág. 212).");
+}
 
 /* ---------------- Clã Uchiha (Livro Básico, pág. 180–187) ---------------- */
 
@@ -797,6 +842,7 @@ export function validate(c: Character): Issue[] {
   validateVersatilidade(c, push);
   validateUchiha(c, push);
   validateKuchiyose(c, push);
+  validateHibon(c, push);
 
   // Aptidões que a ficha soma sozinha: avisa se o bônus também foi digitado em "Outros".
   if (hasApt(c, "reflexos") && (c.combatBonus.ESQ || 0) >= 1)

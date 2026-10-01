@@ -12,10 +12,11 @@ export function Retrato({ src, frame, alt = "" }: { src: string; frame?: Portrai
   const f = frame ?? DEFAULT_FRAME;
   const pos = `${f.x}% ${f.y}%`;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- data URL guardada na ficha
+    // eslint-disable-next-line @next/next/no-img-element -- arquivo já reduzido no Storage (ou data URL antiga)
     <img
       src={src}
       alt={alt}
+      decoding="async"
       draggable={false}
       className="block size-full select-none object-cover"
       style={{ objectPosition: pos, transform: `scale(${f.zoom})`, transformOrigin: pos }}

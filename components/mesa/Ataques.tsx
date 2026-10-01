@@ -310,7 +310,7 @@ export function Ataques(props: MesaProps) {
                 {adjust === g.id && (
                   <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink-2 px-3 py-2.5">
                     <span className="flex-1 text-xs leading-snug text-muted">
-                      Bônus de dano que a ficha não calcula (Hibon, Satetsu, Domínio Simples, item…). Soma em todos os ataques de {g.title}.
+                      Bônus de dano que a ficha não calcula (Satetsu, Domínio Simples, item…). Soma em todos os ataques de {g.title}.
                     </span>
                     <MiniStepper
                       label={`Bônus extra de ${g.title}`}
