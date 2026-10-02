@@ -140,6 +140,33 @@ export const EFEITO_UTIL: Record<string, UtilSpec> = {
     txt: ({ key, lvl, ev }) =>
       `Como o Golem de Pedra do Jinton. Golem ${ev >= 1 ? "enorme, comandado com ações livres" : "grande"}: age como personagem (ação padrão, movimento, ataque oportuno) e lança seus Doton com as ações dele, mas não usa outras técnicas nem aptidões. Ataque corporal: dano comum −2 (${lvl + half(key) - 2} + bônus do Doton), precisão −3 com os modificadores de tamanho, e drena ${Math.ceil(key / 4)} de chakra da vítima (¼ do Espírito; o chakra se dispersa). Sem mente: imune a genjutsu. Restaurar: 1× por golem, ação livre, renova a dureza. Ação de movimento, sem selos; duração contínua.`,
   },
+  // Mokuton: efeitos exclusivos (Livro Básico) e efeitos para Zetsu (Livro de Hijutsus vol. 2, p.134–135).
+  transmissor: {
+    show: "texto",
+    txt: "Desfaz um Moku Bunshin em sementes. Implantada no alvo (roupa, comida), segue as regras da aptidão Sensor, mas só detecta quem carrega a semente; só você capta. Ação parcial, toque, contínua.",
+  },
+  "selar-chakra": {
+    show: "texto",
+    txt: ({ lvl, ev }) =>
+      `Use junto com o Raio (dano normal): o alvo perde ${half(lvl)} de chakra (½ do nível usado). Selar Chakra Bijuu: ação preparada contra Jinchuuriki descontrolado (Modo Bijuu ou menos) com Jinchuuriki ${ev >= 1 ? "de nível igual ou menor que o seu Mokuton" : "menor que o seu Mokuton"}; teste de Espírito (Dif 7 + 2× nível do Jinchuuriki); dez pilares suprimem o chakra sob concentração e o alvo desmaia por 10 minutos.${ev >= 1 ? " Nv 9: quebra técnicas de controle de Bijuu pelo toque (regras do Kai)." : ""}`,
+  },
+  "golem-mokuton": {
+    show: "texto",
+    txt: ({ key, lvl, ev }) =>
+      `Golem de madeira ${ev >= 1 ? "colossal" : "imenso"} com os seus atributos (Força = Espírito ${key}), dureza 0 e metade da sua Vitalidade; habilidades de combate iguais às suas, perícias 0. Ataque corporal: dano comum do poder (${lvl + half(key)} + bônus do Mokuton)${ev >= 1 ? ", com Selar Chakra de graça" : ""}. Comandar Parceiro, controlado direto por concentração (sem ela, vira objeto); usa seus Mokuton com as ações dele. Ação de movimento e ½ do custo: cura metade da Vitalidade do golem. Sem mente: imune a genjutsu. 1 golem por cena. Ação padrão.`,
+  },
+  efemeroptero: {
+    show: "texto",
+    costFixed: 5,
+    txt: ({ key }) =>
+      `Sob o Imergir, no solo: 5 de chakra e 1 minuto de concentração; enquanto concentrar, viaja ${50 * key}m por rodada sob a terra (50m × Espírito), sem custo a mais. Imergir Perfeito: atravessa qualquer meio sólido com ação padrão e 1 de chakra, sem ataques oportunos.`,
+  },
+  "chuva-esporos": {
+    show: "dureza",
+    label: "Dureza dos esporos",
+    txt: ({ lvl, ev }) =>
+      `Ação completa: CD contra todos na área (defesa normal), a partir de você ou de um Clone Zetsu. Infectados perdem ${half(lvl)} de chakra por turno (sem passar de zero${ev >= 1 ? ", até a morte por chakra negativo" : ""}); ficam Impedidos em ${ev >= 1 ? 1 : 3} turno(s) e Indefesos em ${ev >= 1 ? 5 : 8}; após 10 turnos os esporos viram Clones Zetsu. Recolher o chakra: toque (CC), ação padrão. No Modo Eremita (Kuchiyose), o alvo vira pedra. Contínua.`,
+  },
   venenoso: { show: "texto", txt: "Cone que injeta um veneno seu (até nível II) sem causar dano. O veneno é consumido." },
   afiar: { show: "texto", txt: "Arma real de corte ou perfuração: benefícios do Energizar, ignora 1 de dureza, +1 na margem de crítico e lâmina estendida." },
   flutuar: { show: "texto", txt: "Voa sobre o Leque Gigante (Voo = Espírito, condição Alado). Também amortece quedas.", costFixed: 5 },
@@ -247,6 +274,14 @@ function geo(eff: string, x: { A: number; T: number; lvl: number; ev: number; ke
       return { alcance: m(A), area: ev >= 1 ? `círculo de ${m(T)}` : "círculo de 2m" };
     case "cortina-poeira":
       return { alcance: "com o Tremor", area: `círculo de ${m(T)}` };
+    case "selar-chakra":
+      return { alcance: m(A), area: "alvos do Raio" };
+    case "transmissor":
+      return { alcance: "toque", area: "1 Moku Bunshin" };
+    case "efemeroptero":
+      return { alcance: `${m(50 * key)} por rodada` };
+    case "chuva-esporos":
+      return { alcance: "você ou um Clone Zetsu", area: `círculo de ${m(T)} de diâmetro` };
     case "barreira":
       return { alcance: m(A), area: ev >= 1 ? `redoma de até ${m(Math.ceil(T / 2))}` : `muro de até ${m(Math.ceil(T / 2))}` };
     case "algemar":
@@ -303,6 +338,7 @@ const ELEMENTO: Record<string, number> = {
 const DIF_PODER: Record<string, number> = {
   "hebi-ninpou": 1,
   hyouton: 1,
+  mokuton: 1,
 };
 
 /** Dificuldade de resistência a mais do poder (a do Hibon Ninpou depende da bonificação escolhida). */
@@ -519,12 +555,13 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
   const natural = hasApt(c, "elemento-natural-katon");
   const katonG = byId.get("katon");
   if (natural && katonG && katonG.level >= 4) addPick(katonG.picks, { eff: "sopro", tech: "", ev: katonG.level >= 10 ? 2 : katonG.level >= 7 ? 1 : 0, tag: "Elemento Natural" });
-  // Terra Insaciável (Daikiga): Barreira Nv 6 de graça no Doton; escolher a Barreira de novo leva ao Nv 9 (se o nível deixar).
+  // Terra Insaciável (Daikiga): Barreira Nv 6 de graça no Doton. A próxima Barreira escolhida já conta como Nv 9 em
+  // `evolucoes` (rules.ts); aqui só garante o Nv 6 e o limite do nível do Doton.
   const dotonG = byId.get("doton");
   if (hasApt(c, "terra-insaciavel") && dotonG) {
     const tag = "Terra Insaciável: CC no lugar de CD para prender ou de LM+2 para defender";
     const cur = dotonG.picks.find((x) => x.eff === "barreira");
-    const ev = Math.max(1, Math.min((cur?.ev ?? 0) + 1, reachEvolution("barreira", dotonG.level)));
+    const ev = Math.max(1, Math.min(cur?.ev ?? 0, reachEvolution("barreira", dotonG.level)));
     if (cur) Object.assign(cur, { ev, tag: cur.tag ?? tag });
     else addPick(dotonG.picks, { eff: "barreira", tech: "", ev, tag });
   }

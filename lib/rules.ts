@@ -271,6 +271,9 @@ function escolhasDe(c: Character, power: string): Escolha[] {
  */
 function evolucoes(c: Character, power: string): Map<string, number> {
   const pular = c.optionals.pularEvolucoes;
+  // Terra Insaciável (Daikiga, Livro de Hijutsus vol. 2, p.31): a Barreira Nv 3 do Doton (pré-requisito) vira Nv 6 de
+  // graça, então a próxima Barreira escolhida no Doton já é a Nv 9.
+  const gratis = (eff: string) => (power === "doton" && eff === "barreira" && hasApt(c, "terra-insaciavel") ? 1 : 0);
   const cur = new Map<string, number>();
   const tabs = new Map<string, Set<string>>();
   const out = new Map<string, number>();
@@ -285,7 +288,7 @@ function evolucoes(c: Character, power: string): Map<string, number> {
       const need = evolutionLevel(x.eff, nx);
       ev = seen.has(tab) || (need !== null && need <= x.cap) ? nx : prev;
     }
-    cur.set(x.eff, Math.max(prev ?? 0, ev));
+    cur.set(x.eff, Math.max(prev ?? 0, ev, gratis(x.eff)));
     seen.add(tab);
     tabs.set(x.eff, seen);
     out.set(`${x.idx}:${x.i}:${x.k}`, ev);

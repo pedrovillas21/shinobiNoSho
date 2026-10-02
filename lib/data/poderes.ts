@@ -61,6 +61,57 @@ export const EFEITOS: Efeito[] = [
     reqText: "Aptidão restrita do Kekkei Touta: Jinton",
     req: [{ t: "any", of: [{ t: "apt", id: "elemento-natural-terra" }, { t: "apt", id: "fissao" }, { t: "apt", id: "apagar-presenca" }] }],
   },
+  // Mokuton: efeitos exclusivos (Livro Básico, Mokuton). Os níveis batem com as técnicas prontas (Soushinki: Mokuton 2
+  // (Transmissor); Fuuinjutsu: Mokuton 6 (Selar Chakra)).
+  {
+    id: "transmissor",
+    name: "Transmissor (Mokuton)",
+    level: 2,
+    source: "Básico",
+    desc: "Desfaz um Moku Bunshin em sementes rastreadoras: implantada (na roupa, ingerida), segue as regras da aptidão Sensor, mas só detecta quem carrega a semente. Ação parcial, toque, contínua.",
+    reqText: "Clone (Moku Bunshin)",
+    req: [{ t: "apt", id: "clone" }],
+  },
+  {
+    id: "selar-chakra",
+    name: "Selar Chakra (Mokuton)",
+    level: 6,
+    source: "Básico",
+    desc: "Junto com o Raio: além do dano, o alvo perde chakra igual à metade do nível usado. Selar Chakra Bijuu: ação preparada contra Jinchuuriki descontrolado de nível menor (teste de Espírito, Dif 7 + 2× Jinchuuriki). Nv 9: nível igual ou menor, e quebra controle de Bijuu pelo toque (Kai).",
+    evolves: [9],
+    reqText: "Raio",
+    req: [{ t: "effect", id: "raio" }],
+  },
+  {
+    id: "golem-mokuton",
+    name: "Golem (Mokuton)",
+    level: 7,
+    source: "Básico",
+    desc: "Monstro de madeira imenso com seus atributos (Força = Espírito), dureza 0 e metade da Vitalidade; segue Comandar Parceiro, controlado por concentração, e lança seus Mokuton. Nv 10: colossal, e os ataques corporais ganham Selar Chakra.",
+    evolves: [10],
+  },
+  // Mokuton: efeitos para Zetsu (Livro de Hijutsus vol. 2, p.134–135): só para Zetsus (Anatomia Zetsu é obrigatória).
+  {
+    id: "efemeroptero",
+    name: "Efemeróptero (Mokuton · Zetsu)",
+    level: 5,
+    source: "Hijutsus 2",
+    desc: "Sob o Imergir: 5 de chakra e 1 minuto de concentração; enquanto concentrar, viaja sob a terra 50m por nível de Espírito a cada rodada. Imergir Perfeito: atravessa qualquer meio sólido (ação padrão, 1 de chakra), sem ataques oportunos.",
+    reqText: "Imergir (Doton ou Mokuton)",
+    req: [{ t: "effect", id: "imergir" }],
+    libera: [{ t: "apt", id: "anatomia-zetsu" }],
+  },
+  {
+    id: "chuva-esporos",
+    name: "Chuva de Esporos (Mokuton · Zetsu)",
+    level: 7,
+    source: "Hijutsus 2",
+    desc: "Esporos ao seu redor ou de um Clone Zetsu (CD contra todos na área): drenam ½ do nível em chakra por turno; Impedido em 3 turnos, Indefeso em 8; em 10 viram Clones Zetsu. Nv 10: Impedido em 1, Indefeso em 5, drenam até a morte.",
+    evolves: [10],
+    reqText: "Transmissor; Nuvem; Selar Chakra (Mokuton); Clone Zetsu",
+    req: [{ t: "effect", id: "transmissor" }, { t: "effect", id: "nuvem" }, { t: "effect", id: "selar-chakra" }, { t: "apt", id: "clone-zetsu" }],
+    libera: [{ t: "apt", id: "anatomia-zetsu" }],
+  },
   // Doton: efeitos para Daikiga (Livro de Hijutsus vol. 2, p.31): liberados por Ingestão de Chakra e Terra Insaciável.
   {
     id: "cortina-poeira",
@@ -126,7 +177,7 @@ export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.m
 export const EFEITOS_KEKKEI_TOUTA = ["reducao-peso", "adicao-peso", "golem-pedra"];
 
 /** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
-export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "reducao-peso", "adicao-peso", "golem-pedra", "cortina-poeira", "golem-insaciavel", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
+export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "reducao-peso", "adicao-peso", "golem-pedra", "cortina-poeira", "golem-insaciavel", "transmissor", "selar-chakra", "golem-mokuton", "efemeroptero", "chuva-esporos", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
 
 /** Símbolo de cada poder elemental (e dos que costumam virar versáteis), usado nos seletores. */
 export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木", "kibaku-nendo": "粘" };
@@ -218,7 +269,7 @@ export const PODERES: Poder[] = [
   { id: "shikakyu", name: "Shikakyu (Quadrúpede)", mode: "tecnicas", restricted: true, source: "Básico", reqText: "Hakken no Jutsu", req: [{ t: "apt", id: "hakken" }], desc: "Técnicas bestiais Inuzuka.", techniques: [{ level: 1, name: "Shikakyu no Jutsu" }, { level: 2, name: "Juujin Bunshin" }, { level: 3, name: "Tsuuga" }, { level: 5, name: "Sotorou" }, { level: 6, name: "Garouga" }, { level: 7, name: "Santorou" }, { level: 8, name: "Ooiga Gatenga" }] },
   { id: "kagejutsu", name: "Kagejutsu (Sombras)", mode: "tecnicas", restricted: true, source: "Básico", desc: "Técnicas de sombra do clã Nara.", techniques: [{ level: 1, name: "Kage Shibari" }, { level: 3, name: "Kage Mane" }, { level: 4, name: "Kage Mane Shuriken" }, { level: 5, name: "Kage Kubishibari" }, { level: 6, name: "Kageyose / Kage Nui" }, { level: 8, name: "Kagezukami" }] },
   { id: "shindenshin", name: "Shindenshin (Mente)", mode: "tecnicas", restricted: true, source: "Básico", desc: "Transmissão e troca de mente (Yamanaka).", techniques: [{ level: 1, name: "Shintenshin no Jutsu" }, { level: 3, name: "Shindenshin no Jutsu" }, { level: 5, name: "Shinten Bunshin" }, { level: 6, name: "Shinranshin" }, { level: 7, name: "Shinten Kugutsu Juin" }] },
-  { id: "mokuton", name: "Mokuton (Madeira)", mode: "efeitos", restricted: true, source: "Básico", desc: "Terra + Água: madeira e árvores. Inclui técnicas como Mokujōheki, Moku Bunshin, Shichūrō e Mokujin.", effects: [...NINPOU_BASE, "deslocamento-vacuo", "imergir", "purificar"] },
+  { id: "mokuton", name: "Mokuton (Madeira)", mode: "efeitos", restricted: true, source: "Básico", desc: "Terra + Água: madeira e árvores. Inclui técnicas como Mokujōheki, Moku Bunshin, Shichūrō e Mokujin.", effects: [...NINPOU_BASE, "deslocamento-vacuo", "imergir", "purificar", "transmissor", "selar-chakra", "golem-mokuton", "efemeroptero", "chuva-esporos"] },
   { id: "hachimon", name: "Hachimon Tonkou", mode: "tecnicas", restricted: true, source: "Básico", reqText: "Vigor 6", req: [A("VIG", 6)], desc: "Oito Portões: bônus físicos enormes em troca de Vitalidade. Pode ser comprado mesmo com clã.", techniques: [{ level: 1, name: "Kaimon (Abertura)" }, { level: 2, name: "Kyūmon (Cura)" }, { level: 3, name: "Seimon (Vida)" }, { level: 4, name: "Shōmon (Dor)" }, { level: 5, name: "Tomon (Limite)" }, { level: 6, name: "Keimon (Visão)" }, { level: 7, name: "Kyōmon (Milagre)" }, { level: 8, name: "Shimon (Morte)" }] },
   { id: "dokujutsu", name: "Dokujutsu (Venenos)", mode: "efeitos", restricted: true, source: "Guia Avançado", reqText: "Venefício 4; Químico", req: [{ t: "skill", k: "venef", min: 4 }, { t: "apt", id: "quimico" }], desc: "Ninpou baseado em Venefício (revisão do Guia).", effects: ["canhao", "orbe", "raio", "dano-continuo", "purificar", "flechas", "lanca", "ricochete", "coluna", "energizar", "nuvem", "sopro", "missil", "correnteza", "onda-explosiva", "cegante"] },
   { id: "hibon", name: "Hibon Ninpou", mode: "efeitos", restricted: true, source: "Básico", desc: "Ninpou único da família com duas bonificações (dano, dureza ou dificuldade) + exclusivos de um elemento.", effects: [...NINPOU_BASE, "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"] },

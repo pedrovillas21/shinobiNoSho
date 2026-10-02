@@ -249,14 +249,29 @@ Regra confirmada com o criador do sistema. Não é opcional e não está escrita
 - **Antes:** Terra Insaciável era só um nome ("Doton que devora chakra"); os efeitos de Doton do Daikiga não existiam.
 - **Terra Insaciável:**
   - pré-requisito completo: Ingestão de Chakra, Doton 6 e Barreira (Doton) — faltava a Barreira;
-  - Barreira Nv 6 grátis no Doton: na mesa a Barreira já sai evoluída Nv 6; escolhê-la de novo leva ao Nv 9 (se o Doton chegar a 9). Mostra que pode usar CC no lugar de CD (prender) ou de LM+2 (defender);
+  - Barreira Nv 6 grátis no Doton: a aptidão evolui a Barreira Nv 3 (pré-requisito) para Nv 6, então a próxima Barreira escolhida no Doton já é a Nv 9 (pede Doton 9). Vale no seletor do construtor, na ficha e na mesa (conferido no PDF, p.31). Mostra que pode usar CC no lugar de CD (prender) ou de LM+2 (defender);
   - drenar chakra pela Barreira e Prisão Indestrutível estão na descrição;
   - só Doton como poder elemental: outro elemento (ou kekkei genkai, ou elemento versátil) vira observação.
 - **Efeitos novos de Doton** (só aparecem no seletor com Ingestão de Chakra e Terra Insaciável):
   - Cortina de Poeira (nível 4): pede ainda Lutar às Cegas ou Sensor, e o Tremor. Na mesa: chakra = ½ do nível usado, círculo do tamanho comum, regras da Névoa Nv 2, dura turnos iguais ao nível;
   - Golem de Terra Insaciável (nível 7, evolui no 10): como o Golem de Pedra do Jinton; o ataque corporal drena ¼ do Espírito em chakra (arredondado para cima, como na Ingestão de Chakra; o livro não diz).
 
+## Efeitos exclusivos do Mokuton e do Zetsu (Livro Básico, Mokuton; Livro de Hijutsus vol. 2, pág. 134–135) — 02/10/2026
+
+- **Antes:** o Mokuton só tinha os efeitos de Ninpou, Imergir, Deslocamento de Vácuo e Purificar.
+- **Efeitos exclusivos do Mokuton** (Livro Básico). Os níveis vêm das técnicas prontas: Soushinki pede "Mokuton 2 (Transmissor)" e Fuuinjutsu pede "Mokuton 6 (Selar Chakra)".
+  - Transmissor (nível 2): pede Clone (Moku Bunshin);
+  - Selar Chakra (nível 6, evolui no 9): pede Raio. Junto com o Raio, o alvo perde ½ do nível usado em chakra; inclui o Selar Chakra Bijuu;
+  - Golem (nível 7, evolui no 10).
+- **Dificuldade do Mokuton:** faltava o +1 na dificuldade de resistência de todo efeito Mokuton (o +1 de dano já existia). Ex.: Mokuton 5 com Espírito 10 tem Dif 20.
+- **Conferido no PDF** (Livro Básico p.176–178; Hijutsus vol. 2 p.134–135): níveis, pré-requisitos, custos e evoluções batem. O cabeçalho do Selar Chakra diz "Dano: 2 por nível do poder", mas o texto diz que o Raio causa o dano normal e o alvo perde ½ do nível usado em chakra; o app segue o texto.
+- **Efeitos para Zetsu** (só aparecem no seletor com Anatomia Zetsu):
+  - Efemeróptero (nível 5): pede Imergir; custo 5, viaja 50m × Espírito por rodada;
+  - Chuva de Esporos (nível 7, evolui no 10): pede Transmissor, Nuvem, Selar Chakra e Clone Zetsu.
+
 ## Pendências e decisões
+
+- **Elementos Irrestritos + Mokuton:** em aberto se o nível grátis soma (Doton 2 e Suiton 2). O app não soma. Contexto e o que mudar: [pendencia-elementos-irrestritos.md](pendencia-elementos-irrestritos.md).
 
 - **Chakra Bijuu:** entra somado ao chakra normal, não como reserva separada.
 - **Versatilidades extras:** seguem o livro. Cada compra extra paga os níveis (com o nível 1 grátis, como no Ninpou comprado de novo). A planilha do Ashihira cobra só 2 pontos por compra extra (regra da casa); se a mesa usar isso, dá para virar uma regra opcional.
