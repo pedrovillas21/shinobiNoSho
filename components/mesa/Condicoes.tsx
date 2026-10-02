@@ -49,58 +49,63 @@ export function Condicoes({ p, v, commit, patch }: MesaProps) {
         {p.conds.map((x) => {
           const d = COND_BY[x.k];
           return (
-            <li key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-panel-2 px-3 py-2.5">
-              <span className="size-2.5 shrink-0 rounded-full bg-bad" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="font-bold text-paper">
-                  {x.name} {d?.stack && <span className="text-[#ffd3a8]">×{x.stacks}</span>}
-                </span>
-                <span className="text-[13px] leading-snug text-muted">
-                  {d ? d.txt : "Condição combinada na mesa."}
-                  {x.k === "fatigado" && exausto ? " (anulado por Exausto)" : ""}
-                </span>
+            <li key={x.id} className="flex flex-col gap-2.5 rounded-xl bg-panel-2 px-3 py-2.5">
+              {/* Descrição em cima, com a largura toda; controles embaixo (no celular a linha única espremia o texto) */}
+              <div className="flex items-start gap-2.5">
+                <span className="mt-2 size-2.5 shrink-0 rounded-full bg-bad" />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="font-bold text-paper">
+                    {x.name} {d?.stack && <span className="text-[#ffd3a8]">×{x.stacks}</span>}
+                  </span>
+                  <span className="text-[13px] leading-snug text-muted">
+                    {d ? d.txt : "Condição combinada na mesa."}
+                    {x.k === "fatigado" && exausto ? " (anulado por Exausto)" : ""}
+                  </span>
+                </div>
               </div>
-              <label className="flex items-center gap-1.5 text-xs text-muted">
-                Turnos
+              <div className="flex flex-wrap items-center gap-2 pl-5">
+                <label className="flex items-center gap-1.5 text-xs text-muted">
+                  Turnos
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="field min-h-10 w-16 py-1 text-center"
+                    value={x.turns}
+                    onChange={(e) =>
+                      patch((pl) => {
+                        const c = pl.conds.find((y) => y.id === x.id);
+                        if (c) c.turns = Math.max(0, Number(e.target.value) || 0);
+                      })
+                    }
+                    aria-label={`Turnos restantes de ${x.name} (0 = sem prazo)`}
+                  />
+                </label>
                 <input
-                  type="number"
-                  inputMode="numeric"
-                  className="field min-h-10 w-16 py-1 text-center"
-                  value={x.turns}
+                  className="field min-h-10 w-40 min-w-0 flex-1 py-1 text-sm"
+                  placeholder="Nota"
+                  aria-label={`Nota de ${x.name}`}
+                  value={x.note}
                   onChange={(e) =>
                     patch((pl) => {
                       const c = pl.conds.find((y) => y.id === x.id);
-                      if (c) c.turns = Math.max(0, Number(e.target.value) || 0);
+                      if (c) c.note = e.target.value;
                     })
                   }
-                  aria-label={`Turnos restantes de ${x.name} (0 = sem prazo)`}
                 />
-              </label>
-              <input
-                className="field min-h-10 w-40 py-1 text-sm"
-                placeholder="Nota"
-                aria-label={`Nota de ${x.name}`}
-                value={x.note}
-                onChange={(e) =>
-                  patch((pl) => {
-                    const c = pl.conds.find((y) => y.id === x.id);
-                    if (c) c.note = e.target.value;
-                  })
-                }
-              />
-              {d?.stack && (
-                <>
-                  <button type="button" className="btn-ghost size-10 min-h-10 px-0" aria-label={`Menos ${x.name}`} onClick={() => commit((pl, log) => stackCond(pl, x.id, -1, log))}>
-                    −
-                  </button>
-                  <button type="button" className="btn-ghost size-10 min-h-10 px-0" aria-label={`Mais ${x.name}`} onClick={() => commit((pl, log) => stackCond(pl, x.id, 1, log))}>
-                    +
-                  </button>
-                </>
-              )}
-              <button type="button" className="btn-ghost min-h-10 px-3 text-xs" onClick={() => commit((pl, log) => removeCond(pl, x.id, log))}>
-                Remover
-              </button>
+                {d?.stack && (
+                  <>
+                    <button type="button" className="btn-ghost size-10 min-h-10 px-0" aria-label={`Menos ${x.name}`} onClick={() => commit((pl, log) => stackCond(pl, x.id, -1, log))}>
+                      −
+                    </button>
+                    <button type="button" className="btn-ghost size-10 min-h-10 px-0" aria-label={`Mais ${x.name}`} onClick={() => commit((pl, log) => stackCond(pl, x.id, 1, log))}>
+                      +
+                    </button>
+                  </>
+                )}
+                <button type="button" className="btn-ghost min-h-10 px-3 text-xs" onClick={() => commit((pl, log) => removeCond(pl, x.id, log))}>
+                  Remover
+                </button>
+              </div>
             </li>
           );
         })}

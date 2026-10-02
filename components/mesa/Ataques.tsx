@@ -17,8 +17,9 @@ const POT_LABEL: Record<PotMode, string> = { dano: "+1 de dano base", alcance: "
 /** Distâncias até o alvo que a mesa oferece (null = não informar; 1 = corpo a corpo). */
 const DISTANCIAS: (number | null)[] = [null, 1, 10, 20, 30, 40, 60, 80];
 
-/** Colunas da tabela (fixar · técnica · nível · base · 4 graus · usar), quando o painel tem largura para isso. */
-const COLS = "@2xl:grid-cols-[2rem_minmax(0,1fr)_7.5rem_3.75rem_repeat(4,3.5rem)_6.75rem]";
+/** Colunas da tabela (fixar · técnica · nível · base · 4 graus · usar), quando o painel tem largura para isso.
+ *  A coluna "usar" alarga um pouco (--usar) quando algum botão tem dois custos empilhados (argila, visão). */
+const COLS = "@2xl:grid-cols-[2rem_minmax(0,1fr)_7.5rem_3.75rem_repeat(4,3.5rem)_var(--usar,6.75rem)]";
 
 /** Poder por trás de um grupo da mesa ("versatilidade:raiton" → raiton), para kanji e cor. */
 const groupPower = (id: string) => (id.startsWith("versatilidade:") ? id.split(":")[1] : id.split(":")[0]);
@@ -292,7 +293,7 @@ export function Ataques(props: MesaProps) {
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 [&:has([data-custo-extra])]:[--usar:7.75rem]">
         {/* Celular: legenda da linha de números */}
         <p className="flex items-center gap-1.5 px-1 text-[11px] text-faint @2xl:hidden" aria-hidden="true">
           Nível · <span className="rounded border border-chakra/60 px-1 text-chakra">base</span> · G1 · G2 · G3 · <span className="rounded bg-[#3d1f18] px-1 text-[#ff9a80]">G4 crítico</span>
@@ -640,18 +641,23 @@ function IconArea() {
 }
 
 function UseButton({ cost, vis, bombas, short, onUse, className = "" }: { cost: number; vis?: number; bombas?: number; short?: boolean; onUse: () => void; className?: string }) {
+  // Com dois custos (chakra + argila/visão), na tabela larga eles empilham para a coluna "usar" não roubar espaço do nome.
+  const extra = [cost > 0, !!bombas, !!vis].filter(Boolean).length > 1;
   return (
     <button
       type="button"
       disabled={short}
       title={short ? "Chakra insuficiente" : undefined}
+      data-custo-extra={extra ? "" : undefined}
       className={`btn min-h-10 shrink-0 gap-1.5 bg-[#1f4e73] px-3 text-white hover:bg-[#1a4262] ${className}`}
       onClick={onUse}
     >
       Usar
-      {cost > 0 && <span className="rounded-md bg-[#0e1821]/60 px-1.5 py-0.5 text-xs tabular-nums text-chk">{cost} chk</span>}
-      {!!bombas && <span className="rounded-md bg-[#3a2a18]/90 px-1.5 py-0.5 text-xs tabular-nums text-[#f6d2ae]">{bombas} argila</span>}
-      {!!vis && <span className="rounded-md bg-[#3a0f0c]/70 px-1.5 py-0.5 text-xs tabular-nums text-vit">{vis} visão</span>}
+      <span className={`flex gap-1.5 ${extra ? "@2xl:flex-col @2xl:items-stretch @2xl:gap-0.5" : ""}`}>
+        {cost > 0 && <span className="rounded-md bg-[#0e1821]/60 px-1.5 py-0.5 text-xs whitespace-nowrap tabular-nums text-chk">{cost} chk</span>}
+        {!!bombas && <span className="rounded-md bg-[#3a2a18]/90 px-1.5 py-0.5 text-xs whitespace-nowrap tabular-nums text-[#f6d2ae]">{bombas} argila</span>}
+        {!!vis && <span className="rounded-md bg-[#3a0f0c]/70 px-1.5 py-0.5 text-xs whitespace-nowrap tabular-nums text-vit">{vis} visão</span>}
+      </span>
     </button>
   );
 }
