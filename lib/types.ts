@@ -86,6 +86,8 @@ export interface Efeito {
   /** Pré-requisito do efeito (ex.: Lâmina de Raios pede Espírito 8). */
   reqText?: string;
   req?: Req[];
+  /** Efeito de hijutsu: só aparece no seletor para quem cumpre isto (ex.: aptidões restritas do Daikiga). */
+  libera?: Req[];
 }
 
 export type PowerMode = "efeitos" | "tecnicas" | "livre";

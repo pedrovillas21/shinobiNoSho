@@ -127,8 +127,8 @@ export const ITENS: ItemPreset[] = [
 
   { name: "Roupa Comum", price: 10, perComp: "armadura leve, +0 abs.", cat: ARMADURA },
   { name: "Manopla", price: 5, perComp: "armadura leve, +0 abs.", cat: ARMADURA },
-  { name: "Colete Ninja", price: 100, perComp: "armadura leve, +1 comp.", cat: ARMADURA, quick: true },
-  { name: "Colete Ninja Resistente", price: 150, perComp: "armadura leve, +10 abs., −1 comp.", cat: ARMADURA },
+  { name: "Colete Ninja", price: 100, perComp: "armadura leve, +1 comp. no limite", note: "Só Chuunin ou acima.", cat: ARMADURA, quick: true },
+  { name: "Colete Ninja Resistente", price: 150, perComp: "armadura leve, +10 abs., −1 comp. no limite", note: "Só Chuunin ou acima.", cat: ARMADURA },
   { name: "Armadura de Batalha", price: 250, perComp: "armadura pesada, +15 abs., −1 comp.", note: "Penalidade de armadura 0 (−2).", cat: ARMADURA },
   { name: "Armadura de Batalha Reforçada", price: 600, perComp: "armadura pesada, +20 abs., −2 comp.", note: "Penalidade de armadura −2 (−4).", cat: ARMADURA },
 
@@ -149,6 +149,17 @@ export const ITENS: ItemPreset[] = [
   { name: "Ração de Viagem (dia)", price: 1, perComp: "6 por comp.", cat: GERAL, quick: true },
   { name: "Saco de Dormir", price: 1, perComp: "1 por 2 comp.", cat: GERAL },
   { name: "Tarja Especial (selos)", price: 10, perComp: "6 por comp.", cat: GERAL },
+];
+
+/**
+ * Tabela de Armaduras (Livro Básico): `comp` muda o limite de compartimentos sem penalidade (bolsos a mais nos
+ * coletes leves, peso nas pesadas). `colete`: só Chuunin ou acima.
+ */
+export const ARMADURAS: { name: string; abs: number; comp: number; colete?: boolean }[] = [
+  { name: "Colete Ninja", abs: 0, comp: 1, colete: true },
+  { name: "Colete Ninja Resistente", abs: 10, comp: -1, colete: true },
+  { name: "Armadura de Batalha", abs: 15, comp: -1 },
+  { name: "Armadura de Batalha Reforçada", abs: 20, comp: -2 },
 ];
 
 /** Botões de adicionar rápido: os itens de toda missão. */

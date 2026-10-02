@@ -6,7 +6,7 @@ import { ATIRADOR, ataquesBasicos, critText, fichaCtx, letalText } from "@/lib/d
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
 import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
-import { CUSTOM_ORIGIN, HIBON_BONUS, budgetFor, mangekyou, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, hibonEntry, isRepurchase, kekkeiGratis, maestriaEm, nivelGratis, originName, peritoEm, powerLevel, rankLabel, skillTest, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
+import { CUSTOM_ORIGIN, HIBON_BONUS, budgetFor, mangekyou, combatTotal, derived, evolucaoDe, evolutionLevel, gratisFonte, hasApt, hibonEntry, isRepurchase, kekkeiGratis, maestriaEm, nivelGratis, originName, peritoEm, powerLevel, rankLabel, skillTest, socialTests, tecIndex, versatileName, versatilePicksDe, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 import { RetratoFicha } from "./Retrato";
 
@@ -40,7 +40,8 @@ function Ataques({ c }: { c: Character }) {
               </span>
               <span className="text-xs text-paper-muted">
                 {a.test} {x.combat[a.test] + (a.prec?.v ?? 0)}
-                {a.prec?.why.length ? ` (${a.prec.why.join(", ")})` : ""} · {letalText(a.letal)} · {a.tipo} · {a.alcance} · crítico {critText(a.crit)}
+                {a.prec?.why.length ? ` (${a.prec.why.join(", ")})` : ""}
+                {a.plusHalf && " · grau +0,5"} · {letalText(a.letal)} · {a.tipo} · {a.alcance} · crítico {critText(a.crit)}
                 {a.cost > 0 && ` · ${a.cost} chakra`}
               </span>
               {a.faixa ? (
@@ -280,7 +281,7 @@ export function FichaSheet({ c }: { c: Character }) {
                 <div key={g.el} className="print-avoid flex justify-between gap-2 rounded-xl bg-paper-2 p-3">
                   <span>
                     <span className="font-display font-extrabold">{PODER_BY_ID[g.el].name}</span>
-                    <span className="block text-xs text-paper-muted">Grátis pelo {PODER_BY_ID[g.from].name.split(" (")[0]}: Canhão até o nível {g.lvl}.</span>
+                    <span className="block text-xs text-paper-muted">Grátis pelo {gratisFonte(g.from)}: Canhão até o nível {g.lvl}.</span>
                   </span>
                   <span className="shrink-0 text-sm font-bold">Nível 1</span>
                 </div>
@@ -297,7 +298,7 @@ export function FichaSheet({ c }: { c: Character }) {
                     <span className="shrink-0 text-sm font-bold">
                       Nível {p.level}
                       {isRepurchase(c, i) ? " · nova compra" : ""}
-                      {nivelGratis(c, i) ? ` · nível 1 grátis (${PODER_BY_ID[nivelGratis(c, i)!].name.split(" (")[0]})` : ""}
+                      {nivelGratis(c, i) ? ` · nível 1 grátis (${gratisFonte(nivelGratis(c, i)!)})` : ""}
                     </span>
                   </div>
                   {p.id === "hibon" && hibonEntry(c) === p && (
@@ -317,7 +318,7 @@ export function FichaSheet({ c }: { c: Character }) {
                                 .map((n) => PODER_BY_ID[id].techniques?.[n])
                                 .map((t) => `Nv ${t?.level} ${t?.name}`)
                                 .join(" · ")
-                            : versatilePicks(p, k, c.optionals.pularEvolucoes)
+                            : versatilePicksDe(c, i, k)
                                 .map((x) => {
                                   const t = PODER_BY_ID[id]?.techniques?.[tecIndex(x.eff)];
                                   const name = t ? t.name : x.eff ? EFEITO_BY_ID[x.eff]?.name : "—";
@@ -340,12 +341,15 @@ export function FichaSheet({ c }: { c: Character }) {
                         {p.effects.slice(0, p.level).map((e, n) => (
                           <li key={n}>
                             {e ? EFEITO_BY_ID[e]?.name : "—"}
-                            {e && !evolutionIndex(p.effects, n, c.optionals.pularEvolucoes) ? <span className="text-paper-muted"> (nv {EFEITO_BY_ID[e]?.level})</span> : null}
-                            {e && evolutionIndex(p.effects, n, c.optionals.pularEvolucoes) > 0 ? ` → evolução Nv ${evolutionLevel(e, evolutionIndex(p.effects, n, c.optionals.pularEvolucoes)) ?? "?"}` : ""}
+                            {e && !evolucaoDe(c, i, n) ? <span className="text-paper-muted"> (nv {EFEITO_BY_ID[e]?.level})</span> : null}
+                            {e && evolucaoDe(c, i, n) > 0 ? ` → evolução Nv ${evolutionLevel(e, evolucaoDe(c, i, n)) ?? "?"}` : ""}
                             {p.techniques[n] ? ` (${p.techniques[n]})` : ""}
                           </li>
                         ))}
                       </ol>
+                      {p.id === "doton" && !isRepurchase(c, i) && hasApt(c, "terra-insaciavel") && (
+                        <p className="text-xs text-paper-muted">Terra Insaciável: Barreira Nv 6 grátis, com CC no lugar de CD (prender) ou de LM+2 (defender).</p>
+                      )}
                     </>
                   )}
                   {unlocked.length > 0 && <p className="text-sm leading-snug">{unlocked.map((t) => t.name).join(" · ")}</p>}

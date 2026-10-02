@@ -1,7 +1,7 @@
 import { ataquesBasicos, critText, letalText, type DanoCtx } from "./dano";
 import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { custoVisao, espParam, evolutionIndex, hasApt, hibonBonus, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, maestriaEm, mangekyou, mimicaCopias, powerLevel, skillTotal, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
+import { custoVisao, espParam, evolucaoDe, gratisFonte, hasApt, hibonBonus, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, maestriaEm, mangekyou, maximizarEm, mimicaCopias, powerLevel, reachEvolution, skillTotal, talentoNatural, versatileName, versatilePicksDe, versatileTechs } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -81,11 +81,15 @@ interface UtilSpec {
   show: "dureza" | "dif" | "texto" | "absorcao";
   /** Rótulo do número (ex.: "Força ou Escapar"). */
   label?: string;
-  txt: string | ((x: { meia: number }) => string);
+  txt: string | ((x: { meia: number; key: number; lvl: number; ev: number }) => string);
   difAdj?: number;
   /** Metade da dureza comum (ex.: Prisão de Água). */
   durezaHalf?: boolean;
+  /** Dobro da dureza comum (ex.: Golem de Pedra). */
+  durezaDobro?: boolean;
   costFixed?: number;
+  /** Custo igual a ½ do nível usado, arredondado para cima (ex.: Cortina de Poeira). */
+  costHalf?: boolean;
 }
 
 export const EFEITO_UTIL: Record<string, UtilSpec> = {
@@ -100,6 +104,42 @@ export const EFEITO_UTIL: Record<string, UtilSpec> = {
   imergir: { show: "texto", txt: "Funde-se ao chão ou à criação: Perito em Furtividade, parado, visão de 10m (Nv 4: move com metade do deslocamento). Ação completa." },
   tremor: { show: "dif", label: "Acrobacia", txt: "Círculo de 2m (Nv 4: tamanho comum): quem falha na defesa fica caído; pode gastar movimento para testar Acrobacia." },
   "pele-pedra": { show: "dureza", label: "Dureza de corpo", txt: "Até o fim do turno (sustentada: 1). Pode ser técnica defensiva com LM. Com Energizar Doton: soco letal, dano de arma 4." },
+  // Doton: efeitos para Kekkei Touta (Livro de Hijutsus vol. 2, Jinton).
+  "reducao-peso": {
+    show: "texto",
+    costFixed: 5,
+    txt: ({ key, lvl, ev }) =>
+      `Voa (Voo ${key}, conta como alado). Por toque, dá o voo a outros: 5 de chakra cada, até ${lvl} pessoas; só você sustenta. Ou, no lugar do voo, +10m de deslocamento a um alvo (concentração e contato; não vale na 2ª opção do hijutsu). Ação parcial, sustentada.${
+        ev >= 1 ? " Nv 8: deixa objetos leves por toque (área do tamanho comum, 8 de chakra) e defende ataques físicos e técnicas materiais (ação parcial, ½ Espírito, LM +2): reduz o dano pelo dano comum do Doton. Socos e chutes de quem está leve: −2 de dano base." : ""
+      }`,
+  },
+  "adicao-peso": {
+    show: "texto",
+    txt: ({ ev }) =>
+      `Como a Pele de Pedra Nv 6. Socos Pesados (custo da Pele de Pedra): dureza de corpo sustentada ${ev >= 1 ? 3 : 2}, Socos de Pedra com dano de arma 5${ev >= 1 ? " que não podem ser bloqueados" : ""}, e você fica com Sobrepeso. Aumentar Peso (4 de chakra): toque com teste de CC, sem dano; o alvo fica com Sobrepeso pelo resto da cena enquanto você sustentar (1× por cena no mesmo alvo). Sobrepeso: −3m de deslocamento e −1 de precisão em testes de mobilidade, Força ou Agilidade; acumula com excesso de compartimentos. Ação de movimento, sustentada.`,
+  },
+  "golem-pedra": {
+    show: "dureza",
+    label: "Dureza do golem",
+    durezaDobro: true,
+    txt: ({ key, lvl, ev }) =>
+      `Golem ${ev >= 1 ? "enorme, comandado com ações livres" : "grande"}: age como personagem (ação padrão, movimento, ataque oportuno) e lança seus Doton com as ações dele, mas não usa outras técnicas nem aptidões. Ataque corporal: dano comum −2 (${lvl + half(key) - 2} + bônus do Doton), precisão −3 com os modificadores de tamanho. Sem mente: imune a genjutsu. Restaurar: 1× por golem, ação livre, renova a dureza. Ação de movimento; controle sustentado (Nv 10: contínuo), sem controle vira objeto.`,
+  },
+  // Doton: efeitos para Daikiga (Livro de Hijutsus vol. 2, p.31).
+  "cortina-poeira": {
+    show: "dureza",
+    label: "Dureza imaginária",
+    costHalf: true,
+    txt: ({ lvl }) =>
+      `Use junto com o Tremor (pago à parte; pode usar CC no lugar de CD): ação parcial e chakra igual a ½ do nível do Tremor. Cortina de poeira circular do tamanho comum, com as regras da Névoa Nv 2: além de 1m, camuflagem parcial. Dura ${lvl} turnos.`,
+  },
+  "golem-insaciavel": {
+    show: "dureza",
+    label: "Dureza do golem",
+    durezaDobro: true,
+    txt: ({ key, lvl, ev }) =>
+      `Como o Golem de Pedra do Jinton. Golem ${ev >= 1 ? "enorme, comandado com ações livres" : "grande"}: age como personagem (ação padrão, movimento, ataque oportuno) e lança seus Doton com as ações dele, mas não usa outras técnicas nem aptidões. Ataque corporal: dano comum −2 (${lvl + half(key) - 2} + bônus do Doton), precisão −3 com os modificadores de tamanho, e drena ${Math.ceil(key / 4)} de chakra da vítima (¼ do Espírito; o chakra se dispersa). Sem mente: imune a genjutsu. Restaurar: 1× por golem, ação livre, renova a dureza. Ação de movimento, sem selos; duração contínua.`,
+  },
   venenoso: { show: "texto", txt: "Cone que injeta um veneno seu (até nível II) sem causar dano. O veneno é consumido." },
   afiar: { show: "texto", txt: "Arma real de corte ou perfuração: benefícios do Energizar, ignora 1 de dureza, +1 na margem de crítico e lâmina estendida." },
   flutuar: { show: "texto", txt: "Voa sobre o Leque Gigante (Voo = Espírito, condição Alado). Também amortece quedas.", costFixed: 5 },
@@ -205,6 +245,8 @@ function geo(eff: string, x: { A: number; T: number; lvl: number; ev: number; ke
       return { alcance: m(A), area: `círculo de ${m(T)} de diâmetro` };
     case "tremor":
       return { alcance: m(A), area: ev >= 1 ? `círculo de ${m(T)}` : "círculo de 2m" };
+    case "cortina-poeira":
+      return { alcance: "com o Tremor", area: `círculo de ${m(T)}` };
     case "barreira":
       return { alcance: m(A), area: ev >= 1 ? `redoma de até ${m(Math.ceil(T / 2))}` : `muro de até ${m(Math.ceil(T / 2))}` };
     case "algemar":
@@ -461,27 +503,36 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
 
   // Poderes com efeitos (Ninpou, elementos e parecidos). Comprar o mesmo poder 2× usa o nível mais alto.
   const byId = new Map<string, { level: number; picks: EffPick[] }>();
-  for (const pe of c.poderes) {
+  c.poderes.forEach((pe, idx) => {
     const def = PODER_BY_ID[pe.id];
-    if (!def || def.mode !== "efeitos" || pe.id === "versatilidade") continue;
+    if (!def || def.mode !== "efeitos" || pe.id === "versatilidade") return;
     const g = byId.get(pe.id) ?? { level: 0, picks: [] };
     g.level = Math.max(g.level, pe.level);
     pe.effects.slice(0, pe.level).forEach((eff, i) => {
       if (!eff || !EFEITO_BY_ID[eff]) return;
-      // Escolher o efeito de novo = evolução.
-      addPick(g.picks, { eff, tech: pe.techniques[i]?.trim() ?? "", ev: evolutionIndex(pe.effects, i, c.optionals.pularEvolucoes) });
+      // Escolher o efeito de novo = evolução, nesta tabela ou em outra do mesmo poder.
+      addPick(g.picks, { eff, tech: pe.techniques[i]?.trim() ?? "", ev: evolucaoDe(c, idx, i) });
     });
     byId.set(pe.id, g);
-  }
+  });
   // Elemento Natural: Katon (clã Uchiha): com o Katon no nível 4, o Sopro Destrutivo vem de graça e evolui sozinho no 7 e no 10.
   const natural = hasApt(c, "elemento-natural-katon");
   const katonG = byId.get("katon");
   if (natural && katonG && katonG.level >= 4) addPick(katonG.picks, { eff: "sopro", tech: "", ev: katonG.level >= 10 ? 2 : katonG.level >= 7 ? 1 : 0, tag: "Elemento Natural" });
+  // Terra Insaciável (Daikiga): Barreira Nv 6 de graça no Doton; escolher a Barreira de novo leva ao Nv 9 (se o nível deixar).
+  const dotonG = byId.get("doton");
+  if (hasApt(c, "terra-insaciavel") && dotonG) {
+    const tag = "Terra Insaciável: CC no lugar de CD para prender ou de LM+2 para defender";
+    const cur = dotonG.picks.find((x) => x.eff === "barreira");
+    const ev = Math.max(1, Math.min((cur?.ev ?? 0) + 1, reachEvolution("barreira", dotonG.level)));
+    if (cur) Object.assign(cur, { ev, tag: cur.tag ?? tag });
+    else addPick(dotonG.picks, { eff: "barreira", tech: "", ev, tag });
+  }
   // Kekkei genkai de elemento: 1 nível grátis nos elementos que a formam, com o Canhão no nível da kekkei genkai.
   for (const g of kekkeiGratis(c)) {
     const el = byId.get(g.el) ?? { level: 1, picks: [] };
     byId.set(g.el, el);
-    addPick(el.picks, { eff: "canhao", tech: "", ev: 0, tag: `grátis pelo ${PODER_BY_ID[g.from].name.split(" (")[0]}`, nivel: g.lvl });
+    addPick(el.picks, { eff: "canhao", tech: "", ev: 0, tag: `grátis pelo ${gratisFonte(g.from)}`, nivel: g.lvl });
   }
   for (const [id, g] of byId) {
     if (id === "hibon" && tn?.target === "hibon") addTalento(g, tn.eff);
@@ -494,15 +545,15 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
   // O mesmo poder versátil em mais de uma compra (4ª Versatilidade, regra da casa) junta os efeitos num grupo só.
   const vLevel = powerLevel(c, "versatilidade");
   const vGroups = new Map<string, { level: number; picks: EffPick[] }>();
-  for (const pe of c.poderes) {
-    if (pe.id !== "versatilidade") continue;
+  c.poderes.forEach((pe, idx) => {
+    if (pe.id !== "versatilidade") return;
     (pe.versatile ?? []).forEach((id, k) => {
       if (!id || PODER_BY_ID[id]?.mode !== "efeitos") return;
       const g = vGroups.get(id) ?? { level: vLevel, picks: [] as EffPick[] };
       vGroups.set(id, g);
-      for (const x of versatilePicks(pe, k, c.optionals.pularEvolucoes)) if (x.eff && EFEITO_BY_ID[x.eff]) addPick(g.picks, { eff: x.eff, tech: x.tech.trim(), ev: x.ev });
+      for (const x of versatilePicksDe(c, idx, k)) if (x.eff && EFEITO_BY_ID[x.eff]) addPick(g.picks, { eff: x.eff, tech: x.tech.trim(), ev: x.ev });
     });
-  }
+  });
   for (const [id, g] of vGroups) {
     if (tn?.target === id) addTalento(g, tn.eff);
     if (g.picks.length) groups.push(effectGroup(c, v, p, { key: `versatilidade:${id}`, powerId: id, title: versatileName(id), level: vLevel, picks: g.picks }));
@@ -578,12 +629,78 @@ export function ataques(c: Character, v: PlayView, p: PlayState): AtkGroup[] {
     groups.push({ id: "rasengan", title: "Rasengan", level: ras, keyLabel: k.label, keyVal: k.val, bonus: [], extra, rows });
   }
 
+  const jin = powerLevel(c, "jinton");
+  if (jin) groups.push(jintonGroup(c, v, p, jin));
+
   const sharingan = sharinganGroup(c, v, p);
   if (sharingan) groups.push(sharingan);
   const ms = mangekyouGroup(c, v, p);
   if (ms) groups.push(ms);
 
   return groups;
+}
+
+/**
+ * Jinton (Livro de Hijutsus vol. 2, Kekkei Touta): não segue o Ninpou nem tem lista de efeitos; é uma técnica só,
+ * o Genkai Hakuri no Jutsu. Alcance curto (5m + 1m por Espírito), esfera de 0,5m por Espírito, dano nível + Espírito,
+ * custo igual ao nível usado. Sem meta-aptidões até o Jinton 10 (Destruição Avançada), quando o Maximizar também vale.
+ */
+function jintonGroup(c: Character, v: PlayView, p: PlayState, lvl: number): AtkGroup {
+  const k = chave(c, v, "jinton");
+  const extra = p.dmgExtra?.jinton ?? 0;
+  const avancada = lvl >= 10;
+  const maxi = avancada && maximizarEm(c) === "jinton";
+  const potOn = (pot: PotMode | undefined, md: PotMode) => !!pot && (pot === md || maxi);
+  const alcance = 5 + k.val;
+  const area = k.val / 2;
+  const note = [
+    "Prepare o cubo com uma ação padrão (Técnica Acelerada não reduz); no turno seguinte, expanda como ataque à distância (ação padrão). Na área, −2 de precisão nas defesas (não vale contra Super Acelerados).",
+    avancada
+      ? "Destruição Avançada (Jinton 10): meta-aptidões na preparação; golpe de misericórdia contra um alvo impedido e morte instantânea contra um alvo indefeso."
+      : "Sem meta-aptidões (liberadas no Jinton 10).",
+  ].join(" ");
+  const row: AtkRow = {
+    key: "jinton:genkai-hakuri",
+    name: "Genkai Hakuri no Jutsu",
+    sub: "Separação do Mundo Primitivo · sustentada (1 ataque)",
+    note,
+    min: 1,
+    max: lvl,
+    meta: avancada,
+    free: false,
+    calc: (n, opt) => {
+      const pot = avancada ? opt.pot : undefined;
+      const parts = [`Nv ${n}`, `${k.label} ${k.val}`];
+      let base = n + k.val;
+      if (extra) {
+        base += extra;
+        parts.push(`extra ${extra}`);
+      }
+      if (v.dano) {
+        base += v.dano;
+        parts.push(`estado ${v.dano}`);
+      }
+      if (potOn(pot, "dano")) {
+        base += 1;
+        parts.push(maxi ? "Maximizar 1" : "Potencializar 1");
+      }
+      const A = alcance * (potOn(pot, "alcance") ? 2 : 1);
+      const T = area * (potOn(pot, "area") ? 2 : 1);
+      return { base: Math.max(0, base), cost: n, dif: 0, noDif: true, parts, geo: { alcance: m(A), area: `esfera de ${String(T).replace(".", ",")}m de diâmetro` } };
+    },
+  };
+  return {
+    id: "jinton",
+    title: "Jinton (Poeira)",
+    level: lvl,
+    keyLabel: k.label,
+    keyVal: k.val,
+    alcance,
+    notice: maxi ? "Maximizar: o Potencializar aplica os três melhoramentos de uma vez." : undefined,
+    bonus: [],
+    extra,
+    rows: [row],
+  };
 }
 
 /** Elemento Natural: Katon sem o poder no nível 4: Sopro Destrutivo 4, dano base Espírito +2 e custo ½ Espírito (Livro Básico, pág. 180). */
@@ -793,6 +910,9 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   if (id === "suiton" && hasApt(c, "elemento-natural-suiton")) bonus.push({ label: "Elemento Natural", v: 2 });
   if (id === "doton" && hasApt(c, "elemento-natural-terra")) bonus.push({ label: "Elemento Natural", v: 1 });
   const capacidade = hasApt(c, "capacidade") && NINPOU_E_ELEMENTOS.includes(id);
+  // Maximizar no elemento: o Potencializar aplica os três melhoramentos ao mesmo tempo.
+  const maxi = maximizarEm(c) === id;
+  const potOn = (pot: PotMode | undefined, m: PotMode) => !!pot && (pot === m || maxi);
   const extra = p.dmgExtra?.[key] ?? 0;
   const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
   const maestria = maestriaEm(c, id, key.startsWith("versatilidade:")) ? 1 : 0;
@@ -830,8 +950,8 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
           comArgila(
             {
               ...dmgCalc(lvl, opt),
-              // Potencializar: dobra o alcance ou a área, à escolha.
-              geo: geo(eff, { A: at.alcance * (meta && opt.pot === "alcance" ? 2 : 1), T: at.tamanho * (meta && opt.pot === "area" ? 2 : 1), lvl, ev, key: k.val }),
+              // Potencializar: dobra o alcance ou a área, à escolha (com Maximizar, os dois).
+              geo: geo(eff, { A: at.alcance * (meta && potOn(opt.pot, "alcance") ? 2 : 1), T: at.tamanho * (meta && potOn(opt.pot, "area") ? 2 : 1), lvl, ev, key: k.val }),
             },
             lvl,
           ),
@@ -908,9 +1028,9 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
           base += estado;
           parts.push(`estado ${estado}`);
         }
-        if (opt.pot === "dano" && meta) {
+        if (potOn(opt.pot, "dano") && meta) {
           base += 1;
-          parts.push("Potencializar 1");
+          parts.push(maxi ? "Maximizar 1" : "Potencializar 1");
         }
         if (opt.free && spec.free && lvl >= 2) return { base: Math.max(0, half(base)), cost: 0, dif, parts: [`(${partsText(parts)}) ÷ 2`] };
         return { base: Math.max(0, base), cost, dif, parts };
@@ -927,6 +1047,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
     keyVal: k.val,
     alcance: at.alcance,
     tamanho: at.tamanho,
+    notice: maxi ? "Maximizar: o Potencializar neste elemento aplica os três melhoramentos de uma vez (+1 de dano base, alcance ×2 e área ×2)." : undefined,
     bonus,
     prec: maestria ? "Maestria +1" : undefined,
     recurso: argila ? "bombas de argila = nível usado" : undefined,
@@ -940,7 +1061,6 @@ function utilRow(c: Character, groupKey: string, powerId: string, eff: string, t
   const spec: UtilSpec = EFEITO_UTIL[eff] ?? { show: "texto", txt: e.desc };
   const effName = e.name.replace(/ \(.*\)$/, "");
   const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
-  const txt = typeof spec.txt === "function" ? spec.txt({ meia: half(k.val) }) : spec.txt;
   return {
     key: `${groupKey}:${eff}`,
     name: tech || effName,
@@ -952,9 +1072,10 @@ function utilRow(c: Character, groupKey: string, powerId: string, eff: string, t
     free: false,
     util: true,
     calc: (lvl) => {
+      const txt = typeof spec.txt === "function" ? spec.txt({ meia: half(k.val), key: k.val, lvl, ev }) : spec.txt;
       const comum = lvl + half(k.val);
       const dif = 9 + comum + v.dif + difPoder(c, powerId);
-      const cost = spec.costFixed ?? lvl;
+      const cost = spec.costFixed ?? (spec.costHalf ? Math.ceil(lvl / 2) : lvl);
       const { alcance: A, tamanho: T } = alcanceTamanho(powerId, k.val);
       const out: Calc = { base: 0, cost, dif, parts: [], noDif: true, info: { txt }, geo: geo(eff, { A, T, lvl, ev, key: k.val }) };
       if (eff === "montaria") {
@@ -970,7 +1091,7 @@ function utilRow(c: Character, groupKey: string, powerId: string, eff: string, t
       } else if (spec.show === "dureza") {
         // Barreira Nv 9 (evolução): dureza +2.
         const full = comum + durezaPoder(c, powerId) + (eff === "barreira" && ev >= 2 ? 2 : 0);
-        out.info = { v: spec.durezaHalf ? half(full) : full, label: spec.label ?? "Dureza", txt };
+        out.info = { v: spec.durezaHalf ? half(full) : spec.durezaDobro ? 2 * full : full, label: spec.label ?? "Dureza", txt };
       } else if (spec.show === "dif") {
         out.info = { v: dif + (spec.difAdj ?? 0), label: `Dif · ${spec.label ?? "resistência"}`, txt };
       }
@@ -979,12 +1100,12 @@ function utilRow(c: Character, groupKey: string, powerId: string, eff: string, t
   };
 }
 
-/** Poderes de técnicas prontas (exceto Rasengan, que tem cálculo) e poderes livres ou personalizados. */
+/** Poderes de técnicas prontas (exceto Rasengan e Jinton, que têm cálculo) e poderes livres ou personalizados. */
 export function outrosPoderes(c: Character): OutroPoder[] {
   const out: OutroPoder[] = [];
   c.poderes.forEach((pe, i) => {
     const def = PODER_BY_ID[pe.id];
-    if (def?.mode === "efeitos" || pe.id === "rasengan") return;
+    if (def?.mode === "efeitos" || pe.id === "rasengan" || pe.id === "jinton") return;
     const items = def?.mode === "tecnicas" ? (def.techniques ?? []).filter((t) => t.level <= pe.level).map((t) => `Nv ${t.level} · ${t.name}`) : pe.techniques.map((t) => t.trim()).filter(Boolean);
     out.push({ id: `${pe.id}:${i}`, title: def?.name ?? pe.customName ?? "Poder", level: pe.level, items, note: pe.note?.trim() ?? "" });
   });
@@ -1058,6 +1179,7 @@ export function grupoBasico(c: Character, v: PlayView, p: PlayState, o: { energi
     max: a.lvl?.max ?? 1,
     meta: false,
     free: false,
+    plusHalf: a.plusHalf,
     tags: [letalText(a.letal), `crítico ${critText(a.crit)}`],
     teste: { k: a.test, v: v.combat[a.test] + (a.prec?.v ?? 0), why: a.prec?.why ?? [] },
     faixa: a.faixa,

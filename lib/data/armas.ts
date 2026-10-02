@@ -30,6 +30,8 @@ export interface Arma {
   req?: { attr: "FOR" | "DES" | "FOR/DES"; v: number } | null;
   /** A aptidão Acuidade se aplica (toda arma leve já se aplica). */
   acuidade?: boolean;
+  /** Arma de fogo: dificuldade de manuseio (Recarga Rápida de Pólvora e conserto). */
+  manuseio?: number;
   /** Conta como espada (Sabre Samurai, Lâmina da Lua, Iaido). */
   espada?: boolean;
   price: number;
@@ -110,11 +112,11 @@ export const ARMAS: Arma[] = [
   { id: "besta-pesada", name: "Besta Pesada", cat: "disparo", grupo: M, dano: 5, crit: 15, tipo: "perfuração", alcance: "35m", price: 50, perComp: "1 por comp.", note: "Recarregar: ação padrão.", source: "Guia Avançado" },
   { id: "disparador-oculto", name: "Disparador Oculto", cat: "disparo", grupo: M, dano: 4, crit: 15, tipo: "perfuração", alcance: "15m", req: null, price: 15, perComp: "2 por comp.", note: "Armar 3 senbons: ação parcial (livre com Saque Rápido).", source: "Guia Avançado" },
   // Armas de fogo (Guia Avançado; pedem Usar Pólvora)
-  { id: "pistola-pequena", name: "Pistola de Pederneira Pequena", cat: "fogo", grupo: M, dano: 1, crit: 15, tipo: "perfuração", alcance: "20m", req: null, price: 100, perComp: "2 por comp.", note: "Manuseio 10.", source: "Guia Avançado" },
-  { id: "pistola", name: "Pistola de Pederneira", cat: "fogo", grupo: M, dano: 2, crit: 15, tipo: "perfuração", alcance: "25m", req: { attr: "DES", v: 8 }, price: 200, perComp: "2 por comp.", note: "Manuseio 14.", source: "Guia Avançado" },
-  { id: "bacamarte", name: "Bacamarte", cat: "fogo", grupo: M, dano: 4, crit: 15, tipo: "perfuração", alcance: "20m", req: { attr: "DES", v: 10 }, price: 250, perComp: "1 por comp.", note: "Até 10m: +1 de dano de arma (+2 com Destreza 12). Manuseio 18.", source: "Guia Avançado" },
-  { id: "arcabuz", name: "Arcabuz", cat: "fogo", grupo: M, dano: 4, crit: 15, tipo: "perfuração", alcance: "10m + 2× Destreza", req: { attr: "DES", v: 10 }, price: 250, perComp: "1 por comp.", note: "Manuseio 16.", source: "Guia Avançado" },
-  { id: "mosquete", name: "Mosquete", cat: "fogo", grupo: M, dano: 5, crit: 15, tipo: "perfuração", alcance: "15m + 3× Destreza", req: { attr: "DES", v: 12 }, price: 500, perComp: "1 por comp.", note: "Manuseio 22.", source: "Guia Avançado" },
+  { id: "pistola-pequena", name: "Pistola de Pederneira Pequena", cat: "fogo", grupo: M, dano: 1, crit: 15, tipo: "perfuração", alcance: "20m", req: null, price: 100, perComp: "2 por comp.", manuseio: 10, source: "Guia Avançado" },
+  { id: "pistola", name: "Pistola de Pederneira", cat: "fogo", grupo: M, dano: 2, crit: 15, tipo: "perfuração", alcance: "25m", req: { attr: "DES", v: 8 }, price: 200, perComp: "2 por comp.", manuseio: 14, source: "Guia Avançado" },
+  { id: "bacamarte", name: "Bacamarte", cat: "fogo", grupo: M, dano: 4, crit: 15, tipo: "perfuração", alcance: "20m", req: { attr: "DES", v: 10 }, price: 250, perComp: "1 por comp.", manuseio: 18, note: "Duas mãos.", source: "Guia Avançado" },
+  { id: "arcabuz", name: "Arcabuz", cat: "fogo", grupo: M, dano: 4, crit: 15, tipo: "perfuração", alcance: "10m + 2× Destreza", req: { attr: "DES", v: 10 }, price: 250, perComp: "1 por comp.", manuseio: 16, note: "Duas mãos.", source: "Guia Avançado" },
+  { id: "mosquete", name: "Mosquete", cat: "fogo", grupo: M, dano: 5, crit: 15, tipo: "perfuração", alcance: "15m + 3× Destreza", req: { attr: "DES", v: 12 }, price: 500, perComp: "1 por comp.", manuseio: 22, note: "Duas mãos.", source: "Guia Avançado" },
 
   // Especiais
   { id: "espada-chakra-branco", name: "Espada de Chakra Branco", cat: "leve", grupo: "especial", dano: 2, crit: 15, tipo: "corte", espada: true, req: { attr: "DES", v: 8 }, price: 0, perComp: "1 por comp.", note: "Clã Hatake. Energizável.", source: "Básico" },

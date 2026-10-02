@@ -30,6 +30,59 @@ export const EFEITOS: Efeito[] = [
   { id: "imergir", name: "Imergir (Doton)", level: 2, source: "Básico", desc: "Mergulha no solo e se move por dentro dele.", evolves: [4] },
   { id: "tremor", name: "Tremor (Doton)", level: 2, source: "Básico", desc: "Faz o chão tremer, derrubando inimigos.", evolves: [4] },
   { id: "pele-pedra", name: "Pele de Pedra (Doton)", level: 6, source: "Básico", desc: "Endurece o corpo como rocha.", evolves: [9] },
+  // Doton: efeitos para Kekkei Touta (Livro de Hijutsus vol. 2, Jinton): liberados pelas aptidões restritas do Kekkei Touta.
+  {
+    id: "reducao-peso",
+    name: "Redução de Peso (Doton · Kekkei Touta)",
+    level: 5,
+    source: "Hijutsus 2",
+    desc: "Fica mais leve que o ar: voa (Voo = Espírito) e concede o voo por toque, 5 de chakra por alvo. Na 2ª opção do hijutsu não evolui nem aumenta velocidade.",
+    evolves: [8],
+    reqText: "Aptidão restrita do Kekkei Touta: Jinton",
+    req: [{ t: "any", of: [{ t: "apt", id: "elemento-natural-terra" }, { t: "apt", id: "fissao" }, { t: "apt", id: "apagar-presenca" }] }],
+  },
+  {
+    id: "adicao-peso",
+    name: "Adição de Peso (Doton · Kekkei Touta)",
+    level: 6,
+    source: "Hijutsus 2",
+    desc: "Pele de Pedra mais pesada: Socos Pesados (+1 de dureza de corpo, Socos de Pedra com dano de arma 5, você fica com Sobrepeso) e Aumentar Peso (toque deixa o alvo com Sobrepeso).",
+    evolves: [9],
+    reqText: "Elemento Natural: Terra",
+    req: [{ t: "apt", id: "elemento-natural-terra" }],
+  },
+  {
+    id: "golem-pedra",
+    name: "Golem de Pedra (Doton · Kekkei Touta)",
+    level: 7,
+    source: "Hijutsus 2",
+    desc: "Expele lama e pedra e forma um golem grande, com o dobro da dureza comum, que você controla e usa para lançar Doton.",
+    evolves: [10],
+    reqText: "Aptidão restrita do Kekkei Touta: Jinton",
+    req: [{ t: "any", of: [{ t: "apt", id: "elemento-natural-terra" }, { t: "apt", id: "fissao" }, { t: "apt", id: "apagar-presenca" }] }],
+  },
+  // Doton: efeitos para Daikiga (Livro de Hijutsus vol. 2, p.31): liberados por Ingestão de Chakra e Terra Insaciável.
+  {
+    id: "cortina-poeira",
+    name: "Cortina de Poeira (Doton · Daikiga)",
+    level: 4,
+    source: "Hijutsus 2",
+    desc: "Junto com o Tremor (que pode usar CC no lugar de CD): bate no solo e levanta uma cortina de poeira circular do tamanho comum, como a Névoa Nv 2. Ação parcial, chakra igual a ½ do nível do Tremor; dura turnos iguais ao nível usado.",
+    reqText: "Ingestão de Chakra; Terra Insaciável; Lutar às Cegas ou Sensor; Tremor",
+    req: [{ t: "apt", id: "ingestao-chakra" }, { t: "apt", id: "terra-insaciavel" }, { t: "any", of: [{ t: "apt", id: "lutar-cegas" }, { t: "apt", id: "sensor" }] }, { t: "effect", id: "tremor" }],
+    libera: [{ t: "apt", id: "ingestao-chakra" }, { t: "apt", id: "terra-insaciavel" }],
+  },
+  {
+    id: "golem-insaciavel",
+    name: "Golem de Terra Insaciável (Doton · Daikiga)",
+    level: 7,
+    source: "Hijutsus 2",
+    desc: "Expele lama e pedra e forma um golem como o Golem de Pedra do Jinton, cujo ataque corporal drena ¼ do seu Espírito em chakra da vítima (o chakra se dispersa). Nv 10: golem enorme, comandado com ações livres, duração contínua.",
+    evolves: [10],
+    reqText: "Ingestão de Chakra; Terra Insaciável",
+    req: [{ t: "apt", id: "ingestao-chakra" }, { t: "apt", id: "terra-insaciavel" }],
+    libera: [{ t: "apt", id: "ingestao-chakra" }, { t: "apt", id: "terra-insaciavel" }],
+  },
   { id: "inflamavel", name: "Inflamável (Katon)", level: 5, source: "Guia Avançado", desc: "Espalha material inflamável na área.", evolves: [8] },
   { id: "meteoros", name: "Meteoros (Katon)", level: 9, source: "Básico", desc: "Chuva de projéteis flamejantes." },
   { id: "venenoso", name: "Venenoso (Fuuton)", level: 5, source: "Básico", desc: "Ventos carregam veneno." },
@@ -69,8 +122,11 @@ export const EFEITOS: Efeito[] = [
 
 export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.map((e) => [e.id, e]));
 
+/** Efeitos de Doton liberados só pelas aptidões restritas do Kekkei Touta: Jinton (Livro de Hijutsus vol. 2). */
+export const EFEITOS_KEKKEI_TOUTA = ["reducao-peso", "adicao-peso", "golem-pedra"];
+
 /** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
-export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
+export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "reducao-peso", "adicao-peso", "golem-pedra", "cortina-poeira", "golem-insaciavel", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
 
 /** Símbolo de cada poder elemental (e dos que costumam virar versáteis), usado nos seletores. */
 export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木", "kibaku-nendo": "粘" };
@@ -91,7 +147,7 @@ export const PODERES: Poder[] = [
   {
     id: "doton", name: "Doton (Terra)", mode: "efeitos", element: true, source: "Básico",
     desc: "Manipula terra e rocha. Todos os efeitos de Ninpou + exclusivos.",
-    effects: [...NINPOU_BASE, "deslocamento-vacuo", "imergir", "tremor", "pele-pedra"],
+    effects: [...NINPOU_BASE, "deslocamento-vacuo", "imergir", "tremor", "pele-pedra", "reducao-peso", "adicao-peso", "golem-pedra", "cortina-poeira", "golem-insaciavel"],
   },
   {
     id: "fuuton", name: "Fuuton (Vento)", mode: "efeitos", element: true, source: "Básico",
@@ -183,7 +239,7 @@ export const PODERES: Poder[] = [
   { id: "hebi-ninpou", name: "Hebi Ninpou (Serpentes)", mode: "efeitos", restricted: true, source: "Hijutsus 2", reqText: "Possessão da Serpente Branca; Ocultismo 2", req: [{ t: "apt", id: "possessao-serpente" }, { t: "skill", k: "ocultismo", min: 2 }], desc: "Arte ninja das serpentes (Hebinomichi). Alcance curto; +1 na dificuldade de resistência.", effects: ["canhao", "orbe", "raio", "restringente", "imergir", "barreira", "flechas", "lanca", "ricochete", "coluna", "nuvem", "sopro", "correnteza", "missil", "onda-explosiva", "venenoso", "algemar", "infligir-medo", "bracos-serpente", "dano-continuo", "projetar", "purificar", "repelir", "cegante"] },
   { id: "ototon", name: "Ototon (Som)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Elemento Som (Jingokuon).", effects: [...NINPOU_BASE, "dano-continuo"] },
   { id: "jiongu", name: "Jiongu", mode: "livre", restricted: true, source: "Hijutsus 2", reqText: "Corpo de Fios; Ocultismo 10; Medicina 10", req: [{ t: "apt", id: "corpo-fios" }, { t: "skill", k: "ocultismo", min: 10 }, { t: "skill", k: "medicina", min: 10 }], desc: "Rancor da Terra do Medo: corpo de fios e corações extras." },
-  { id: "jinton", name: "Jinton (Poeira)", mode: "livre", restricted: true, source: "Hijutsus 2", reqText: "Espírito 12; Doton, Fuuton ou Katon 5", req: [A("ESP", 12), { t: "any", of: [{ t: "power", id: "doton", min: 5 }, { t: "power", id: "fuuton", min: 5 }, { t: "power", id: "katon", min: 5 }] }], desc: "Kekkei Touta: desintegração." },
+  { id: "jinton", name: "Jinton (Poeira)", mode: "livre", restricted: true, source: "Hijutsus 2", reqText: "Espírito 12; Doton, Fuuton ou Katon 5", req: [A("ESP", 12), { t: "any", of: [{ t: "power", id: "doton", min: 5 }, { t: "power", id: "fuuton", min: 5 }, { t: "power", id: "katon", min: 5 }] }], desc: "Kekkei Touta: Genkai Hakuri no Jutsu (não segue o Ninpou). Dá 1 nível de Doton, Fuuton e Katon; as aptidões restritas liberam efeitos novos de Doton." },
   { id: "kibaku-nendo", name: "Kibaku Nendo (Argila)", mode: "efeitos", restricted: true, source: "Hijutsus 2", reqText: "Arte 4", req: [{ t: "skill", k: "arte", min: 4 }], desc: "Argila explosiva moldada. Parâmetros pela Arte, +2 de dano e bombas de argila iguais ao nível usado.", effects: ["canhao", "orbe", "imergir", "flechas", "coluna", "nuvem", "missil", "onda-explosiva", "inflamavel", "algemar", "meteoros", "montaria", "mina-explosiva"] },
   { id: "futton", name: "Futton (Vapor)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Mei Kekkei Genkai: vapor.", effects: [...NINPOU_BASE, "dano-continuo"] },
   { id: "youton", name: "Youton (Lava)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Mei Kekkei Genkai: lava.", effects: [...NINPOU_BASE, "dano-continuo", "desastre"] },

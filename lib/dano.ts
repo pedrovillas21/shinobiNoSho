@@ -1,5 +1,5 @@
 import { ARMAS, ARMA_BY_ID, armaDoItem, armaReq, norm, type Arma } from "./data/armas";
-import { combatTotal, espParam, hasApt, powerLevel } from "./rules";
+import { combatTotal, espParam, hasApt, powerLevel, skillTotal } from "./rules";
 import type { AttrKey, Character, CombatKey } from "./types";
 
 /*
@@ -33,6 +33,8 @@ export interface AtaqueBasico {
   tag?: string;
   test: "CC" | "CD";
   corpo: boolean;
+  /** Grau de dano +0,5 (Mira Vital). */
+  plusHalf?: boolean;
   base: number;
   parts: string[];
   /** true, false ou "escolha" (Punho de Ferro). */
@@ -47,7 +49,7 @@ export interface AtaqueBasico {
   cost: number;
   /** Alcance sem penalidade de uma arma à distância, em metros (até o dobro −1, até o quádruplo −3). */
   faixa?: number;
-  /** Ajuste do teste de acerto (Especialista +1, sem Usar Arma −3) e de onde ele vem. */
+  /** Ajuste do teste de acerto (Especialista +1, Mira Apurada +1, sem Usar Arma −3) e de onde ele vem. */
   prec?: { v: number; why: string[] };
   /** Nível variável (Bisturi de Chakra): o dano é recalculado pelo nível usado. */
   lvl?: { min: number; max: number; calc: (l: number) => { base: number; parts: string[] } };
@@ -166,6 +168,9 @@ interface Golpe {
   warn?: (string | null)[];
   cost?: number;
   bonus?: { label: string; v: number }[];
+  /** Bônus de precisão além do Especialista (ex.: Mira Apurada). */
+  prec?: { label: string; v: number }[];
+  plusHalf?: boolean;
   /** Não recebe Crítico Aprimorado (Kage Fushä). */
   semCritAprimorado?: boolean;
   /** Arma marcial ou especial sem Usar Arma: −3 no teste de acerto. */
@@ -174,11 +179,12 @@ interface Golpe {
 
 /**
  * Especialista (Livro Básico, aptidões de combate): +1 de precisão com o tipo de arma ou desarmado escolhido.
+ * Armas de fogo aceitam Especialista de fogo ou de disparo, sem somar os dois (Guia Avançado).
  * O Demônio do Vento (clã Fuuma) dá Especialista em armas de arremesso.
  */
 function especialista(c: Character, g: Pick<Golpe, "cats" | "names">): boolean {
   if (hasApt(c, "demonio-vento") && g.cats.includes("arremesso")) return true;
-  return aptDetails(c, "especialista").some((d) => detalheCasa(d, g.cats, g.names));
+  return !c.optionals.aptidoesBanidas && aptDetails(c, "especialista").some((d) => detalheCasa(d, g.cats, g.names));
 }
 
 /** Dano Extra (Livro Básico, aptidões de combate): +1, e +1 a cada 2 níveis de CC ou CD acima de 18. Regra opcional do Guia: automático no 18. */
@@ -216,16 +222,13 @@ function golpe(c: Character, x: DanoCtx, g: Golpe): AtaqueBasico {
     base += x.dano;
     parts.push(`estado ${x.dano}`);
   }
-  const critAp = !g.semCritAprimorado && aptDetails(c, "critico-aprimorado").some((d) => detalheCasa(d, g.cats, g.names));
-  const prec = { v: 0, why: [] as string[] };
-  if (especialista(c, g)) {
-    prec.v += 1;
-    prec.why.push("Especialista +1");
-  }
-  if (g.semProficiencia) {
-    prec.v -= 3;
-    prec.why.push("sem Usar Arma −3");
-  }
+  const esp = especialista(c, g);
+  // Crítico Aprimorado* (Guia Avançado): vale em toda arma (ou desarmado) com Especialista; sem Especialista pela regra
+  // opcional, em tudo, com a habilidade de combate usada em 13 ou mais.
+  const critAp = !g.semCritAprimorado && hasApt(c, "critico-aprimorado") && (esp || (c.optionals.aptidoesBanidas && x.combat[g.test] >= 13));
+  // Ajuste do teste de acerto: Especialista +1, Mira Apurada +1, sem Usar Arma −3.
+  const ajustes = [...(esp ? [{ label: "Especialista", v: 1 }] : []), ...(g.prec ?? []), ...(g.semProficiencia ? [{ label: "sem Usar Arma", v: -3 }] : [])].filter((b) => b.v);
+  const prec = { v: ajustes.reduce((t, b) => t + b.v, 0), why: ajustes.map((b) => `${b.label} ${b.v > 0 ? "+" : "−"}${Math.abs(b.v)}`) };
   return {
     prec,
     key: g.key,
@@ -233,6 +236,7 @@ function golpe(c: Character, x: DanoCtx, g: Golpe): AtaqueBasico {
     tag: g.tag,
     test: g.test,
     corpo: g.corpo,
+    plusHalf: g.plusHalf,
     base: Math.max(0, base),
     parts,
     letal: g.letal,
@@ -382,6 +386,28 @@ export function ataquesBasicos(c: Character, x: DanoCtx): AtaqueBasico[] {
         tipo: "esmagamento",
         alcance: "corpo-a-corpo",
         note: "Pele de Pedra com Energizar Doton (ação livre): socos letais com 4 de dano de arma.",
+      }),
+    );
+
+  // Adição de Peso (Doton, Kekkei Touta: Jinton): Socos Pesados sobem o dano de arma do Soco de Pedra para 5.
+  if (hasEffect(c, "adicao-peso") && hasEffect(c, "energizar"))
+    out.push(
+      golpe(c, x, {
+        key: "socos-pesados",
+        name: "Soco de Pedra · Socos Pesados",
+        tag: "Doton · Kekkei Touta",
+        test: "CC",
+        corpo: true,
+        cands: [forC, espC("Energizar")],
+        arma: 5,
+        armaLabel: "Adição de Peso",
+        cats: ["desarmado"],
+        names: ["Soco de Pedra"],
+        letal: true,
+        crit: 15,
+        tipo: "esmagamento",
+        alcance: "corpo-a-corpo",
+        note: "Adição de Peso sustentada com Energizar Doton: dureza de corpo 2 (Nv 9: 3) e você fica com Sobrepeso (−3m de deslocamento, −1 de precisão em mobilidade, Força ou Agilidade). Nv 9: não dá para Bloquear.",
       }),
     );
 
@@ -616,6 +642,7 @@ function linhasArmaSemFaixa(c: Character, x: DanoCtx, a: Arma, k: Ctx2): AtaqueB
     );
     if (a.arremesso) {
       const t = a.arremesso;
+      const alc = alcanceDist(c, x, t.alcance);
       out.push(
         golpe(c, x, {
           ...base,
@@ -626,7 +653,7 @@ function linhasArmaSemFaixa(c: Character, x: DanoCtx, a: Arma, k: Ctx2): AtaqueB
           cands: [t.cc ? k.forC : k.desC],
           arma: t.dano,
           cats: [...cats, "arremesso"],
-          alcance: t.alcance,
+          alcance: alc,
           note: t.cc ? "Arremesso com CC e Força." : a.par ? "Uma por mão; com as duas ao mesmo tempo, some o dano de arma." : "",
           warn,
         }),
@@ -637,13 +664,14 @@ function linhasArmaSemFaixa(c: Character, x: DanoCtx, a: Arma, k: Ctx2): AtaqueB
 
   if (a.cat === "arremesso") {
     const atir = k.atirador === "arremesso" && a.grupo === "simples" ? [{ label: "Atirador", v: 3 }] : [];
+    const alc = alcanceDist(c, x, a.alcance);
     if (a.qtd) {
       out.push(
-        golpe(c, x, { ...base, key: `arma:${a.id}`, name: `${a.name} ×${a.qtd}`, test: "CD", corpo: false, cands: [k.desC], arma: a.dano, bonus: atir, alcance: a.alcance ?? "", note: "Uma mão. O dano é pelo total lançado, não por unidade.", warn }),
-        golpe(c, x, { ...base, key: `arma:${a.id}:2`, name: `${a.name} ×${2 * a.qtd}`, test: "CD", corpo: false, cands: [k.desC], arma: 2 * a.dano, bonus: atir, alcance: a.alcance ?? "", note: "As duas mãos ao mesmo tempo: dano de arma dobrado, um só teste.", warn }),
+        golpe(c, x, { ...base, key: `arma:${a.id}`, name: `${a.name} ×${a.qtd}`, test: "CD", corpo: false, cands: [k.desC], arma: a.dano, bonus: atir, alcance: alc, note: "Uma mão. O dano é pelo total lançado, não por unidade.", warn }),
+        golpe(c, x, { ...base, key: `arma:${a.id}:2`, name: `${a.name} ×${2 * a.qtd}`, test: "CD", corpo: false, cands: [k.desC], arma: 2 * a.dano, bonus: atir, alcance: alc, note: "As duas mãos ao mesmo tempo: dano de arma dobrado, um só teste.", warn }),
       );
     } else {
-      const r = golpe(c, x, { ...base, key: `arma:${a.id}`, name: a.name, test: "CD", corpo: false, cands: [k.desC], arma: a.dano, bonus: atir, alcance: a.alcance ?? "", note: a.note, warn });
+      const r = golpe(c, x, { ...base, key: `arma:${a.id}`, name: a.name, test: "CD", corpo: false, cands: [k.desC], arma: a.dano, bonus: atir, alcance: alc, note: a.note, warn });
       // Demônio do Vento (clã Fuuma): dano base igual à Destreza, sem o cálculo comum nem dano de arma.
       if (a.id.startsWith("fuuma") && hasApt(c, "demonio-vento")) {
         const f = fixo(x, { ...r, v: A.DES, parts: [`Des ${A.DES} (Demônio do Vento)`] });
@@ -670,8 +698,114 @@ function linhasArmaSemFaixa(c: Character, x: DanoCtx, a: Arma, k: Ctx2): AtaqueB
   }
 
   // Disparo e armas de fogo
-  const atir = k.atirador === "arcos" && a.id.startsWith("arco") ? [{ label: "Atirador", v: 1 }] : [];
-  out.push(golpe(c, x, { ...base, key: `arma:${a.id}`, name: a.name, test: "CD", corpo: false, cands: [k.desC], arma: a.dano, bonus: atir, alcance: a.alcance ?? "", note: a.note, warn }));
+  const fogo = a.cat === "fogo";
+  const bonus = k.atirador === "arcos" && a.id.startsWith("arco") ? [{ label: "Atirador", v: 1 }] : [];
+  // Armamento Pesado (Saika Ikki): +1 de dano de arma nas armas de fogo modificadas.
+  if (fogo && hasApt(c, "armamento-pesado")) bonus.push({ label: "Armamento Pesado", v: 1 });
+  const alc = alcanceDist(c, x, a.alcance, fogo);
+  const note = [a.note, ...notasDisparo(c, a)].filter(Boolean).join(" ");
+  const disparo = (key: string, name: string, arma: number, armaLabel: string | undefined, alcance: string, n: string) =>
+    golpe(c, x, { ...base, key, name, test: "CD", corpo: false, cands: [k.desC], arma, armaLabel, bonus, alcance, note: n, warn });
+  const linhas: AtaqueBasico[] = [disparo(`arma:${a.id}`, a.name, a.dano, undefined, alc, note)];
+  // Bacamarte: alvo a até 10m, +1 de dano de arma (+2 com Destreza 12). Tiro Longo não aumenta esses 10m.
+  if (a.id === "bacamarte") {
+    const perto = x.attrs.DES >= 12 ? 2 : 1;
+    linhas.unshift(disparo(`arma:${a.id}:perto`, `${a.name} (alvo a até 10m)`, a.dano + perto, "arma de perto", "10m", `+${perto} de dano de arma com o alvo a até 10m${perto === 1 ? " (+2 com Destreza 12)" : ""}. Tiro Longo não aumenta esses 10m.`));
+  }
+  out.push(...linhas);
+  // Mira Apurada: ação de movimento mirando, +1 de precisão na rodada; Mira Vital soma +0,5 grau de dano.
+  if (hasApt(c, "mira-apurada")) {
+    const vital = hasApt(c, "mira-vital");
+    for (const l of linhas) {
+      const r = golpe(c, x, {
+        ...base,
+        key: `${l.key}:mira`,
+        name: `${l.name} · mirado`,
+        test: "CD",
+        corpo: false,
+        cands: [k.desC],
+        arma: l.key.endsWith(":perto") ? a.dano + (x.attrs.DES >= 12 ? 2 : 1) : a.dano,
+        armaLabel: l.key.endsWith(":perto") ? "arma de perto" : undefined,
+        bonus,
+        prec: [{ label: "Mira Apurada", v: 1 }],
+        plusHalf: vital,
+        alcance: l.alcance,
+        note: `Mira Apurada: gaste a ação de movimento mirando o alvo; +1 de precisão contra ele nesta rodada.${vital ? " Mira Vital: +0,5 grau de dano (não vale com Desarme à Distância nem Flechada no Joelho)." : ""}`,
+        warn,
+      });
+      out.push(r);
+    }
+  }
+  // Gun Fu (Saika Ikki): Golpear corpo-a-corpo com a arma de fogo usando CD; dano da arma com −2 de dano de arma.
+  if (fogo && hasApt(c, "gun-fu"))
+    out.push(
+      golpe(c, x, {
+        ...base,
+        key: `arma:${a.id}:gunfu`,
+        name: `${a.name} · Golpear`,
+        tag: "Gun Fu",
+        test: "CD",
+        corpo: true,
+        cands: [k.desC],
+        arma: a.dano,
+        bonus: [...bonus, { label: "Gun Fu", v: -2 }],
+        alcance: "corpo-a-corpo",
+        note: "Golpear com a precisão de CD; só aptidões de combate e de manobra que beneficiem armas. Bloqueio com CD sem a arma ficar danificada. Ataque de CD contra você no corpo-a-corpo: Bloqueio com CD desvia a mira. Disparar com inimigo adjacente: Prestidigitação contra CC +3 dele; se falhar, erra.",
+        warn,
+      }),
+    );
+  return out;
+}
+
+/** Alcance de uma arma à distância em metros ("25m", "15m + 3× Destreza"), ou null se não for um número. */
+function alcanceM(txt: string | undefined, des: number): number | null {
+  const r = /^(\d+)m(?: \+ (\d+)× Destreza)?$/.exec(txt ?? "");
+  return r ? Number(r[1]) + (r[2] ? Number(r[2]) * des : 0) : null;
+}
+
+/**
+ * Alcance final de disparo e arremesso: Tiro Longo* (Guia Avançado) dobra; Alcance Estendido (Saika Ikki) soma +10m
+ * nas armas de fogo depois, sem ser dobrado.
+ */
+function alcanceDist(c: Character, x: DanoCtx, txt: string | undefined, fogo = false): string {
+  const base = alcanceM(txt, x.attrs.DES);
+  if (base === null) return txt ?? "";
+  const parts: string[] = [];
+  let v = base;
+  if (hasApt(c, "tiro-longo")) {
+    v *= 2;
+    parts.push("Tiro Longo ×2");
+  }
+  if (fogo && hasApt(c, "alcance-estendido")) {
+    v += 10;
+    parts.push("Alcance Estendido +10m");
+  }
+  return parts.length ? `${v}m (${base}m, ${parts.join(", ")})` : `${v}m`;
+}
+
+/** Recarga, Falha de Pólvora, Tiro Preciso e armas modificadas (Livro Básico; Guia Avançado, Armas de Fogo e Saika Ikki). */
+function notasDisparo(c: Character, a: Arma): string[] {
+  const out: string[] = [];
+  const tp = c.aptidoes.find((e) => e.id === "tiro-preciso");
+  if (tp)
+    out.push(
+      tp.level >= 2
+        ? "Tiro Preciso 2: ignora qualquer camuflagem, sem precisar localizar o alvo, mas você ainda precisa saber que ele existe e ter noção vaga da posição; não atravessa cobertura total."
+        : "Tiro Preciso: ignora cobertura e camuflagem parciais.",
+    );
+  if (a.cat !== "fogo" || !a.manuseio) return out;
+  out.push("Recarregar: ação de movimento.");
+  if (hasApt(c, "usar-polvora") && hasApt(c, "saque-rapido")) {
+    const pr = skillTotal(c, "prestidigitacao");
+    const prTxt = pr === null ? "sem Prestidigitação" : `Prestidigitação ${pr}`;
+    out.push(`Recarga Rápida de Pólvora: ${prTxt} contra manuseio ${a.manuseio}; passando, recarrega como ação livre (até 2 tentativas por rodada); falhando, recarrega mas sofre Falha de Pólvora.`);
+    if (hasApt(c, "recarga-precisa") && pr !== null) {
+      const t = 8 + pr;
+      out.push(`Recarga Precisa: simula 1 dado mesmo em combate (8 + ${pr} = ${t}), ${t >= a.manuseio ? "o bastante para recarregar sem rolar" : `abaixo do manuseio ${a.manuseio}: role`}.`);
+    }
+  } else out.push(`Manuseio ${a.manuseio} (Recarga Rápida de Pólvora pede Usar Pólvora e Saque Rápido).`);
+  out.push("Falha de Pólvora (falha crítica no disparo, bloquear com a arma ou a arma levar grau 2+): fica danificada (−1 de CD); outra falha a destrói.");
+  if (hasApt(c, "armamento-pesado")) out.push("Armamento Pesado: só você tem proficiência nas suas armas modificadas (outra pessoa: −3).");
   return out;
 }
 

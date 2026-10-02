@@ -6,7 +6,7 @@ import { ataquesBasicos, fichaCtx } from "@/lib/dano";
 import { ARMAS, ARMA_BY_ID, ARMA_CAT_LABEL, armaDoItem, type Arma } from "@/lib/data/armas";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
 import { ITEM_GRUPOS, ITEM_PRESETS, VILLAGE_ITEMS_NOTE } from "@/lib/data/base";
-import { budgetFor, compLimit, hasApt, spent, uid } from "@/lib/rules";
+import { armadurasDe, budgetFor, compLimit, hasApt, spent, uid } from "@/lib/rules";
 import type { ItemEntry, ItemPreset } from "@/lib/types";
 import { IconPlus, IconTrash, NumberField, StepHeader } from "../../ui";
 import { stepKicker, type StepProps } from "../shared";
@@ -69,6 +69,7 @@ export function StepEquipamento({ c, set }: StepProps) {
   const total = b.ryos + (c.extraRyos || 0);
   const left = total - s.ryos;
   const limit = compLimit(c);
+  const armadura = armadurasDe(c)[0];
   const [name, setName] = useState("");
   // Dano base de cada arma com os números da ficha (o mesmo da ficha impressa).
   const danos = useMemo(() => new Map(ataquesBasicos(c, fichaCtx(c)).map((r) => [r.key, r])), [c]);
@@ -97,6 +98,7 @@ export function StepEquipamento({ c, set }: StepProps) {
           </span>
           <span className="text-xs text-faint">
             cada um acima: −3m de deslocamento e −1 de precisão{hasApt(c, "burro-carga") ? " · Burro de Carga: 4, 5 com Força 8, 6 com Força 12" : ""}
+            {armadura ? ` · ${armadura.name}: ${armadura.comp > 0 ? "+" : "−"}${Math.abs(armadura.comp)} no limite` : ""}
           </span>
         </div>
         <NumberField label="Ryos extras (missões, mestre)" value={c.extraRyos} onChange={(n) => set((d) => void (d.extraRyos = n))} className="card p-4" />

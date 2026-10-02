@@ -3,8 +3,8 @@
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { paramsPoder } from "@/lib/ataques";
-import { EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
-import { HIBON_BONUS, HIBON_ELEMENTOS, allowedRestricted, budgetFor, evolutionIndex, evolutionLevel, exclusivosDe, firstEvolution, hibonBonus, hibonEffects, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
+import { EFEITOS_KEKKEI_TOUTA, EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
+import { HIBON_BONUS, HIBON_ELEMENTOS, allowedRestricted, budgetFor, evolucaoDe, evolucaoNasOutras, evolucaoSe, evolutionLevel, exclusivosDe, firstEvolution, gratisFonte, hasApt, hibonBonus, hibonEffects, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
 import type { Character, Efeito, HibonBonus, Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconLeft, IconPlus, IconRight, IconSearch, IconTrash, IconX, RulesNote, Sheet, Stepper, StepHeader, Toggle, corPoder, tintPoder } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
@@ -59,9 +59,9 @@ export function StepPoderes({ c, set }: StepProps) {
 
       {kekkeiGratis(c).length > 0 && (
         <p className="rounded-xl border border-ok/40 bg-ok/10 px-4 py-3 text-sm leading-relaxed text-text">
-          Kekkei genkai:{" "}
+          Elementos grátis:{" "}
           {kekkeiGratis(c)
-            .map((g) => `${PODER_BY_ID[g.el].name.split(" (")[0]} 1 grátis pelo ${PODER_BY_ID[g.from].name.split(" (")[0]} (Canhão até o nível ${g.lvl})`)
+            .map((g) => `${PODER_BY_ID[g.el].name.split(" (")[0]} 1 grátis pelo ${gratisFonte(g.from)} (Canhão até o nível ${g.lvl})`)
             .join(" · ")}
           . Para mais efeitos nesses elementos, compre o poder: o nível 1 já vem pago e eles não contam na afinidade elemental.
         </p>
@@ -149,16 +149,18 @@ type EffTone = "excl" | "evo" | "geral";
 /**
  * Cada escolha de um poder de efeitos, na ordem: a 1ª vez que um efeito aparece é o efeito novo e cada repetição
  * depois dela é uma evolução. `lvl` é o nível do efeito naquela escolha (null = passou das evoluções que existem);
- * `from`/`next` apontam a escolha anterior/seguinte do mesmo efeito (-1 = nenhuma).
+ * `from`/`next` apontam a escolha anterior/seguinte do mesmo efeito (-1 = nenhuma). A evolução conta as outras tabelas
+ * do mesmo poder (regra confirmada pelo autor); `outra`: a escolha evolui o efeito de outra tabela.
  */
-function effectRows(p: PowerEntry, pular: boolean) {
+function effectRows(c: Character, idx: number, p: PowerEntry, pular: boolean) {
   const eff = p.effects.slice(0, p.level);
   return Array.from({ length: p.level }, (_, i) => {
     const id = eff[i] ?? null;
-    if (!id) return { id: null, k: 0, lvl: null, tone: null, from: -1, next: -1 };
-    const k = evolutionIndex(eff, i, pular);
+    if (!id) return { id: null, k: 0, lvl: null, tone: null, from: -1, next: -1, outra: false };
+    const k = evolucaoDe(c, idx, i);
+    const from = eff.slice(0, i).lastIndexOf(id);
     const tone: EffTone = k ? "evo" : EXCLUSIVOS.includes(id) ? "excl" : "geral";
-    return { id, k, lvl: k ? evolutionLevel(id, k) : (EFEITO_BY_ID[id]?.level ?? null), tone, from: eff.slice(0, i).lastIndexOf(id), next: eff.indexOf(id, i + 1) };
+    return { id, k, lvl: k ? evolutionLevel(id, k) : (EFEITO_BY_ID[id]?.level ?? null), tone, from, next: eff.indexOf(id, i + 1), outra: from < 0 && k > firstEvolution(id, i + 1, pular) };
   });
 }
 
@@ -196,7 +198,7 @@ function PowerRow({ c, idx, on, warn, onPick }: { c: Character; idx: number; on:
   const vv = (p.versatile ?? []).filter(Boolean);
   const done = isV ? (vv.length ? 1 : 0) + Array.from({ length: Math.max(0, p.level - 1) }, (_, j) => j + 1).filter((i) => p.owner?.[i] != null && p.effects[i]).length : p.effects.slice(0, p.level).filter(Boolean).length;
   const hasProgress = isV || def?.mode === "efeitos";
-  const rows = !isV && def?.mode === "efeitos" ? effectRows(p, c.optionals.pularEvolucoes) : null;
+  const rows = !isV && def?.mode === "efeitos" ? effectRows(c, idx, p, c.optionals.pularEvolucoes) : null;
   const chosen = rows ? rows.filter((r) => r.id).length : 0;
   const o = owners(p);
   const broken = brokenLevels(o);
@@ -312,7 +314,8 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
               </span>
             )}
             {again && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">{nth}ª compra · nível 1 grátis</span>}
-            {gratis && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">nível 1 grátis pelo {PODER_BY_ID[gratis].name.split(" (")[0]}</span>}
+            {gratis && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">nível 1 grátis pelo {gratisFonte(gratis)}</span>}
+            {p.id === "doton" && hasApt(c, "terra-insaciavel") && <span className="rounded-full bg-ok px-2 py-0.5 text-[11px] font-bold text-paper-ink">Barreira Nv 6 grátis (Terra Insaciável)</span>}
             {p.level > b.cap && <span className="rounded-full bg-seal-dark px-2 py-0.5 text-[11px] font-bold text-white">acima do limite {b.cap}</span>}
           </div>
           {def?.reqText && <span className={`text-xs ${met ? "text-paper-muted" : "font-bold text-seal-dark"}`}>Pré-requisito: {def.reqText}</span>}
@@ -349,7 +352,11 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
           </label>
         )}
 
-        {def?.mode === "efeitos" && top > p.level && <p className="text-xs text-muted">Os parâmetros usam o nível mais alto entre as compras de {name}: {top}.</p>}
+        {def?.mode === "efeitos" && top > p.level && (
+          <p className="text-xs text-muted">
+            Os parâmetros usam o nível mais alto entre as compras de {name}: {top}. Os efeitos desta compra vão até o nível {p.level} dela.
+          </p>
+        )}
         {def?.mode === "efeitos" && (
           <div className="grid grid-cols-3 gap-2">
             {[
@@ -370,6 +377,8 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
 
         {p.id === "versatilidade" && (
           <VersatileEditor
+            c={c}
+            idx={idx}
             p={p}
             slots={versatileSlots(c, idx)}
             taken={c.poderes.flatMap((x, j) => (j !== idx && x.id === "versatilidade" ? (x.versatile ?? []) : []))}
@@ -382,7 +391,7 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
         {p.id === "hibon" && <HibonEditor c={c} p={p} edit={edit} />}
 
         {def?.mode === "efeitos" && p.id !== "versatilidade" && (
-          <EffectsEditor p={p} effects={p.id === "hibon" ? hibonEffects(hibonEntry(c)?.hibonElement) : (def.effects ?? [])} name={name} top={top} pular={pular} showDesc={showDesc} setShowDesc={setShowDesc} edit={edit} />
+          <EffectsEditor c={c} idx={idx} p={p} effects={p.id === "hibon" ? hibonEffects(hibonEntry(c)?.hibonElement) : (def.effects ?? [])} name={name} top={p.level} pular={pular} showDesc={showDesc} setShowDesc={setShowDesc} edit={edit} />
         )}
 
         {def?.mode === "tecnicas" && (
@@ -490,7 +499,7 @@ function EvoTag({ r, need }: { r: ReturnType<typeof effectRows>[number]; need: n
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden="true">
           <path d="M12 19V5M5 12l7-7 7 7" />
         </svg>
-        {r.from >= 0 ? `evolui o ${r.from + 1}º` : `já entra no Nv ${need ?? "?"}`}
+        {r.from >= 0 ? `evolui o ${r.from + 1}º` : r.outra ? "evolui o de outra tabela" : `já entra no Nv ${need ?? "?"}`}
       </span>
     );
   if (r.next >= 0) return <span className="shrink-0 text-[11px] whitespace-nowrap text-faint">evolui no {r.next + 1}º</span>;
@@ -501,8 +510,8 @@ function EvoTag({ r, need }: { r: ReturnType<typeof effectRows>[number]; need: n
  * Poder de efeitos (tudo menos a Versatilidade): uma linha por nível, no mesmo formato da matriz da Versatilidade.
  * A evolução aparece na própria linha, ligada à escolha que ela evolui, e "Na ficha" resume cada efeito no nível final.
  */
-function EffectsEditor({ p, effects, name, top, pular, showDesc, setShowDesc, edit }: { p: PowerEntry; effects: string[]; name: string; top: number; pular: boolean; showDesc: boolean; setShowDesc: (v: boolean) => void; edit: (fn: (x: PowerEntry) => void) => void }) {
-  const rows = effectRows(p, pular);
+function EffectsEditor({ c, idx, p, effects, name, top, pular, showDesc, setShowDesc, edit }: { c: Character; idx: number; p: PowerEntry; effects: string[]; name: string; top: number; pular: boolean; showDesc: boolean; setShowDesc: (v: boolean) => void; edit: (fn: (x: PowerEntry) => void) => void }) {
+  const rows = effectRows(c, idx, p, pular);
   const totals = effectTotals(rows);
   const evolutions = rows.filter((r) => r.k > 0).length;
   const kanji = KANJI_PODER[p.id];
@@ -539,19 +548,19 @@ function EffectsEditor({ p, effects, name, top, pular, showDesc, setShowDesc, ed
             const chosen = r.id;
             // Efeitos novos: os que não foram escolhidos ANTES desta escolha (a 1ª vez de um efeito é sempre o efeito novo).
             const earlier = p.effects.slice(0, i).filter((x): x is string => !!x);
+            // Evolução que o efeito teria nesta escolha, contando as outras tabelas do mesmo poder (o poder comprado de
+            // novo ou ele como versátil). Pulando evoluções, vai à mais alta que esta escolha permite.
+            const evoAt = (id: string) => evolucaoSe(c, idx, i, id);
+            // Efeitos de outra tabela do mesmo poder que esta escolha consegue evoluir.
+            const daOutra = effects.filter((id) => !earlier.includes(id) && evolucaoNasOutras(c, idx, id) >= 0 && evoAt(id) > evolucaoNasOutras(c, idx, id));
             const fresh = effects
               .map((id) => EFEITO_BY_ID[id])
-              .filter((e) => e && !earlier.includes(e.id))
+              .filter((e) => e && !earlier.includes(e.id) && !daOutra.includes(e.id) && liberado(c, e))
               .sort((a, b) => a.level - b.level);
-            // Evoluções: efeitos escolhidos antes que ainda têm evolução. Pulando evoluções, vai à mais alta que esta escolha permite.
-            const evoAt = (id: string) => {
-              const hyp = p.effects.slice(0, i + 1);
-              hyp[i] = id;
-              return evolutionIndex(hyp, i, pular);
-            };
-            const evos = [...new Set(earlier)]
-              .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)) }))
-              .filter((o): o is { e: NonNullable<typeof o.e>; need: number } => !!o.e && o.need !== null);
+            // Evoluções: efeitos escolhidos antes (ou em outra tabela) que ainda têm evolução.
+            const evos = [...new Set([...earlier, ...daOutra])]
+              .map((id) => ({ e: EFEITO_BY_ID[id], need: evolutionLevel(id, evoAt(id)), outra: !earlier.includes(id) }))
+              .filter((o): o is { e: NonNullable<typeof o.e>; need: number; outra: boolean } => !!o.e && o.need !== null);
             const need = chosen && r.k ? r.lvl : null;
             const stale = !!chosen && !fresh.some((e) => e.id === chosen) && !evos.some((o) => o.e.id === chosen);
             const ef = chosen ? EFEITO_BY_ID[chosen] : undefined;
@@ -582,6 +591,8 @@ function EffectsEditor({ p, effects, name, top, pular, showDesc, setShowDesc, ed
                     {r.k > 0 ? (
                       r.from >= 0 ? (
                         `O ${ef.name} escolhido no ${r.from + 1}º passa para o Nv ${need ?? "?"}.`
+                      ) : r.outra ? (
+                        `Evolui o ${ef.name} de outra tabela de ${name.split(" (")[0]} para o Nv ${need ?? "?"}.`
                       ) : (
                         `Pular evoluções: já entra como ${ef.name} Nv ${need ?? "?"}, com as evoluções anteriores.`
                       )
@@ -639,7 +650,7 @@ function EffectsEditor({ p, effects, name, top, pular, showDesc, setShowDesc, ed
  * efeito tem nível igual ou menor. No computador vira uma matriz (níveis × poderes versáteis); no celular, cada nível
  * escolhe o poder num seletor de kanjis.
  */
-function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntry; slots: number; taken: string[]; lista: boolean; pular: boolean; edit: (fn: (x: PowerEntry) => void) => void }) {
+function VersatileEditor({ c, idx, p, slots, taken, lista, pular, edit }: { c: Character; idx: number; p: PowerEntry; slots: number; taken: string[]; lista: boolean; pular: boolean; edit: (fn: (x: PowerEntry) => void) => void }) {
   const ks = Array.from({ length: slots }, (_, k) => k);
   const vv = ks.map((k) => p.versatile?.[k] ?? "");
   const cols = ks.filter((k) => vv[k]);
@@ -675,7 +686,7 @@ function VersatileEditor({ p, slots, taken, lista, pular, edit }: { p: PowerEntr
     });
   const firstOf = (id: string) => (PODER_BY_ID[id]?.mode === "tecnicas" ? PODER_BY_ID[id].techniques?.[0]?.name : "Canhão");
   const colChoices = (i: number, k: number) => {
-    const all = versatileChoices(p, vv, i, lista, pular);
+    const all = versatileChoices(p, vv, i, lista, pular, (e) => liberado(c, e), (k2, eff) => ({ ev: evolucaoSe(c, idx, i, eff, k2), outra: evolucaoNasOutras(c, idx, eff, k2) }));
     const options = all.options.filter((x) => x.value.startsWith(`${k}|`));
     const tabs: PickTab[] = [
       { key: "excl", label: "Exclusivos", kanji: kanjiOf(vv[k]), match: (x: PickOption) => x.tone === "excl" },
@@ -964,7 +975,7 @@ function freshLabel(e: Efeito, ev: number) {
 }
 
 /** Seletor de um poder de efeitos: exclusivos do elemento, evoluções, gerais e o que passa do nível do poder. */
-function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e: Efeito; need: number }[], stale: string | null, firstEv: (id: string) => number = () => 0) {
+function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e: Efeito; need: number; outra?: boolean }[], stale: string | null, firstEv: (id: string) => number = () => 0) {
   const short = shortName(powerId);
   const kanji = KANJI_PODER[powerId];
   const excl = (id: string) => EXCLUSIVOS.includes(id);
@@ -978,7 +989,8 @@ function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e:
       }),
     ...evos.map((o): PickOption => {
       const g = o.need > top ? "acima" : "evo";
-      return { value: o.e.id, name: `${o.e.name} → evolução`, label: o.e.name, level: o.need, desc: `Você já tem ${o.e.name}. Escolher de novo evolui para o Nv ${o.need}.`, source: o.e.source, tone: g, group: g };
+      const desc = o.outra ? `Você já tem ${o.e.name} em outra tabela de ${short}. Escolher aqui evolui para o Nv ${o.need}.` : `Você já tem ${o.e.name}. Escolher de novo evolui para o Nv ${o.need}.`;
+      return { value: o.e.id, name: `${o.e.name} → evolução`, label: o.e.name, level: o.need, desc, source: o.e.source, tone: g, group: g };
     }),
   ];
   const groups: PickGroup[] = [
@@ -996,11 +1008,26 @@ function effectChoices(powerId: string, top: number, fresh: Efeito[], evos: { e:
   return { options, groups, tabs: all.filter((t) => options.some(t.match)) };
 }
 
+/** Efeitos de Doton do Kekkei Touta e do Daikiga só aparecem para quem tem as aptidões restritas deles. */
+const liberado = (c: Character, e: Efeito) => (!EFEITOS_KEKKEI_TOUTA.includes(e.id) || reqsMet(c, e.req)) && reqsMet(c, e.libera);
+
 /**
  * Seletor de um nível da Versatilidade: um grupo por poder versátil (exclusivos, evoluções e gerais de cada um).
  * O valor é "k|efeito" (k = índice do poder versátil).
  */
-function versatileChoices(p: PowerEntry, vv: string[], i: number, lista: boolean, pular: boolean) {
+/**
+ * `cruz`: evolução que o efeito teria neste nível contando as outras tabelas do mesmo poder, e a mais alta que ele já tem
+ * nelas (−1 se não está em nenhuma).
+ */
+function versatileChoices(
+  p: PowerEntry,
+  vv: string[],
+  i: number,
+  lista: boolean,
+  pular: boolean,
+  ok: (e: Efeito) => boolean = () => true,
+  cruz?: (k: number, eff: string) => { ev: number; outra: number },
+) {
   const lvl = i + 1;
   const options: PickOption[] = [];
   const groups: PickGroup[] = [{ key: "fora", label: "Fora da regra", tone: "acima" }];
@@ -1038,12 +1065,19 @@ function versatileChoices(p: PowerEntry, vv: string[], i: number, lista: boolean
     const excl = (e: string) => EXCLUSIVOS.includes(e);
     (def?.effects ?? NINPOU_BASE)
       .map((e) => EFEITO_BY_ID[e])
-      .filter((e) => e && e.level <= lvl && !others.includes(e.id))
+      .filter((e) => e && e.level <= lvl && !others.includes(e.id) && ok(e))
       .sort((a, b) => Number(excl(b.id)) - Number(excl(a.id)) || a.level - b.level)
-      .forEach((e) => add(e.id, { ...freshLabel(e, firstEvolution(e.id, lvl, pular)), source: e.source, tone: excl(e.id) ? "excl" : "geral" }));
+      .forEach((e) => {
+        // Já está em outra tabela do mesmo poder: escolher aqui é evolução dele, quando ela cabe.
+        const cz = cruz?.(k, e.id);
+        const need = cz && cz.outra >= 0 && cz.ev > cz.outra ? evolutionLevel(e.id, cz.ev) : null;
+        if (need !== null && need <= lvl)
+          add(e.id, { name: `${e.name} → evolução`, level: need, desc: `Você já tem ${e.name} em outra tabela de ${shortName(id)}. Escolher aqui evolui para o Nv ${need}.`, source: e.source, tone: "evo" });
+        else add(e.id, { ...freshLabel(e, firstEvolution(e.id, lvl, pular)), source: e.source, tone: excl(e.id) ? "excl" : "geral" });
+      });
     [...new Set(before)].forEach((e) => {
       const prevEv = all.filter((x) => x.level < lvl && x.eff === e).reduce((m, x) => Math.max(m, x.ev), 0);
-      const need = evolutionLevel(e, nextEvolution(e, prevEv, lvl, pular));
+      const need = evolutionLevel(e, cruz ? cruz(k, e).ev : nextEvolution(e, prevEv, lvl, pular));
       const ef = EFEITO_BY_ID[e];
       if (ef && need !== null && need <= lvl) add(e, { name: `${ef.name} → evolução`, level: need, desc: `Você já tem ${ef.name}. Escolher de novo evolui para o Nv ${need}.`, source: ef.source, tone: "evo" });
     });

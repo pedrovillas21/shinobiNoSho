@@ -9,7 +9,7 @@ import { SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { ATIRADOR } from "@/lib/dano";
 import { SENSOR_LIMITES } from "@/lib/estados";
-import { APT_COST, FREE_APTS, MANGEKYOU_PARES, allowedRestricted, aptCost, combatTotal, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, skillTest, skillTotal, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
+import { APT_COST, FREE_APTS, MANGEKYOU_PARES, MAXIMIZAR, allowedRestricted, aptCost, combatTotal, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, skillTest, skillTotal, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconRight, IconSearch, IconTrash, RulesNote, Sheet, Stepper, StepHeader, Toggle } from "../../ui";
 import { stepKicker, type StepProps } from "../shared";
@@ -159,7 +159,7 @@ function pending(a: Aptidao | undefined, e: AptEntry) {
   if (a.generic && !e.detail?.trim()) return true;
   if (a.grants && (e.choices ?? []).filter(Boolean).length < a.grants.n) return true;
   if (a.id === "talento-natural" && !(e.choices?.[0] && e.choices?.[1])) return true;
-  if ((a.id === "atirador" || a.id === "mangekyou") && !e.variant) return true;
+  if ((a.id === "atirador" || a.id === "mangekyou" || a.id === "maximizar") && !e.variant) return true;
   return false;
 }
 
@@ -318,6 +318,7 @@ function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; 
           {a?.id === "talento-natural" && <TalentoChoices c={c} e={e} set={set} />}
           {a?.id === "sensor" && <SensorChoice e={e} set={set} />}
           {a?.id === "atirador" && <AtiradorChoice e={e} set={set} />}
+          {a?.id === "maximizar" && <MaximizarChoice e={e} set={set} />}
           {a?.id === "mangekyou" && <MangekyouChoice c={c} e={e} set={set} />}
           {!a && (
             <textarea
@@ -565,6 +566,23 @@ function AtiradorChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
         {Object.entries(ATIRADOR).map(([k, l]) => (
           <option key={k} value={k}>
             {l[0].toUpperCase() + l.slice(1)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Maximizar: Mokuton ou Suiton (Senju/Tensai); Jinton ou Doton pelo hijutsu Jinton. */
+function MaximizarChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
+  return (
+    <label className="mt-1 flex max-w-sm flex-col gap-1 text-xs text-muted">
+      Elemento
+      <select className="field py-1.5 text-sm" value={e.variant ?? ""} onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.variant = ev.target.value))}>
+        <option value="">Escolher…</option>
+        {Object.entries(MAXIMIZAR).map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
           </option>
         ))}
       </select>

@@ -1,5 +1,5 @@
 import { APT_BY_ID, BANNED_APTS } from "./data/aptidoes";
-import { ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
+import { ARMADURAS, ATTRS, COMBAT, RANKS, SKILLS } from "./data/base";
 import { ORIGENS, ORIGIN_BY_ID } from "./data/origens";
 import { EFEITO_BY_ID, EXCLUSIVOS, KEKKEI_ELEMENTOS, NINPOU_BASE, PODER_BY_ID, VERSATEIS } from "./data/poderes";
 import { validateKuchiyose } from "./kuchiyose";
@@ -104,8 +104,21 @@ export function kekkeiGratis(c: Character): { el: string; from: string; lvl: num
       else if (lvl > cur.lvl) Object.assign(cur, { from: k, lvl });
     }
   }
+  // Elementos Irrestritos (Zetsu, Hijutsus Vol.2 p.134): 1 nível grátis nos cinco elementos básicos, Canhão no nível
+  // de Mokuton. Não soma com o nível que o próprio Mokuton já dá em Doton e Suiton (os dois dão o mesmo nível 1).
+  if (hasApt(c, "elementos-irrestritos")) {
+    const lvl = c.poderes.filter((p) => p.id === "mokuton").reduce((m, p) => Math.max(m, p.level), 0);
+    for (const el of ELEMENTS) {
+      const cur = out.find((x) => x.el === el);
+      if (!cur) out.push({ el, from: "elementos-irrestritos", lvl });
+      else if (lvl > cur.lvl) Object.assign(cur, { from: "elementos-irrestritos", lvl });
+    }
+  }
   return out;
 }
+
+/** Nome curto de onde vem um elemento grátis (kekkei genkai ou a aptidão Elementos Irrestritos). */
+export const gratisFonte = (from: string) => (PODER_BY_ID[from]?.name ?? APT_BY_ID[from]?.name ?? from).split(" (")[0];
 
 /** Kekkei genkai da ficha que dá o elemento de graça (a de nível mais alto), ou null. */
 export const kekkeiDe = (c: Character, el: string) => kekkeiGratis(c).find((x) => x.el === el)?.from ?? null;
@@ -209,6 +222,114 @@ export function versatilePicks(p: PowerEntry, k: number, pular = false): Versati
     out.push({ level: i + 1, eff, ev, tech: p.techniques[i] ?? "" });
   }
   return out;
+}
+
+/* ---------------- Evoluções entre tabelas do mesmo poder ---------------- */
+
+/**
+ * Escolha de efeito numa tabela de `power`: uma compra do poder (k = −1) ou o poder versátil `k` de uma Versatilidade.
+ * `cap` é o nível até onde a evolução pode ir naquela tabela (o nível da compra; no versátil, o nível da escolha).
+ */
+interface Escolha {
+  idx: number;
+  k: number;
+  i: number;
+  level: number;
+  eff: string;
+  cap: number;
+}
+
+/** Todas as escolhas das tabelas de `power`, pelo nível em que foram feitas (empate: ordem das tabelas na ficha). */
+function escolhasDe(c: Character, power: string): Escolha[] {
+  const out: Escolha[] = [];
+  if (PODER_BY_ID[power]?.mode !== "efeitos" || power === "versatilidade") return out;
+  c.poderes.forEach((p, idx) => {
+    if (p.id === power) {
+      p.effects.slice(0, p.level).forEach((eff, i) => {
+        if (eff) out.push({ idx, k: -1, i, level: i + 1, eff, cap: p.level });
+      });
+    } else if (p.id === "versatilidade") {
+      (p.versatile ?? []).forEach((v, k) => {
+        if (v !== power) return;
+        out.push({ idx, k, i: 0, level: 1, eff: "canhao", cap: 1 });
+        for (let i = 1; i < p.level; i++) {
+          const eff = p.effects[i];
+          if (p.owner?.[i] === k && eff) out.push({ idx, k, i, level: i + 1, eff, cap: i + 1 });
+        }
+      });
+    }
+  });
+  return out.sort((a, b) => a.level - b.level || a.idx - b.idx || a.k - b.k);
+}
+
+/**
+ * Evolução de cada escolha das tabelas de `power` (chave "idx:i:k"). Regra do livro, confirmada pelo autor: com duas
+ * tabelas do mesmo elemento (o poder comprado de novo, ou o poder e ele como versátil), uma serve para pegar as evoluções
+ * da outra. Ex.: Doton com 2 níveis tem Imergir; escolher Imergir no Doton com 10 níveis dá Imergir Nv 4.
+ * Na mesma tabela, repetir é sempre evolução. Vindo de outra tabela, é evolução quando ela existe e cabe no nível da
+ * tabela; senão é só o mesmo efeito (ex.: o Canhão de cada tabela), com a evolução que já tinha.
+ */
+function evolucoes(c: Character, power: string): Map<string, number> {
+  const pular = c.optionals.pularEvolucoes;
+  const cur = new Map<string, number>();
+  const tabs = new Map<string, Set<string>>();
+  const out = new Map<string, number>();
+  for (const x of escolhasDe(c, power)) {
+    const tab = `${x.idx}:${x.k}`;
+    const prev = cur.get(x.eff);
+    const seen = tabs.get(x.eff) ?? new Set<string>();
+    let ev: number;
+    if (prev === undefined) ev = firstEvolution(x.eff, x.level, pular);
+    else {
+      const nx = nextEvolution(x.eff, prev, x.level, pular);
+      const need = evolutionLevel(x.eff, nx);
+      ev = seen.has(tab) || (need !== null && need <= x.cap) ? nx : prev;
+    }
+    cur.set(x.eff, Math.max(prev ?? 0, ev));
+    seen.add(tab);
+    tabs.set(x.eff, seen);
+    out.set(`${x.idx}:${x.i}:${x.k}`, ev);
+  }
+  return out;
+}
+
+/** Poder de efeitos da escolha: o da compra ou, na Versatilidade, o poder versátil `k`. */
+const poderDaEscolha = (c: Character, idx: number, k: number) => (k >= 0 ? c.poderes[idx]?.versatile?.[k] : c.poderes[idx]?.id);
+
+/** Evolução da escolha `i` da compra `idx` (na Versatilidade, do poder versátil `k`), contando as outras tabelas do mesmo poder. */
+export function evolucaoDe(c: Character, idx: number, i: number, k = -1): number {
+  const power = poderDaEscolha(c, idx, k);
+  return power ? (evolucoes(c, power).get(`${idx}:${i}:${k}`) ?? 0) : 0;
+}
+
+/** Evolução que o efeito teria se fosse escolhido na posição `i` da compra `idx` (seletor do construtor). */
+export function evolucaoSe(c: Character, idx: number, i: number, eff: string, k = -1): number {
+  const poderes = c.poderes.map((p, j) => {
+    if (j !== idx) return p;
+    const effects = p.effects.slice();
+    effects[i] = eff;
+    if (k < 0) return { ...p, effects };
+    const owner = Array.from({ length: Math.max(p.level, i + 1) }, (_, n) => (n === i ? k : (p.owner?.[n] ?? null)));
+    return { ...p, effects, owner };
+  });
+  return evolucaoDe({ ...c, poderes }, idx, i, k);
+}
+
+/** Evolução mais alta do efeito nas outras tabelas do mesmo poder (−1 se ele não está em nenhuma). */
+export function evolucaoNasOutras(c: Character, idx: number, eff: string, k = -1): number {
+  const power = poderDaEscolha(c, idx, k);
+  if (!power) return -1;
+  const ev = evolucoes(c, power);
+  return escolhasDe(c, power)
+    .filter((x) => x.eff === eff && !(x.idx === idx && x.k === k))
+    .reduce((m, x) => Math.max(m, ev.get(`${x.idx}:${x.i}:${x.k}`) ?? 0), -1);
+}
+
+/** `versatilePicks` com as evoluções contadas entre as tabelas do mesmo poder. */
+export function versatilePicksDe(c: Character, idx: number, k: number): VersatilePick[] {
+  const p = c.poderes[idx];
+  const tec = PODER_BY_ID[p.versatile?.[k] ?? ""]?.mode === "tecnicas";
+  return versatilePicks(p, k, c.optionals.pularEvolucoes).map((x) => (tec || !x.eff ? x : { ...x, ev: evolucaoDe(c, idx, x.level - 1, k) }));
 }
 
 /**
@@ -566,11 +687,20 @@ export function allowedRestricted(c: Character) {
 /** Benefícios do Chakra Expandido: pela aptidão ou pelo Chakra Bijuu do Jinchuuriki nível 1 (não acumulam). */
 export const hasChakraExpandido = (c: Character) => hasApt(c, "chakra-expandido") || powerLevel(c, "jinchuuriki") >= 1;
 
-/** Compartimentos sem penalidade: 3; com Burro de Carga, 4, 5 com Força 8 e 6 com Força 12 (Guia Avançado). */
+/** Armaduras da Tabela de Armaduras que estão nos itens da ficha (pelo nome). */
+export function armadurasDe(c: Character) {
+  const n = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+  return c.items.filter((i) => i.qty > 0).flatMap((i) => ARMADURAS.filter((a) => n(a.name) === n(i.name)));
+}
+
+/**
+ * Compartimentos sem penalidade: 3; com Burro de Carga, 4, 5 com Força 8 e 6 com Força 12 (Guia Avançado). A armadura
+ * muda o limite (Livro Básico, Tabela de Armaduras): Colete Ninja +1, Colete Resistente −1. Só se veste uma armadura.
+ */
 export function compLimit(c: Character): number {
-  if (!hasApt(c, "burro-carga")) return 3;
   const f = c.attrs.FOR;
-  return f >= 12 ? 6 : f >= 8 ? 5 : 4;
+  const base = !hasApt(c, "burro-carga") ? 3 : f >= 12 ? 6 : f >= 8 ? 5 : 4;
+  return Math.max(0, base + (armadurasDe(c)[0]?.comp ?? 0));
 }
 
 /** Compartimentos acima do limite: cada um dá −3m de deslocamento e −1 de precisão (Livro Básico, pág. 126). */
@@ -637,6 +767,13 @@ export interface Issue {
 const ELEMENTS = ["doton", "fuuton", "katon", "raiton", "suiton"];
 /** Aptidões Especiais do Tensai que o catálogo guarda como restritas de clã. */
 const TENSAI_SPECIAL = ["presa-prata", "vontade-fogo", "maximizar"];
+
+/** Hijutsu Jinton na 2ª opção (Fissão; Apagar Presença), sem o Elemento Natural: Terra da 1ª. */
+export const jintonOpcao2 = (c: Character) => !hasApt(c, "elemento-natural-terra") && (hasApt(c, "fissao") || hasApt(c, "apagar-presenca"));
+
+/** Elemento escolhido no Maximizar (Livro Básico, Senju; Livro de Hijutsus vol. 2, Jinton). */
+export const MAXIMIZAR: Record<string, string> = { mokuton: "Mokuton", suiton: "Suiton", jinton: "Jinton (hijutsu Jinton)", doton: "Doton (hijutsu Jinton)" };
+export const maximizarEm = (c: Character) => c.aptidoes.find((e) => e.id === "maximizar")?.variant;
 const NATURAL: Record<string, string> = {
   "elemento-natural-katon": "katon",
   "elemento-natural-suiton": "suiton",
@@ -699,7 +836,7 @@ function validateVersatilidade(c: Character, push: (sev: Severity, step: string,
         push("erro", "poderes", `${tag}: ${ef?.name ?? eff} não é um efeito de ${versatileName(id)}.`);
         continue;
       }
-      const vp = versatilePicks(p, k, c.optionals.pularEvolucoes);
+      const vp = versatilePicksDe(c, c.poderes.indexOf(p), k);
       const ev = vp.find((x) => x.level === lvl)?.ev ?? 0;
       // O nível de Versatilidade substitui o nível do poder, não os atributos.
       if (!vp.some((x) => x.eff === eff && x.level < lvl) && !reqsMet(c, ef.req)) push("erro", "poderes", `${tag}: ${ef.name} (${versatileName(id)}) pede ${ef.reqText}.`);
@@ -793,6 +930,18 @@ export function validate(c: Character): Issue[] {
       if (!reqsMet(c, l.req)) push("erro", "aptidoes", `${a.name} nível ${i + 2}: pré-requisito não atendido (${l.reqText}).`);
     });
     if (c.originId === "samurai" && a.cat === "shinobi") push("erro", "aptidoes", `Samurais não compram aptidões shinobi (${a.name}).`);
+    // Guerreiro* (Guia Avançado): Força ou Destreza 8 para armas leves, 10 para medianas, longas ou pesadas.
+    if (a.id === "guerreiro" && e.detail?.trim()) {
+      const d = e.detail.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+      const leve = /\bleve/.test(d);
+      if (!leve && !/median|longa|pesad/.test(d)) push("erro", "aptidoes", `Guerreiro: a categoria é Leves, Medianas, Longas ou Pesadas (não "${e.detail.trim()}").`);
+      else if (!leve && Math.max(c.attrs.FOR, c.attrs.DES) < 10) push("erro", "aptidoes", `Guerreiro (${e.detail.trim()}): pede Força ou Destreza 10.`);
+    }
+    if (a.id === "maximizar") {
+      if (!e.variant) push("aviso", "aptidoes", "Maximizar: escolha o elemento.");
+      else if ((e.variant === "jinton" || e.variant === "doton") && !c.poderes.some((p) => p.id === "jinton"))
+        push("erro", "aptidoes", "Maximizar: Jinton ou Doton só pelo hijutsu Jinton (Kekkei Touta); fora dele, Mokuton ou Suiton.");
+    }
     if (a.grants) {
       const picks = (e.choices ?? []).filter(Boolean);
       const catLabel = a.grants.cat === "tecnica" ? "de técnica" : a.grants.cat;
@@ -824,18 +973,32 @@ export function validate(c: Character): Issue[] {
   // Elementos que a kekkei genkai dá não contam na afinidade.
   for (const g of kekkeiGratis(c)) naturals.add(g.el);
   const elems = c.poderes.filter((p) => ELEMENTS.includes(p.id) && !naturals.has(p.id));
-  // Restrição de Elemento: com a kekkei genkai, só ela e os elementos que a formam.
+  // Restrição de Elemento: cada kekkei genkai só deixa aprender ela e os elementos que a formam (outra kekkei genkai
+  // fica de fora). Dupla Linhagem junta Futton e Youton.
   const restritas = Object.keys(KEKKEI_ELEMENTOS).filter((k) => KEKKEI_ELEMENTOS[k].restrito && c.poderes.some((p) => p.id === k));
-  if (restritas.length) {
-    const ok = new Set(restritas.flatMap((k) => [k, ...KEKKEI_ELEMENTOS[k].gratis]));
+  const dupla = hasApt(c, "dupla-linhagem") ? ["futton", "youton"] : [];
+  const nome = (id: string) => (PODER_BY_ID[id]?.name ?? id).split(" (")[0];
+  for (const k of restritas) {
+    const ok = new Set((dupla.includes(k) ? dupla : [k]).flatMap((x) => [x, ...KEKKEI_ELEMENTOS[x].gratis]));
+    // Elementos Irrestritos (Mokuton): abre os cinco elementos básicos, não outras kekkei genkai.
+    if (k === "mokuton" && hasApt(c, "elementos-irrestritos")) ELEMENTS.forEach((el) => ok.add(el));
     const fora = new Set(c.poderes.filter((p) => (ELEMENTS.includes(p.id) || p.id in KEKKEI_ELEMENTOS) && !ok.has(p.id)).map((p) => p.id));
-    const nome = (id: string) => (PODER_BY_ID[id]?.name ?? id).split(" (")[0];
-    if (fora.size) push("erro", "poderes", `Restrição de Elemento: com ${restritas.map(nome).join(" e ")}, só se aprende ${[...ok].map(nome).join(", ")} (fora: ${[...fora].map(nome).join(", ")}).`);
+    if (fora.size) push("erro", "poderes", `Restrição de Elemento: com ${nome(k)}, só se aprende ${[...ok].map(nome).join(", ")} (fora: ${[...fora].map(nome).join(", ")}).`);
+  }
+  // Terra Insaciável (Daikiga): só o Doton como poder elemental (inclusive como versátil).
+  if (hasApt(c, "terra-insaciavel")) {
+    const elementais = new Set([
+      ...c.poderes.filter((p) => ELEMENTS.includes(p.id) || p.id in KEKKEI_ELEMENTOS).map((p) => p.id),
+      ...c.poderes.flatMap((p) => (p.id === "versatilidade" ? (p.versatile ?? []) : [])).filter((id): id is string => !!id && ELEMENTS.includes(id)),
+    ]);
+    elementais.delete("doton");
+    if (elementais.size) push("erro", "poderes", `Terra Insaciável: só se usa Doton como poder elemental (fora: ${[...elementais].map(nome).join(", ")}).`);
   }
   // Mímica Sharingan (Nidan Sharingan): Novo Elemento dá uma afinidade elemental a mais.
   const novoElemento = hasApt(c, "nidan-sharingan");
   const elemLimit = (c.attrs.ESP >= 10 ? 2 : 1) + (novoElemento ? 1 : 0);
-  if (elems.length > elemLimit)
+  // Elementos Irrestritos: deixa de sofrer o limite de afinidade elemental (Livro Básico, p.89).
+  if (elems.length > elemLimit && !hasApt(c, "elementos-irrestritos"))
     push(
       "erro",
       "poderes",
@@ -850,21 +1013,26 @@ export function validate(c: Character): Issue[] {
     if (!reqsMet(c, def.req)) push("erro", "poderes", `${def.name}: pré-requisito não atendido (${def.reqText}).`);
     if (c.originId === "samurai" && !def.restricted) push("erro", "poderes", `Samurais não compram poderes comuns (${def.name}).`);
     if (def.mode === "efeitos" && def.id !== "versatilidade") {
-      // A ordem das escolhas é livre: o limite é o nível do poder (o mais alto entre as compras).
-      const top = powerLevel(c, p.id);
+      // Comprando o poder pela 2ª vez (Livro Básico, Ninpou): cada compra ganha efeitos pelos próprios níveis; o nível mais
+      // alto entre as compras só define os parâmetros. A ordem das escolhas dentro da compra é livre.
+      const top = p.level;
+      const deCompra = c.poderes.filter((x) => x.id === p.id).length > 1 ? " desta compra" : " do poder";
       p.effects.slice(0, p.level).forEach((eid, i) => {
         if (!eid) return;
         const ef = EFEITO_BY_ID[eid];
         if (!ef) return;
-        const k = evolutionIndex(p.effects, i, c.optionals.pularEvolucoes);
+        // Evolução contando as outras tabelas do mesmo poder (compras repetidas e o poder versátil igual a ele).
+        const k = evolucaoDe(c, c.poderes.indexOf(p), i);
         if (p.effects.indexOf(eid) === i && !reqsMet(c, ef.req)) push("erro", "poderes", `${def.name}: ${ef.name} pede ${ef.reqText}.`);
+        // Redução de Peso (Kekkei Touta: Jinton): na 2ª opção do hijutsu (Fissão; Apagar Presença) não evolui.
+        if (eid === "reducao-peso" && k && jintonOpcao2(c)) push("erro", "poderes", `${def.name}: na 2ª opção do hijutsu Jinton, a Redução de Peso não pode ser evoluída.`);
         if (!k) {
-          if (ef.level > top) push("erro", "poderes", `${def.name}: ${ef.name} é de nível ${ef.level}, acima do nível ${top} do poder.`);
+          if (ef.level > top) push("erro", "poderes", `${def.name}: ${ef.name} é de nível ${ef.level}, acima do nível ${top}${deCompra}.`);
           return;
         }
         const need = evolutionLevel(eid, k);
         if (need === null) push("erro", "poderes", `${def.name}: ${ef.name} não tem ${k > 1 ? `${k}ª ` : ""}evolução.`);
-        else if (need > top) push("erro", "poderes", `${def.name}: a evolução ${ef.name} Nv ${need} pede o poder no nível ${need}.`);
+        else if (need > top) push("erro", "poderes", `${def.name}: a evolução ${ef.name} Nv ${need} pede ${deCompra === " desta compra" ? "esta compra" : "o poder"} no nível ${need}.`);
       });
       const missing = p.effects.slice(0, p.level).filter((x) => !x).length + Math.max(0, p.level - p.effects.length);
       if (missing > 0) push("aviso", "poderes", `${def.name}: ${missing} efeito(s) por escolher.`);
@@ -887,6 +1055,9 @@ export function validate(c: Character): Issue[] {
   if (s.ryos > ryosTotal) push("aviso", "equipamento", `Equipamento custa ${s.ryos - ryosTotal} ryos a mais que o disponível.`);
   const over = extraComps(c);
   if (over > 0) push("aviso", "equipamento", `${s.comps} compartimentos (limite ${compLimit(c)}): −${3 * over}m de deslocamento e −${over} de precisão.`);
+  const armaduras = armadurasDe(c);
+  if (armaduras.length > 1) push("erro", "equipamento", `Não se veste uma armadura sobre outra (${armaduras.map((a) => a.name).join(", ")}); o limite de compartimentos usa só ${armaduras[0].name}.`);
+  if (armaduras.some((a) => a.colete) && c.nc < RANKS[1].min) push("erro", "equipamento", "Coletes ninja só podem ser usados por Chuunin ou acima.");
 
   // Origem
   const extras = c.extraOrigins.filter((x) => x && x !== c.originId);

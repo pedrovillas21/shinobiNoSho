@@ -150,6 +150,112 @@ Segue a Tabela de Evolução do Livro Básico (muda o nome do nível e os ryos i
 | 15–17 | Jounin Elite | 36.000 |
 | 18+ | Sannin / Kage | 88.000 |
 
+## Armas de fogo e Saika Ikki (Guia Avançado, pág. 13–15, 27–29 e 56–58) — 02/10/2026
+
+Conferido com uma ficha de pistoleiro (Destreza 20, CD 25, Prestidigitação 20, mosquete e bacamarte).
+
+- **Especialista na precisão.** A mesa e a ficha mostram o teste de ataque com o +1 do Especialista da categoria. Arma de fogo aceita Especialista: Armas de Fogo ou Armas de Disparo, sem somar os dois. Ex.: CD 25 → disparo 26.
+- **Aptidões de disparo valem nas armas de fogo** (Dano Extra, Mira Apurada, Tiro Longo, Tiro Preciso). Dano Extra com CD 25: +1 no 18 e +1 no 20, 22 e 24 = +4. O nível usado é o da CD sem Especialista.
+- **Crítico Aprimorado\* revisado.** Não se escolhe mais a arma: vale em toda arma (ou desarmado) com Especialista. Com a regra opcional sem Especialista, vale em tudo, com CC ou CD 13. Mosquete 15-16 → 14-15-16.
+- **Alcance em metros.**
+  - Tiro Longo\* dobra o alcance de disparo e arremesso.
+  - Alcance Estendido soma +10m nas armas de fogo depois de dobrar.
+  - Mosquete com Destreza 20: (15 + 3 × 20) × 2 + 10 = 160m. Bacamarte: 20 × 2 + 10 = 50m.
+- **Armamento Pesado:** +1 de dano de arma nas armas de fogo. Mosquete: 10 + 5 + 1 + 4 = 20.
+- **Bacamarte:** linha separada para o alvo a até 10m, com +1 de dano de arma (+2 com Destreza 12): 10 + 6 + 1 + 4 = 21. Além disso fica 19. Tiro Longo não aumenta esses 10m.
+- **Disparo mirado:** com Mira Apurada aparece a linha "mirado" (+1 de precisão, gasta a ação de movimento). Com Mira Vital, ela tem +0,5 grau de dano (grau 2 → 2,5: 20 × 2,5 = 50). Não vale com Desarme à Distância nem Flechada no Joelho.
+- **Gun Fu:** linha "Golpear" com a arma de fogo, usando a precisão de CD e dano de arma −2. A nota traz o Bloqueio com CD e o disparo com inimigo adjacente (Prestidigitação contra CC +3).
+- **Recarga.**
+  - Sem nada: ação de movimento.
+  - Com Usar Pólvora e Saque Rápido: Recarga Rápida de Pólvora, Prestidigitação contra o manuseio. Passando, recarrega como ação livre; até 2 tentativas por rodada.
+  - Recarga Precisa simula 1 dado: 8 + Prestidigitação (não "8 + outro dado"). 8 + 20 = 28 passa o manuseio 22 do mosquete e o 18 do bacamarte.
+  - O manuseio agora é um campo da arma: pistola pequena 10, pistola 14, arcabuz 16, bacamarte 18, mosquete 22.
+- **Tiro Preciso 2:** a nota explica que ignora camuflagem total, mas você ainda precisa saber que o inimigo existe e ter noção vaga da posição. Não atravessa cobertura total.
+- **Guerreiro\*:** valida a categoria (Leves, Medianas, Longas ou Pesadas) e pede Força ou Destreza 10 fora das Leves.
+- **Retirada Rápida\*:** a descrição traz o +10m de deslocamento uma vez por cena.
+
+## Jinton e Kekkei Touta (Livro de Hijutsus vol. 2, pág. 71–76) — 02/10/2026
+
+- **Jinton não é Ninpou.** Não tem lista de efeitos; tem uma técnica, o Genkai Hakuri no Jutsu, que agora aparece na mesa:
+  - alcance 5m + 1m por Espírito, esfera de 0,5m por Espírito;
+  - dano nível + Espírito, custo igual ao nível usado.
+  - Prepara com ação padrão e expande no turno seguinte; na área, −2 nas defesas.
+  - Sem meta-aptidões até o Jinton 10. A Destruição Avançada libera as meta-aptidões, o golpe de misericórdia e a morte instantânea.
+- **Efeitos novos de Doton do Kekkei Touta.** Quem tem uma aptidão restrita do Jinton (Elemento Natural: Terra, Fissão ou Apagar Presença) pode escolhê-los no Doton:
+  - Redução de Peso (Nv 5, evolui no 8);
+  - Adição de Peso (Nv 6, evolui no 9, pede Elemento Natural: Terra);
+  - Golem de Pedra (Nv 7, evolui no 10).
+
+  Eles não aparecem no seletor para quem não tem essas aptidões.
+- **2ª opção do hijutsu** (Fissão; Apagar Presença): a Redução de Peso não pode ser evoluída (a ficha acusa erro).
+- **Socos Pesados:** com Adição de Peso e Energizar, a mesa mostra o Soco de Pedra com dano de arma 5.
+- **Maximizar:** escolhe-se o elemento (Mokuton ou Suiton; Jinton ou Doton só pelo hijutsu Jinton). Na mesa, o Potencializar nesse elemento aplica os três melhoramentos de uma vez. No Jinton, só a partir do nível 10.
+  - Leitura adotada: os efeitos de nível 5, 6 e 7 vêm do Kekkei Touta para o Doton, não do Maximizar.
+- **Correções:**
+  - Fissão pede Vigor 8 (estava 12) e a descrição agora é a da Duplicata;
+  - descrições de Elemento Natural: Terra e Apagar Presença corrigidas.
+
+## Evoluções entre tabelas do mesmo poder — 02/10/2026
+
+Regra confirmada com o criador do sistema. Não é opcional e não está escrita nos `docs/*.txt`.
+
+- **Tabelas.** Duas tabelas do mesmo elemento (ou poder de efeitos) dividem as evoluções: uma serve para pegar as evoluções da outra. Contam como tabelas:
+  - o poder comprado de novo;
+  - o poder e ele como versátil;
+  - o mesmo versátil em duas Versatilidades.
+- **Exemplo.** Doton com 2 níveis tem Imergir (Imergir 2). No Doton com 10 níveis, escolher Imergir dá Imergir Nv 4.
+- **Como o app conta.**
+  - As escolhas de todas as tabelas do poder entram numa fila, pelo nível em que foram feitas (empate: ordem na ficha).
+  - Na mesma tabela, repetir é sempre evolução, como antes.
+  - Vindo de outra tabela, é evolução quando ela existe e cabe no nível da tabela. Num poder comum, o limite é o nível do poder; num versátil, o nível da escolha.
+  - Fora isso, é só o mesmo efeito, com a evolução que já tinha (ex.: o Canhão de cada tabela).
+- **Construtor.** O seletor mostra "→ evolução" para efeitos que estão em outra tabela ("Você já tem Imergir em outra tabela de Doton…").
+- **Ficha e mesa.** Cada tabela mostra o efeito com a evolução que ela alcança. O Doton 2 continua com Imergir; o Doton 10 (ou o Doton Versátil) fica com Imergir evoluído Nv 4.
+
+## Comprando o poder pela 2ª vez (Livro Básico, Ninpou) — 02/10/2026
+
+- **Já estava certo:**
+  - o nível 1 da 2ª compra em diante é grátis (Ninpou 4 + Ninpou 3 = 6 pontos);
+  - os parâmetros de todos os efeitos usam o nível mais alto entre as compras (na mesa, o Raio da compra de nível 3 vai até o Nv 4).
+- **Corrigido:** cada compra só ganha efeitos pelos próprios níveis. Antes, uma 2ª compra de nível 3 aceitava um efeito de nível 5 se a outra compra fosse de nível 5. O nível mais alto só define os parâmetros, não os efeitos de cada compra.
+  - Vale também para as evoluções: a evolução precisa caber no nível da compra em que foi escolhida. Inclui a evolução vinda de outra tabela; o Doton 10 evolui o Imergir do Doton 2, o contrário não.
+
+## Elementos Irrestritos (Livro de Hijutsus vol. 2, pág. 134, Zetsu) — 02/10/2026
+
+- **Antes:** a aptidão não fazia nada. Com o Mokuton, a Restrição de Elemento barrava Katon, Fuuton e Raiton, e o limite de afinidade continuava valendo.
+- **Agora:**
+  - 1 nível grátis nos cinco elementos básicos, com o Canhão de cada um no nível de Mokuton (aparece na ficha e na mesa como "grátis pelo Elementos Irrestritos");
+  - a 1ª compra de qualquer elemento básico tem o nível 1 já pago;
+  - pode comprar qualquer dos cinco: a Restrição de Elemento do Mokuton deixa de valer para eles;
+  - não sofre mais o limite de afinidade elemental (Livro Básico, p.89).
+- **Só o Canhão usa o nível de Mokuton.** Com Mokuton 10, os cinco Canhões vão até o nível 10, mas os elementos continuam no nível 1 (ou no nível comprado): os outros efeitos e os pré-requisitos (ex.: "Fuuton 5") seguem esse nível. Ex.: Katon 3 comprado tem Canhão até 10 e Raio até 3.
+- **Não dá outras kekkei genkai.** A aptidão abre só os cinco elementos básicos; Hyouton, Youton etc. continuam fora pela Restrição de Elemento do Mokuton.
+- **Corrigido junto:** com duas kekkei genkai na ficha, a Restrição de Elemento juntava as listas das duas, e uma liberava a outra (Mokuton + Hyouton não dava erro). Agora cada uma barra a outra. A exceção é a Dupla Linhagem, que junta Futton e Youton.
+- **Leitura adotada:** o nível grátis não soma com o do Mokuton. Os dois dão o mesmo "1 nível" em Doton e Suiton, então continua Doton 1 e Suiton 1 (o livro não diz que acumula). Se o criador confirmar que soma, vira Doton 2 e Suiton 2.
+
+## Coletes e armaduras (Livro Básico, Tabela de Armaduras) — 02/10/2026
+
+- **Antes:** os coletes eram só itens com nome e preço; não mudavam o limite de compartimentos.
+- **Agora:** a armadura muda o limite sem penalidade (3, ou o do Burro de Carga):
+  - Colete Ninja: +1 (bolsos a mais);
+  - Colete Ninja Resistente: −1 (couro reforçado; +10 de absorção);
+  - Armadura de Batalha −1 e Reforçada −2, se forem adicionadas com esse nome.
+- Ex.: com o Colete Resistente o limite cai para 2; levar 3 compartimentos dá −3m de deslocamento e −1 de precisão.
+- **Observações novas:** coletes só para Chuunin ou acima; não se veste uma armadura sobre outra (com duas, vale a primeira da lista).
+- **Ainda não feito:** a absorção da armadura não entra na mesa, e a penalidade das armaduras pesadas não é aplicada.
+
+## Daikiga: Terra Insaciável e efeitos de Doton (Livro de Hijutsus vol. 2, pág. 30–31) — 02/10/2026
+
+- **Antes:** Terra Insaciável era só um nome ("Doton que devora chakra"); os efeitos de Doton do Daikiga não existiam.
+- **Terra Insaciável:**
+  - pré-requisito completo: Ingestão de Chakra, Doton 6 e Barreira (Doton) — faltava a Barreira;
+  - Barreira Nv 6 grátis no Doton: na mesa a Barreira já sai evoluída Nv 6; escolhê-la de novo leva ao Nv 9 (se o Doton chegar a 9). Mostra que pode usar CC no lugar de CD (prender) ou de LM+2 (defender);
+  - drenar chakra pela Barreira e Prisão Indestrutível estão na descrição;
+  - só Doton como poder elemental: outro elemento (ou kekkei genkai, ou elemento versátil) vira observação.
+- **Efeitos novos de Doton** (só aparecem no seletor com Ingestão de Chakra e Terra Insaciável):
+  - Cortina de Poeira (nível 4): pede ainda Lutar às Cegas ou Sensor, e o Tremor. Na mesa: chakra = ½ do nível usado, círculo do tamanho comum, regras da Névoa Nv 2, dura turnos iguais ao nível;
+  - Golem de Terra Insaciável (nível 7, evolui no 10): como o Golem de Pedra do Jinton; o ataque corporal drena ¼ do Espírito em chakra (arredondado para cima, como na Ingestão de Chakra; o livro não diz).
+
 ## Pendências e decisões
 
 - **Chakra Bijuu:** entra somado ao chakra normal, não como reserva separada.
