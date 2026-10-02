@@ -4,7 +4,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { GRAU_2D8, ataques, graus, grupoBasico, outrosPoderes, partsText, type AtkGroup, type AtkRow, type Calc, type PotMode } from "@/lib/ataques";
 import { KANJI_PODER } from "@/lib/data/poderes";
 import { podeEnergizar } from "@/lib/dano";
-import { checkChakra, olhoPendente, payChakra, sg, sharinganTravado, spendVisao } from "@/lib/play";
+import { ABSORCAO_MONTARIA, BOMBAS_ARGILA } from "@/lib/estados";
+import { checkChakra, olhoPendente, payChakra, setEstadoStage, sg, sharinganTravado, spendVisao, toggleEffect } from "@/lib/play";
 import { hasApt, uid } from "@/lib/rules";
 import { norm } from "../builder/shared";
 import { AnimatedNumber, IconMinus, IconPlus, IconRight, IconSearch, IconTrash, IconX, corPoder } from "../ui";
@@ -12,6 +13,9 @@ import { SectionTitle, type MesaProps } from "./shared";
 
 /** Os três melhoramentos do Potencializar (Livro Básico, aptidões de técnica). */
 const POT_LABEL: Record<PotMode, string> = { dano: "+1 de dano base", alcance: "alcance ×2", area: "área ×2" };
+
+/** Distâncias até o alvo que a mesa oferece (null = não informar; 1 = corpo a corpo). */
+const DISTANCIAS: (number | null)[] = [null, 1, 10, 20, 30, 40, 60, 80];
 
 /** Colunas da tabela (fixar · técnica · nível · base · 4 graus · usar), quando o painel tem largura para isso. */
 const COLS = "@2xl:grid-cols-[2rem_minmax(0,1fr)_7.5rem_3.75rem_repeat(4,3.5rem)_6.75rem]";
@@ -88,6 +92,8 @@ export function Ataques(props: MesaProps) {
     setFiltroState(f);
   };
   const [soDano, setSoDano] = useState(false);
+  // Distância até o alvo (opcional): ajusta o teste das armas e marca o que fica fora de alcance.
+  const [dist, setDist] = useState<number | null>(null);
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [pins, togglePin] = usePins(c.id);
@@ -110,9 +116,26 @@ export function Ataques(props: MesaProps) {
       if (trava) return log(`${row.name}: ${trava}`, "bad");
       const k = r.contador ? pl.counters.find((x) => x.n === r.contador) : undefined;
       if (k && k.cur <= 0) return log(`${row.name}: sem usos nesta cena`, "bad");
+      // Kibaku Nendo: sem bombas de argila suficientes a técnica não sai (o contador some se a pessoa apagar).
+      const argila = r.bombas ? pl.counters.find((x) => x.n === BOMBAS_ARGILA) : undefined;
+      if (argila && argila.cur < r.bombas!) return log(`${row.name}: bombas de argila insuficientes (tem ${argila.cur}, precisa ${r.bombas})`, "bad");
       if (!payChakra(pl, r.cost, row.name, log)) return;
+      if (argila) argila.cur -= r.bombas!;
       const dmg = r.info ? (r.info.v !== undefined ? `${r.info.label} ${r.info.v}` : "") : r.fixed ? `${r.fixed.v} fixo` : `base ${r.base}`;
-      log(`${row.name} · Nv ${lvl}${dmg ? ` · ${dmg}` : ""}${metas.length ? ` · ${metas.join(" + ")}` : ""}${r.cost ? ` · −${r.cost} chakra` : ""}`, "chk");
+      log(
+        `${row.name} · Nv ${lvl}${dmg ? ` · ${dmg}` : ""}${metas.length ? ` · ${metas.join(" + ")}` : ""}${r.cost ? ` · −${r.cost} chakra` : ""}${argila ? ` · −${r.bombas} argila` : ""}`,
+        "chk",
+      );
+      if (r.ativa) {
+        // Montaria de Argila: liga o estado na forma usada e enche a absorção.
+        const e = pl.effects.find((x) => x.auto === r.ativa!.estado);
+        if (e) {
+          setEstadoStage(pl, e.id, r.ativa.stage, c, log);
+          if (!e.active) toggleEffect(pl, e.id, log, c);
+        }
+        const abs = pl.counters.find((x) => x.n === ABSORCAO_MONTARIA);
+        if (abs) abs.cur = abs.max;
+      }
       if (r.vis) spendVisao(pl, r.vis, log);
       if (k) {
         k.cur -= 1;
@@ -134,6 +157,16 @@ export function Ataques(props: MesaProps) {
     const isFree = !!free[row.key] && row.free && lvl >= 2;
     const r = row.calc(lvl, { free: isFree, pot: pot && row.meta && !isFree ? pot : undefined });
     const half = row.plusHalf || (tp && row.meta && r.cost > 0);
+    // Distância até o alvo: armas pelas faixas (−1 no dobro, −3 no quádruplo); técnicas até o alcance delas.
+    const alc = r.geo?.alcance ?? "";
+    // Corpo a corpo e toque alcançam 1m (armas longas já dizem "2m").
+    const maxM = alc === "corpo-a-corpo" || alc === "toque" ? 1 : Number(/^(\d+)m$/.exec(alc)?.[1] ?? 0);
+    // Só o que tem teste de acerto contra um alvo (Montaria, Imergir e afins são em você).
+    const pen = dist === null || !row.teste ? 0 : row.faixa ? penDistancia(row.faixa, dist) : maxM && dist > maxM ? null : 0;
+    const fora = pen === null;
+    const teste = row.teste && !fora ? `teste de ${row.teste.k} ${row.teste.v + (pen ?? 0)}` : "";
+    const porque = [...(row.teste?.why ?? []), pen ? `${sg(pen)} a ${dist}m` : ""].filter(Boolean).join(", ");
+    const sub = [fora ? `fora de alcance (máx. ${row.faixa ? 4 * row.faixa : maxM}m)` : teste && porque ? `${teste} (${porque})` : teste, row.sub].filter(Boolean).join(" · ");
     return (
       <Fragment key={row.key}>
         {divider && (
@@ -143,9 +176,11 @@ export function Ataques(props: MesaProps) {
         )}
         <AttackRow
           name={row.name}
-          sub={row.sub}
+          sub={sub}
           note={row.note}
           r={r}
+          faixa={row.faixa}
+          fora={fora}
           short={r.cost > p.chk}
           halfGrade={!!half}
           minGrau={row.minGrau}
@@ -229,6 +264,18 @@ export function Ataques(props: MesaProps) {
             );
           })}
         </div>
+        <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 scrollbar-none sm:-mx-5 sm:px-5 @3xl:mx-0 @3xl:flex-wrap @3xl:px-0" role="group" aria-label="Distância até o alvo">
+          <span className="label shrink-0 pr-1">Alvo a</span>
+          {DISTANCIAS.map((d) => {
+            const on = dist === d;
+            return (
+              <button key={d ?? "nd"} type="button" aria-pressed={on} onClick={() => setDist(d)} className={`chip shrink-0 font-bold whitespace-nowrap ${on ? "border-paper bg-paper text-paper-ink" : "text-text hover:border-muted"}`}>
+                {d === null ? "—" : d === 1 ? "corpo a corpo" : `até ${d}m`}
+              </button>
+            );
+          })}
+          {dist !== null && <span className="hidden text-xs text-faint @3xl:inline">O teste de cada linha já desconta a distância.</span>}
+        </div>
       </div>
 
       {(canPot || canTP || canEnerg || canPoderoso || v.dano !== 0) && (
@@ -301,6 +348,8 @@ export function Ataques(props: MesaProps) {
                       </span>
                     ))}
                     {g.extra !== 0 && <span className="text-[#ffd3a8]">extra {sg(g.extra)}</span>}
+                    {g.prec && <span className="text-ok">{g.prec}</span>}
+                    {g.recurso && <span className="text-[#f6d2ae]">{g.recurso}</span>}
                     <button type="button" className="min-h-8 font-bold text-faint underline-offset-2 hover:text-text hover:underline" aria-expanded={adjust === g.id} onClick={() => setAdjust(adjust === g.id ? null : g.id)}>
                       Ajustar
                     </button>
@@ -437,11 +486,17 @@ function AttackRow({
   onPin,
   open,
   onToggle,
+  faixa,
+  fora,
 }: {
   name: string;
   sub: string;
   note: string;
   r: Calc;
+  /** Arma à distância: mostra as três faixas de alcance no detalhe. */
+  faixa?: number;
+  /** O alvo escolhido está além do alcance. */
+  fora?: boolean;
   halfGrade: boolean;
   minGrau?: number;
   noDif?: boolean;
@@ -461,7 +516,7 @@ function AttackRow({
   const resumo = [sub, !noDif && !r.noDif ? `Dif ${r.dif}` : "", r.geo?.alcance, halfGrade ? "grau +0,5" : ""].filter(Boolean).join(" · ");
   const temDetalhe = !!(note || r.info?.txt || r.geo?.area || extra || (!r.fixed && !r.info && r.parts.length > 1));
   return (
-    <li className={`rounded-xl border bg-ink-2 ${open ? "border-line-2" : "border-line"}`}>
+    <li className={`rounded-xl border bg-ink-2 ${open ? "border-line-2" : "border-line"} ${fora ? "opacity-55" : ""}`}>
       <div className={`grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 py-1.5 pr-2 pl-1 ${COLS}`}>
         {onPin ? (
           <button type="button" onClick={onPin} aria-pressed={!!pinned} aria-label={`${pinned ? "Desafixar" : "Fixar"} ${name}`} className={`grid size-8 place-items-center rounded-lg text-base transition ${pinned ? "text-chakra" : "text-line-2 hover:text-muted"}`}>
@@ -484,7 +539,7 @@ function AttackRow({
           </span>
           {resumo && <span className="truncate text-xs text-muted">{resumo}</span>}
         </button>
-        <UseButton cost={r.cost} vis={r.vis} short={short} onUse={onUse} className="@2xl:order-last" />
+        <UseButton cost={r.cost} vis={r.vis} bombas={r.bombas} short={short} onUse={onUse} className="@2xl:order-last" />
 
         {/* Celular: segunda linha com nível e números; na tabela larga, cada um vira uma coluna */}
         <div className="col-span-3 flex items-center gap-1 pl-1 @2xl:contents">
@@ -529,11 +584,21 @@ function AttackRow({
           {extra && <div>{extra}</div>}
           {r.geo && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
-                <IconAlcance />
-                <span className="sr-only">Alcance:</span>
-                {r.geo.alcance}
-              </span>
+              {faixa ? (
+                FAIXAS.map((x) => (
+                  <span key={x.mult} className={`inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 ${x.pen ? "text-muted" : "text-text"}`}>
+                    <IconAlcance />
+                    <span className="sr-only">Alcance:</span>
+                    até {faixa * x.mult}m{x.pen ? ` · ${sg(x.pen)}` : ""}
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
+                  <IconAlcance />
+                  <span className="sr-only">Alcance:</span>
+                  {r.geo.alcance}
+                </span>
+              )}
               {r.geo.area && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-panel px-1.5 py-0.5 text-text">
                   <IconArea />
@@ -574,7 +639,7 @@ function IconArea() {
   );
 }
 
-function UseButton({ cost, vis, short, onUse, className = "" }: { cost: number; vis?: number; short?: boolean; onUse: () => void; className?: string }) {
+function UseButton({ cost, vis, bombas, short, onUse, className = "" }: { cost: number; vis?: number; bombas?: number; short?: boolean; onUse: () => void; className?: string }) {
   return (
     <button
       type="button"
@@ -585,9 +650,23 @@ function UseButton({ cost, vis, short, onUse, className = "" }: { cost: number; 
     >
       Usar
       {cost > 0 && <span className="rounded-md bg-[#0e1821]/60 px-1.5 py-0.5 text-xs tabular-nums text-chk">{cost} chk</span>}
+      {!!bombas && <span className="rounded-md bg-[#3a2a18]/90 px-1.5 py-0.5 text-xs tabular-nums text-[#f6d2ae]">{bombas} argila</span>}
       {!!vis && <span className="rounded-md bg-[#3a0f0c]/70 px-1.5 py-0.5 text-xs tabular-nums text-vit">{vis} visão</span>}
     </button>
   );
+}
+
+/** Faixas de alcance de uma arma (Livro Básico, Armas): até o alcance, o dobro (−1) e o quádruplo (−3). */
+const FAIXAS = [
+  { mult: 1, pen: 0 },
+  { mult: 2, pen: -1 },
+  { mult: 4, pen: -3 },
+] as const;
+
+/** Penalidade no teste pela distância até o alvo; null = fora de alcance. */
+function penDistancia(faixa: number, dist: number): number | null {
+  const f = FAIXAS.find((x) => dist <= faixa * x.mult);
+  return f ? f.pen : null;
 }
 
 function MetaChip({ on, onClick, label, hint }: { on: boolean; onClick: () => void; label: string; hint: string }) {

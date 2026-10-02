@@ -1,3 +1,4 @@
+import { paramsPoder } from "@/lib/ataques";
 import { APT_BY_ID } from "@/lib/data/aptidoes";
 import { JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "@/lib/data/juuinka";
 import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
@@ -5,7 +6,7 @@ import { ATIRADOR, ataquesBasicos, critText, fichaCtx, letalText } from "@/lib/d
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
 import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
-import { CUSTOM_ORIGIN, HIBON_BONUS, budgetFor, mangekyou, combatTotal, derived, espParam, evolutionIndex, evolutionLevel, hasApt, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, originName, powerLevel, rankLabel, skillTotal, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
+import { CUSTOM_ORIGIN, HIBON_BONUS, budgetFor, mangekyou, combatTotal, derived, evolutionIndex, evolutionLevel, hasApt, hibonEntry, isRepurchase, kekkeiGratis, maestriaEm, nivelGratis, originName, peritoEm, powerLevel, rankLabel, skillTest, socialTests, tecIndex, versatileName, versatilePicks, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
 import { RetratoFicha } from "./Retrato";
 
@@ -38,9 +39,15 @@ function Ataques({ c }: { c: Character }) {
                 {a.tag && <span className="text-paper-muted"> · {a.tag}</span>}
               </span>
               <span className="text-xs text-paper-muted">
-                {a.test} {x.combat[a.test]} · {letalText(a.letal)} · {a.tipo} · {a.alcance} · crítico {critText(a.crit)}
+                {a.test} {x.combat[a.test] + (a.prec?.v ?? 0)}
+                {a.prec?.why.length ? ` (${a.prec.why.join(", ")})` : ""} · {letalText(a.letal)} · {a.tipo} · {a.alcance} · crítico {critText(a.crit)}
                 {a.cost > 0 && ` · ${a.cost} chakra`}
               </span>
+              {a.faixa ? (
+                <span className="text-xs text-paper-muted">
+                  Alcance: até {a.faixa}m · até {2 * a.faixa}m −1 · até {4 * a.faixa}m −3
+                </span>
+              ) : null}
               {a.note && <span className="text-xs leading-snug text-paper-muted">{a.note}</span>}
               {a.warn.map((w) => (
                 <span key={w} className="text-xs font-bold text-seal-dark">
@@ -219,8 +226,9 @@ export function FichaSheet({ c }: { c: Character }) {
           <H>Perícias</H>
           <div className="grid grid-cols-1 gap-x-6 min-[420px]:grid-cols-2">
             {SKILLS.map((s) => {
-              const t = skillTotal(c, s.key);
-              return <Row key={s.key} k={`${s.name}${s.trained ? " [x]" : ""}`} v={t ?? "—"} />;
+              const t = skillTest(c, s.key);
+              const pe = peritoEm(c, s.key);
+              return <Row key={s.key} k={`${s.name}${s.trained ? " [x]" : ""}${pe && t !== null ? ` (Perito +${2 * pe})` : ""}`} v={t ?? "—"} />;
             })}
             {c.customSkills.map((s) => (
               <Row key={s.uid} k={`${s.name || "Perícia"}${s.trained ? " [x]" : ""}`} v={s.trained && s.pts <= 0 ? "—" : Math.ceil(c.attrs[s.attr] / 2) + s.pts + (s.bonus || 0)} />
@@ -323,7 +331,10 @@ export function FichaSheet({ c }: { c: Character }) {
                   {def?.mode === "efeitos" && p.id !== "versatilidade" && (
                     <>
                       <p className="text-xs text-paper-muted">
-                        Dano base {top + Math.ceil(espParam(c).val / 2)} · Dif {9 + top + Math.ceil(espParam(c).val / 2)} · Custo = nível usado
+                        {(() => {
+                          const pr = paramsPoder(c, p.id, top);
+                          return `${pr.label} ${pr.val} · Alcance ${pr.alcance}m · Dano base ${pr.dano} · Dif ${pr.dif} · Custo = nível usado${p.id === "kibaku-nendo" ? " (chakra e bombas de argila)" : ""}${maestriaEm(c, p.id) ? " · Maestria +1" : ""}`;
+                        })()}
                       </p>
                       <ol className="text-sm leading-snug">
                         {p.effects.slice(0, p.level).map((e, n) => (

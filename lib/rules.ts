@@ -399,6 +399,38 @@ export function skillTotal(c: Character, k: SkillKey): number | null {
   return ceilHalf(c.attrs[def.attr]) + pts + (c.skillBonus[k] || 0) - resil;
 }
 
+const normTxt = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+
+/** Compras de Perito na perícia (a categoria guarda o nome dela, ex.: "Arte"). */
+export function peritoEm(c: Character, k: SkillKey): number {
+  const def = SKILLS.find((s) => s.key === k)!;
+  const n = normTxt(def.name);
+  return c.aptidoes.filter((e) => e.id === "perito" && e.detail && (normTxt(e.detail) === n || normTxt(e.detail) === k)).length;
+}
+
+/**
+ * Valor do teste da perícia: o nível (skillTotal) mais o Perito (+2 por compra; Livro Básico, aptidões gerais).
+ * O Perito é bônus de precisão: não entra em pré-requisitos nem nos parâmetros de poder (alcance do Kibaku Nendo).
+ */
+export function skillTest(c: Character, k: SkillKey): number | null {
+  const t = skillTotal(c, k);
+  return t === null ? null : t + 2 * peritoEm(c, k);
+}
+
+/**
+ * Maestria (Livro Básico, aptidões de combate): +1 em CC e CD com o poder escolhido. A categoria guarda o nome do
+ * poder ("Kibaku Nendo (Argila)", ou escrito à mão); "Versatilidade" vale para os poderes versáteis.
+ */
+export function maestriaEm(c: Character, powerId: string, versatil = false): boolean {
+  const name = normTxt((PODER_BY_ID[powerId]?.name ?? powerId).split(" (")[0]);
+  return c.aptidoes.some((e) => {
+    if (e.id !== "maestria" || !e.detail?.trim()) return false;
+    const d = normTxt(e.detail.split(" (")[0]);
+    if (versatil && d.startsWith("versatil")) return true;
+    return d === normTxt(powerId) || (d.length >= 3 && (name.includes(d) || d.includes(name)));
+  });
+}
+
 /** Testes sociais: Carisma ou Manipulação + metade do atributo ou perícia (Livro Básico, pág. 53–55). */
 export function socialTests(c: Character) {
   const { car, man } = c.social;

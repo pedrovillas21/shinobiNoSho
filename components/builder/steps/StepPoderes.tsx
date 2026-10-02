@@ -2,8 +2,9 @@
 
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
+import { paramsPoder } from "@/lib/ataques";
 import { EFEITO_BY_ID, EXCLUSIVOS, KANJI_PODER, NINPOU_BASE, PODERES, PODER_BY_ID, VERSATEIS } from "@/lib/data/poderes";
-import { HIBON_BONUS, HIBON_ELEMENTOS, allowedRestricted, budgetFor, espParam, evolutionIndex, evolutionLevel, exclusivosDe, firstEvolution, hibonBonus, hibonEffects, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
+import { HIBON_BONUS, HIBON_ELEMENTOS, allowedRestricted, budgetFor, evolutionIndex, evolutionLevel, exclusivosDe, firstEvolution, hibonBonus, hibonEffects, hibonEntry, isRepurchase, kekkeiGratis, nivelGratis, nextEvolution, ownersText, powerLevel, reqsMet, spent, tecId, tecIndex, uid, versatileName, versatilePicks, versatileSlots } from "@/lib/rules";
 import type { Character, Efeito, HibonBonus, Poder, PowerEntry } from "@/lib/types";
 import { Badge, IconCheck, IconLeft, IconPlus, IconRight, IconSearch, IconTrash, IconX, RulesNote, Sheet, Stepper, StepHeader, Toggle, corPoder, tintPoder } from "../../ui";
 import { EffectPicker, type PickGroup, type PickOption, type PickTab } from "../EffectPicker";
@@ -283,8 +284,6 @@ function SeqCell({ p, k, broken, small }: { p: PowerEntry; k: number | null; bro
 
 function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: number; blocked: (p: Poder) => boolean; onRemove: () => void }) {
   const b = budgetFor(c.nc, c.optionals);
-  // Controle Perfeito: Inteligência no lugar do Espírito.
-  const halfEsp = Math.ceil(espParam(c).val / 2);
   const pular = c.optionals.pularEvolucoes;
   const [showDesc, setShowDesc] = useState(false);
   const p = c.poderes[idx];
@@ -295,6 +294,8 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
   const gratis = nivelGratis(c, idx);
   const nth = c.poderes.slice(0, idx + 1).filter((x) => x.id === p.id).length;
   const top = powerLevel(c, p.id);
+  // Atributo ou perícia chave do poder (Controle Perfeito: Inteligência; Kibaku Nendo: Arte) e bônus do elemento.
+  const params = paramsPoder(c, p.id, top);
   const edit = (fn: (p: PowerEntry) => void) => set((d) => fn(d.poderes[idx]));
 
   return (
@@ -352,9 +353,9 @@ function PowerEditor({ c, set, idx, blocked, onRemove }: StepProps & { idx: numb
         {def?.mode === "efeitos" && (
           <div className="grid grid-cols-3 gap-2">
             {[
-              ["Dano base", `${top} + ${halfEsp}`, top + halfEsp],
-              ["Dif. padrão", `9 + ${top} + ${halfEsp}`, 9 + top + halfEsp],
-              ["Custo máx.", "chakra = nível", `${top} PC`],
+              ["Dano base", params.danoTxt, params.dano],
+              ["Dif. padrão", params.difTxt, params.dif],
+              ["Custo máx.", p.id === "kibaku-nendo" ? "chakra e bombas = nível" : "chakra = nível", `${top} PC`],
             ].map(([k, f, v]) => (
               <div key={k as string} className="flex flex-col items-center gap-0.5 rounded-xl bg-ink-2 px-2 py-1.5 sm:flex-row sm:gap-2.5 sm:px-3">
                 <span className="font-display text-xl font-extrabold text-paper">{v}</span>

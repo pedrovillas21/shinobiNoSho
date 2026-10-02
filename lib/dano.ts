@@ -45,6 +45,10 @@ export interface AtaqueBasico {
   warn: string[];
   /** Chakra por uso. */
   cost: number;
+  /** Alcance sem penalidade de uma arma à distância, em metros (até o dobro −1, até o quádruplo −3). */
+  faixa?: number;
+  /** Ajuste do teste de acerto (Especialista +1, sem Usar Arma −3) e de onde ele vem. */
+  prec?: { v: number; why: string[] };
   /** Nível variável (Bisturi de Chakra): o dano é recalculado pelo nível usado. */
   lvl?: { min: number; max: number; calc: (l: number) => { base: number; parts: string[] } };
 }
@@ -164,6 +168,17 @@ interface Golpe {
   bonus?: { label: string; v: number }[];
   /** Não recebe Crítico Aprimorado (Kage Fushä). */
   semCritAprimorado?: boolean;
+  /** Arma marcial ou especial sem Usar Arma: −3 no teste de acerto. */
+  semProficiencia?: boolean;
+}
+
+/**
+ * Especialista (Livro Básico, aptidões de combate): +1 de precisão com o tipo de arma ou desarmado escolhido.
+ * O Demônio do Vento (clã Fuuma) dá Especialista em armas de arremesso.
+ */
+function especialista(c: Character, g: Pick<Golpe, "cats" | "names">): boolean {
+  if (hasApt(c, "demonio-vento") && g.cats.includes("arremesso")) return true;
+  return aptDetails(c, "especialista").some((d) => detalheCasa(d, g.cats, g.names));
 }
 
 /** Dano Extra (Livro Básico, aptidões de combate): +1, e +1 a cada 2 níveis de CC ou CD acima de 18. Regra opcional do Guia: automático no 18. */
@@ -202,7 +217,17 @@ function golpe(c: Character, x: DanoCtx, g: Golpe): AtaqueBasico {
     parts.push(`estado ${x.dano}`);
   }
   const critAp = !g.semCritAprimorado && aptDetails(c, "critico-aprimorado").some((d) => detalheCasa(d, g.cats, g.names));
+  const prec = { v: 0, why: [] as string[] };
+  if (especialista(c, g)) {
+    prec.v += 1;
+    prec.why.push("Especialista +1");
+  }
+  if (g.semProficiencia) {
+    prec.v -= 3;
+    prec.why.push("sem Usar Arma −3");
+  }
   return {
+    prec,
     key: g.key,
     name: g.name,
     tag: g.tag,
@@ -503,11 +528,25 @@ interface Ctx2 {
 }
 
 function linhasArma(c: Character, x: DanoCtx, a: Arma, k: Ctx2): AtaqueBasico[] {
+  const out0 = linhasArmaSemFaixa(c, x, a, k);
+  // Alcance da arma (Livro Básico, Armas): sem penalidade até ele, −1 até o dobro, −3 até o quádruplo.
+  // Tiro Longo dobra o das armas de disparo; Alcance Estendido (Saika Ikki) soma 10m nas de fogo.
+  const disparo = a.cat === "disparo" || a.cat === "fogo";
+  for (const r of out0) {
+    const m = !r.corpo && /^(\d+)m$/.exec(r.alcance);
+    if (!m) continue;
+    r.faixa = Number(m[1]) * (disparo && hasApt(c, "tiro-longo") ? 2 : 1) + (a.cat === "fogo" && hasApt(c, "alcance-estendido") ? 10 : 0);
+    r.alcance = `${r.faixa}m`;
+  }
+  return out0;
+}
+
+function linhasArmaSemFaixa(c: Character, x: DanoCtx, a: Arma, k: Ctx2): AtaqueBasico[] {
   const out: AtaqueBasico[] = [];
   const A = x.attrs;
-  const warn = [reqWarn(a, c.attrs), proficiente(c, a) ? null : a.cat === "fogo" ? "Sem Usar Pólvora não dá para usar." : "Sem Usar Arma: −3 de precisão."];
+  const warn = [reqWarn(a, c.attrs), proficiente(c, a) ? null : a.cat === "fogo" ? "Sem Usar Pólvora não dá para usar." : "Sem Usar Arma: −3 de precisão (já no teste)."];
   const cats = catsDe(a);
-  const base = { tag: a.grupo === "especial" ? "Arma especial" : undefined, cats, names: [a.name], letal: true as const, crit: a.crit, tipo: a.tipo, semCritAprimorado: a.id === "fuuma-kage" };
+  const base = { tag: a.grupo === "especial" ? "Arma especial" : undefined, cats, names: [a.name], letal: true as const, crit: a.crit, tipo: a.tipo, semCritAprimorado: a.id === "fuuma-kage", semProficiencia: !proficiente(c, a) && a.cat !== "fogo" };
 
   if (a.cat === "explosivo") {
     out.push(

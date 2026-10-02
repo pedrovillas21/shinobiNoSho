@@ -1,6 +1,6 @@
 import { armaPorNivel } from "./dano";
 import { BIJUUS } from "./data/poderes";
-import { aptLevel, custoVisao, espParam, hasApt, hasMangekyouTec, powerLevel, skillTotal, uid } from "./rules";
+import { aptLevel, custoVisao, espParam, hasApt, hasMangekyouTec, peritoEm, powerLevel, skillTotal, uid } from "./rules";
 import type { Character, ModTarget, PlayCounter, PlayEffect, PlayMod } from "./types";
 
 /* Catálogo dos poderes e aptidões ativáveis dos livros que viram estados na Mesa.
@@ -122,6 +122,13 @@ function bijuu(c: Character) {
 }
 
 const rastrear = (c: Character) => skillTotal(c, "rastrear") ?? 0;
+
+/** Nível de Arte, chave do Kibaku Nendo (sem o Perito, que é só precisão). */
+const arteNivel = (c: Character) => skillTotal(c, "arte") ?? 0;
+
+/** Contadores da mesa do Kibaku Nendo: o uso das técnicas gasta as bombas e a Montaria enche a absorção. */
+export const BOMBAS_ARGILA = "Bombas de argila";
+export const ABSORCAO_MONTARIA = "Absorção da montaria";
 
 /** Sensor Limitado (Livro Básico, aptidão Sensor): custo de chakra 3. */
 export const SENSOR_LIMITES: Record<string, string> = { solo: "detecção pelo solo", olfato: "olfato" };
@@ -477,6 +484,30 @@ export const ESTADOS: EstadoDef[] = [
 
   /* ---------- Livro de Hijutsus Vol. 2 ---------- */
   {
+    id: "montaria-argila",
+    name: "Montaria de Argila",
+    has: (c) => effectCount(c, "montaria") > 0,
+    sig: (c) => `${arteNivel(c)}|${peritoEm(c, "arte")}|${effectCount(c, "montaria")}|${powerLevel(c, "kibaku-nendo")}`,
+    stages: (c) => [{ label: "Grande" }, { label: "Enorme · Voo", faint: effectCount(c, "montaria") < 2 || powerLevel(c, "kibaku-nendo") < 5 }],
+    switchCost: () => NO_COST,
+    build(e, c) {
+      const enorme = stageOf(e) === 1;
+      const size: Size = enorme ? "Enorme" : "Grande";
+      const arte = arteNivel(c);
+      const s = SIZE[size];
+      e.src = `Kibaku Nendo · efeito Nv ${enorme ? 5 : 2}`;
+      // O chakra (5) e as bombas saem pelo efeito Montaria em Técnicas e ataques.
+      e.mods = [];
+      e.hint = text(
+        `Montaria Especial ${size}, até ${enorme ? 5 : 2} pessoas. Dureza 0, absorção ${8 * arte} (8 × Arte ${arte}): contador “${ABSORCAO_MONTARIA}”.`,
+        `Deslocamento ${10 + Math.floor(arte / 2) + s.d}m (10 + ½ Arte + ${size} ${s.d}m). Precisões iguais às suas, com o tamanho: Furtividade ${sg(s.furt)}${enorme ? "; atacantes médios ganham +1 contra ela" : ""}.`,
+        enorme && `Voo ${arte + 2 * peritoEm(c, "arte")} (Arte${peritoEm(c, "arte") ? " + Perito" : ""}; Perícia Inata: Arte também soma). Queda segue a Perturbação do Voo.`,
+        "Subir é ação de movimento. Esquiva, Bloqueio e Antecipar são dela: uma defesa por ataque. Grau de dano 3: Acrobacia (Dif 4 + precisão do atacante) ou fica caído.",
+        "Não ataca e não tem mente (imune a efeitos mentais). Explodir: use um efeito Kibaku Nendo de nível igual ou menor com as bombas dela; ela some.",
+      );
+    },
+  },
+  {
     id: "manto-areia-ferro",
     name: "Manto de Areia de Ferro",
     auto: false,
@@ -632,10 +663,13 @@ export function makeEstado(def: EstadoDef, c: Character): PlayEffect {
 
 /* ---------------- contadores de recursos ---------------- */
 
-export const CONTADORES: { id: string; n: string; has: (c: Character) => boolean; max: (c: Character) => number; reset: PlayCounter["reset"] }[] = [
+export const CONTADORES: { id: string; n: string; has: (c: Character) => boolean; max: (c: Character) => number; reset: PlayCounter["reset"]; refresh?: boolean }[] = [
   { id: "senjutsu", n: "Chakra Senjutsu", has: (c) => aptLevel(c, "senjutsu") >= 1, max: senjutsuPoints, reset: "cena" },
   { id: "suika", n: "Pontos Suika", has: (c) => hasApt(c, "suika"), max: (c) => 3 * c.attrs.VIG, reset: "descanso" },
   { id: "shikigami", n: "Pontos Kami", has: (c) => hasApt(c, "shikigami-no-mai"), max: (c) => 3 * c.attrs.ESP, reset: "descanso" },
   // Izanagi (Livro de Hijutsus vol. 2): usos por cena iguais à metade do Espírito ou da Inteligência.
   { id: "izanagi", n: "Izanagi", has: (c) => hasApt(c, "izanagi"), max: (c) => Math.ceil(Math.max(c.attrs.ESP, c.attrs.INT) / 2), reset: "cena" },
+  // Kibaku Nendo (Livro de Hijutsus vol. 2): bombas feitas na preparação diária, 30 por compartimento.
+  { id: "bombas-argila", n: BOMBAS_ARGILA, has: (c) => powerLevel(c, "kibaku-nendo") > 0, max: () => 30, reset: "descanso" },
+  { id: "montaria-absorcao", n: ABSORCAO_MONTARIA, has: (c) => effectCount(c, "montaria") > 0, max: (c) => 8 * arteNivel(c), reset: "cena", refresh: true },
 ];

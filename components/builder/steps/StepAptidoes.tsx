@@ -4,10 +4,12 @@ import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { APTIDOES, APT_BY_ID, APT_CATEGORIES, BANNED_APTS } from "@/lib/data/aptidoes";
 import { JUUINKA_BONUS, JUUINKA_ICHI_PICKS, JUUINKA_NI_DEFAULT, JUUINKA_SELOS, niChoices } from "@/lib/data/juuinka";
-import { EFEITO_BY_ID } from "@/lib/data/poderes";
+import { armaDoItem } from "@/lib/data/armas";
+import { SKILLS } from "@/lib/data/base";
+import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { ATIRADOR } from "@/lib/dano";
 import { SENSOR_LIMITES } from "@/lib/estados";
-import { APT_COST, FREE_APTS, MANGEKYOU_PARES, allowedRestricted, aptCost, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
+import { APT_COST, FREE_APTS, MANGEKYOU_PARES, allowedRestricted, aptCost, combatTotal, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, skillTest, skillTotal, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconRight, IconSearch, IconTrash, RulesNote, Sheet, Stepper, StepHeader, Toggle } from "../../ui";
 import { stepKicker, type StepProps } from "../shared";
@@ -161,6 +163,107 @@ function pending(a: Aptidao | undefined, e: AptEntry) {
   return false;
 }
 
+/** Categorias de arma que Especialista, Dano Extra e Crítico Aprimorado entendem (lib/dano.ts, detalheCasa). */
+const CATEGORIAS_ARMA = ["Combate desarmado", "Armas de arremesso", "Armas de disparo", "Armas leves", "Armas medianas", "Armas longas", "Armas pesadas", "Espadas", "Armas especiais", "Armas de fogo"];
+
+/** O que cada aptidão genérica pede para escolher, puxado da própria ficha. */
+function detailOptions(c: Character, id: string): { label: string; options: string[] } | null {
+  const armas = [...new Set(c.items.map((i) => armaDoItem(i)).filter((x): x is NonNullable<typeof x> => !!x && x.cat !== "desarmado"))];
+  if (id === "perito" || id === "pericia-inata") return { label: "Perícia (da sua tabela)", options: [...SKILLS.map((s) => s.name), ...c.customSkills.map((s) => s.name.trim()).filter(Boolean)] };
+  if (id === "maestria") {
+    const nomes = c.poderes.map((p) => PODER_BY_ID[p.id]?.name ?? p.customName ?? "").filter(Boolean);
+    return { label: "Poder ou técnica (dos seus poderes)", options: [...new Set(nomes)] };
+  }
+  if (id === "especialista" || id === "dano-extra" || id === "critico-aprimorado") return { label: "Tipo de arma", options: [...CATEGORIAS_ARMA, ...armas.map((x) => x.name)] };
+  if (id === "usar-arma") return { label: "Arma (do seu equipamento)", options: [...new Set([...armas.filter((x) => x.grupo !== "simples").map((x) => x.name), "Armas especiais", "Armas de arremesso", "Armas de disparo", "Espadas"])] };
+  return null;
+}
+
+/** O que a escolha muda na ficha, quando a ficha calcula sozinha. */
+function detailEffect(c: Character, id: string, detail: string): { ok: string; warn?: string } | null {
+  if (!detail.trim()) return null;
+  if (id === "perito") {
+    const sk = SKILLS.find((s) => norm(s.name) === norm(detail.trim()));
+    if (!sk) return { ok: "Perícia fora da tabela: some o +2 à mão em “outros”." };
+    const t = skillTotal(c, sk.key);
+    if (t === null) return { ok: `${sk.name}: o +2 entra quando a perícia tiver 1 ponto.`, warn: "Perícia treinada sem pontos." };
+    return { ok: `${sk.name}: teste ${t} → ${skillTest(c, sk.key)}. O nível segue ${t} (pré-requisitos e parâmetros de poder).` };
+  }
+  if (id === "maestria") {
+    const d = norm(detail.split(" (")[0].trim());
+    const p = c.poderes.find((x) => {
+      const n = norm((PODER_BY_ID[x.id]?.name ?? x.customName ?? "").split(" (")[0]);
+      return !!n && d.length >= 3 && (n.includes(d) || d.includes(n));
+    });
+    const cd = combatTotal(c, "CD");
+    if (!p && !d.startsWith("versatil")) return { ok: "Técnica fora dos seus poderes: some o +1 à mão.", warn: "Não acumula com Especialista em nenhuma hipótese." };
+    return { ok: `${p ? (PODER_BY_ID[p.id]?.name ?? detail).split(" (")[0] : "Poderes versáteis"}: teste de CD ${cd} → ${cd + 1} nas técnicas (Mesa e folha).`, warn: "Não acumula com Especialista em nenhuma hipótese." };
+  }
+  if (id === "especialista") return { ok: "+1 no teste das armas que encaixam, já somado na Mesa e na folha." };
+  if (id === "usar-arma") return { ok: "Tira o −3 de precisão das armas que encaixam." };
+  return null;
+}
+
+/** Escolha da categoria de uma aptidão genérica: lista da ficha, ou texto livre em “Outra”. */
+function DetailChoice({ c, a, e, set }: { c: Character; a: Aptidao; e: AptEntry; set: StepProps["set"] }) {
+  const opts = detailOptions(c, a.id);
+  const detail = e.detail ?? "";
+  const inList = !!opts?.options.some((o) => norm(o) === norm(detail));
+  const [livre, setLivre] = useState(!!detail && !inList);
+  const write = (v: string) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.detail = v));
+  const fx = detailEffect(c, a.id, detail);
+  const input = (
+    <input
+      className="field max-w-sm py-1.5 text-sm"
+      placeholder="Categoria (ex.: Kunai, Katon, Furtividade)"
+      value={detail}
+      onChange={(ev) => write(ev.target.value)}
+      aria-label={`Categoria de ${a.name}`}
+    />
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      {opts ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex w-full max-w-sm flex-col gap-1">
+            <span className="label">{opts.label}</span>
+            <select
+              className="field py-1.5 text-sm"
+              value={livre ? "__outra" : inList ? opts.options.find((o) => norm(o) === norm(detail)) : ""}
+              onChange={(ev) => {
+                const v = ev.target.value;
+                if (v === "__outra") {
+                  setLivre(true);
+                  return;
+                }
+                setLivre(false);
+                write(v);
+              }}
+            >
+              <option value="">Escolher…</option>
+              {opts.options.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+              <option value="__outra">Outra (escrever)</option>
+            </select>
+          </label>
+          {livre && input}
+        </div>
+      ) : (
+        input
+      )}
+      {fx && (
+        <span className="flex flex-col gap-0.5 text-xs">
+          <span className="text-ok">✓ {fx.ok}</span>
+          {fx.warn && <span className="text-[#f0b27a]">{fx.warn}</span>}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Uma aptidão comprada: uma linha (nome, avisos, resumo, custo); o resto abre ao expandir. */
 function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; set: StepProps["set"]; st: AptStatus | null; open: boolean; onToggle: () => void }) {
   const a = APT_BY_ID[e.id];
@@ -208,15 +311,7 @@ function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; 
         <div className="flex flex-col gap-2.5 px-3 pb-3 sm:pl-9">
           {a?.reqText && <span className={`text-xs ${st?.met ? "text-ok" : "text-bad"}`}>{st?.met ? "✓" : "✗"} Pré-requisito: {a.reqText}</span>}
           {st?.restricted && <span className="text-xs text-bad">Restrita a: {ownersText("aptidoes", a!.id)}.</span>}
-          {a?.generic && (
-            <input
-              className="field max-w-sm py-1.5 text-sm"
-              placeholder="Categoria (ex.: Kunai, Katon, Furtividade)"
-              value={e.detail ?? ""}
-              onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.detail = ev.target.value))}
-              aria-label={`Categoria de ${a.name}`}
-            />
-          )}
+          {a?.generic && <DetailChoice c={c} a={a} e={e} set={set} />}
           {a?.levels && <LevelList c={c} a={a} level={e.level} />}
           {a?.grants && <GrantChoices c={c} a={a} e={e} set={set} />}
           {a && (a.id === "juuinka-ichi" || a.id === "juuinka-ni") && <JuuinkaChoices e={e} set={set} />}

@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { ATTRS, SKILLS } from "@/lib/data/base";
-import { budgetFor, hasApt, skillTotal, spent, uid } from "@/lib/rules";
+import { budgetFor, hasApt, peritoEm, skillTest, skillTotal, spent, uid } from "@/lib/rules";
 import type { AttrKey, CustomSkill } from "@/lib/types";
 import { AnimatedNumber, Badge, IconLock, IconPlus, IconTrash, Stepper, StepHeader } from "../../ui";
 import { stepKicker, type StepProps } from "../shared";
@@ -46,7 +46,8 @@ export function StepPericias({ c, set }: StepProps) {
         {SKILLS.map((sk) => {
           const pts = c.skills[sk.key] || 0;
           const base = Math.ceil(c.attrs[sk.attr] / 2);
-          const total = skillTotal(c, sk.key);
+          const total = skillTest(c, sk.key);
+          const perito = skillTotal(c, sk.key) === null ? 0 : 2 * peritoEm(c, sk.key);
           const locked = sk.needsQuimico && !hasApt(c, "quimico");
           const over = pts > b.cap;
           return (
@@ -60,6 +61,7 @@ export function StepPericias({ c, set }: StepProps) {
                   <Badge>{sk.attr}</Badge>
                   {sk.trained && <Badge tone="chakra">treinada</Badge>}
                   {sk.armor && <Badge>armadura</Badge>}
+                  {perito > 0 && <Badge tone="ok">Perito +{perito}</Badge>}
                   {locked && (
                     <Badge tone={pts > 0 ? "bad" : "muted"}>
                       <IconLock className="size-3" /> requer Químico
@@ -68,7 +70,8 @@ export function StepPericias({ c, set }: StepProps) {
                   {over && <Badge tone="bad">acima do limite {b.cap}</Badge>}
                 </div>
                 <span className="truncate text-xs text-faint" title={sk.desc}>
-                  base {base} + {pts} pt{c.skillBonus[sk.key] ? ` + ${c.skillBonus[sk.key]} outros` : ""} · {sk.desc}
+                  base {base} + {pts} pt{c.skillBonus[sk.key] ? ` + ${c.skillBonus[sk.key]} outros` : ""}
+                  {perito ? ` + ${perito} Perito` : ""} · {sk.desc}
                 </span>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -144,7 +147,7 @@ export function StepPericias({ c, set }: StepProps) {
       </section>
 
       <p className="text-xs leading-relaxed text-faint">
-        “Outros” é para bônus de aptidões (como Perito) ou técnicas; bônus de precisão não contam para pré-requisitos. Venefício normalmente só pode ser comprada com a aptidão Químico.
+        O Perito escolhido em Aptidões já soma +2 no teste (não conta para pré-requisitos). “Outros” é para os demais bônus de aptidões ou técnicas. Venefício normalmente só pode ser comprada com a aptidão Químico.
       </p>
     </div>
   );

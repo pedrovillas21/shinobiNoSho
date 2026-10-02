@@ -1,7 +1,7 @@
 import { ATTRS, COMBAT, SKILLS } from "./data/base";
 import { JUUINKA_BONUS, JUUINKA_BONUS_BY, JUUINKA_ICHI_PICKS, JUUINKA_SELOS, juuinkaChoiceLabel, niChoices } from "./data/juuinka";
 import { CONTADORES, ESTADOS, ESTADO_BY_ID, blankEffect, ccFromFor, makeEstado, refreshEstado, sg } from "./estados";
-import { aptLevel, combatTotal, derived, esqBonus, hasApt, mangekyou, powerLevel, skillTotal, socialTests, uid } from "./rules";
+import { aptLevel, combatTotal, derived, esqBonus, hasApt, mangekyou, powerLevel, skillTest, skillTotal, socialTests, uid } from "./rules";
 import type { AptEntry, AttrKey, Character, CombatKey, ModTarget, PlayCond, PlayCounter, PlayEffect, PlayLog, PlayMod, PlayState } from "./types";
 
 /* ---------------- catálogos ---------------- */
@@ -327,7 +327,14 @@ export function syncPlay(c: Character, p: PlayState): boolean {
   for (const k of CONTADORES) {
     if (!k.has(c)) continue;
     const key = `contador:${k.id}`;
-    if (p.counters.some((x) => x.n === k.n)) markSeen(key);
+    const cur = p.counters.find((x) => x.n === k.n);
+    // Contador que acompanha a ficha (absorção da Montaria pela Arte): o máximo segue o valor atual.
+    if (cur && k.refresh && cur.max !== k.max(c)) {
+      cur.max = k.max(c);
+      cur.cur = Math.min(cur.cur, cur.max);
+      changed = true;
+    }
+    if (cur) markSeen(key);
     else if (!seen.has(key)) {
       const max = k.max(c);
       p.counters.push({ id: uid(), n: k.n, cur: max, max, reset: k.reset });
@@ -467,7 +474,8 @@ export function playView(c: Character, p: PlayState) {
     ini,
     baseIni: base.ini,
     desloc,
-    skills: SKILLS.map((s) => ({ key: s.key, name: s.name, eff: skillTotal(c2, s.key), base: skillTotal(c, s.key) })),
+    // eff/base: nível da perícia (parâmetros de poder); test/baseTest: com o Perito, para os testes.
+    skills: SKILLS.map((s) => ({ key: s.key, name: s.name, eff: skillTotal(c2, s.key), base: skillTotal(c, s.key), test: skillTest(c2, s.key), baseTest: skillTest(c, s.key) })),
     social: socialTests(c2),
     reacao: combatTotal(c2, "ESQ") + 9 - esqPerdida,
     baseReacao: base.reacaoEsquiva,

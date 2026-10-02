@@ -75,11 +75,15 @@ export function Numeros({ v }: MesaProps) {
         <summary className="cursor-pointer select-none py-1.5 text-sm font-bold text-muted group-open:text-text">Perícias em jogo</summary>
         <div className="grid gap-x-6 pb-1 sm:grid-cols-2">
           {v.skills.map((s) => {
-            const delta = (s.eff ?? 0) - (s.base ?? 0);
+            const delta = (s.test ?? 0) - (s.baseTest ?? 0);
+            const perito = s.test !== null && s.eff !== null ? s.test - s.eff : 0;
             return (
               <div key={s.key} className="flex justify-between gap-2 border-b border-line py-1.5 text-sm last:border-0">
-                <span className="text-muted">{s.name}</span>
-                <span className={`font-bold tabular-nums ${toneOf(s.eff === null ? 0 : delta)}`}>{s.eff ?? "—"}</span>
+                <span className="text-muted">
+                  {s.name}
+                  {perito > 0 && <span className="text-xs text-ok"> · Perito +{perito}</span>}
+                </span>
+                <span className={`font-bold tabular-nums ${toneOf(s.test === null ? 0 : delta)}`}>{s.test ?? "—"}</span>
               </div>
             );
           })}

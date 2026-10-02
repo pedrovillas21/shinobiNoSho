@@ -54,15 +54,26 @@ export const EFEITOS: Efeito[] = [
     req: [{ t: "apt", id: "ataque-em-movimento" }, { t: "effect", id: "imergir" }],
   },
   { id: "bracos-serpente", name: "Braços de Serpente (Hebi)", level: 4, source: "Hijutsus 2", desc: "Serpentes saem das mangas: arma longa simples de 6m e 3 de dano de arma, bloqueia ataques; pode usar Destreza no dano. Custo 4, contínua." },
+  {
+    id: "montaria",
+    name: "Montaria (Kibaku Nendo)",
+    level: 2,
+    source: "Hijutsus 2",
+    desc: "Animal de argila Grande para 2 pessoas: dureza 0, absorção 8 × Arte, Montaria Especial que não ataca. Pode explodir como material de outro efeito. Nv 5: Enorme, 5 pessoas e Voo igual à Arte.",
+    evolves: [5],
+    reqText: "Lidar com Animais 4, Ciências Naturais 6 ou Mecanismos 6",
+    req: [{ t: "any", of: [{ t: "skill", k: "animais", min: 4 }, { t: "skill", k: "ciencias", min: 6 }, { t: "skill", k: "mecanismos", min: 6 }] }],
+  },
+  { id: "mina-explosiva", name: "Mina Explosiva (Kibaku Nendo)", level: 3, source: "Hijutsus 2", desc: "Argila como tarja explosiva, com o dano e a Dif de ativação remota do Kibaku Nendo; detona a 2m. Nv 6: várias minas à distância, sem kunai.", evolves: [6] },
 ];
 
 export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.map((e) => [e.id, e]));
 
 /** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
-export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas"];
+export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
 
 /** Símbolo de cada poder elemental (e dos que costumam virar versáteis), usado nos seletores. */
-export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木" };
+export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木", "kibaku-nendo": "粘" };
 
 /** Poderes que podem ser escolhidos como versáteis na Versatilidade (Livro Básico, pág. 243). */
 export const VERSATEIS = ["ninpou", "suiton", "katon", "doton", "fuuton", "raiton", "fuuinjutsu"];
@@ -173,7 +184,7 @@ export const PODERES: Poder[] = [
   { id: "ototon", name: "Ototon (Som)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Elemento Som (Jingokuon).", effects: [...NINPOU_BASE, "dano-continuo"] },
   { id: "jiongu", name: "Jiongu", mode: "livre", restricted: true, source: "Hijutsus 2", reqText: "Corpo de Fios; Ocultismo 10; Medicina 10", req: [{ t: "apt", id: "corpo-fios" }, { t: "skill", k: "ocultismo", min: 10 }, { t: "skill", k: "medicina", min: 10 }], desc: "Rancor da Terra do Medo: corpo de fios e corações extras." },
   { id: "jinton", name: "Jinton (Poeira)", mode: "livre", restricted: true, source: "Hijutsus 2", reqText: "Espírito 12; Doton, Fuuton ou Katon 5", req: [A("ESP", 12), { t: "any", of: [{ t: "power", id: "doton", min: 5 }, { t: "power", id: "fuuton", min: 5 }, { t: "power", id: "katon", min: 5 }] }], desc: "Kekkei Touta: desintegração." },
-  { id: "kibaku-nendo", name: "Kibaku Nendo (Argila)", mode: "efeitos", restricted: true, source: "Hijutsus 2", reqText: "Arte 4", req: [{ t: "skill", k: "arte", min: 4 }], desc: "Argila explosiva moldada.", effects: [...NINPOU_BASE, "inflamavel"] },
+  { id: "kibaku-nendo", name: "Kibaku Nendo (Argila)", mode: "efeitos", restricted: true, source: "Hijutsus 2", reqText: "Arte 4", req: [{ t: "skill", k: "arte", min: 4 }], desc: "Argila explosiva moldada. Parâmetros pela Arte, +2 de dano e bombas de argila iguais ao nível usado.", effects: ["canhao", "orbe", "imergir", "flechas", "coluna", "nuvem", "missil", "onda-explosiva", "inflamavel", "algemar", "meteoros", "montaria", "mina-explosiva"] },
   { id: "futton", name: "Futton (Vapor)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Mei Kekkei Genkai: vapor.", effects: [...NINPOU_BASE, "dano-continuo"] },
   { id: "youton", name: "Youton (Lava)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Mei Kekkei Genkai: lava.", effects: [...NINPOU_BASE, "dano-continuo", "desastre"] },
   { id: "ranton", name: "Ranton (Tempestade)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Água + Raio: tempestade.", effects: [...NINPOU_BASE, "lamina-raios"] },

@@ -1,7 +1,7 @@
 import { ataquesBasicos, critText, letalText, type DanoCtx } from "./dano";
 import { EFEITO_BY_ID, EXCLUSIVOS, PODER_BY_ID } from "./data/poderes";
 import type { PlayView } from "./play";
-import { custoVisao, espParam, evolutionIndex, hasApt, hibonBonus, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, mangekyou, mimicaCopias, powerLevel, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
+import { custoVisao, espParam, evolutionIndex, hasApt, hibonBonus, hasChakraExpandido, hasHipnose, katonLevel, kekkeiGratis, maestriaEm, mangekyou, mimicaCopias, powerLevel, skillTotal, talentoNatural, tecIndex, versatileName, versatilePicks, versatileTechs } from "./rules";
 import type { Character, PlayState, SkillKey } from "./types";
 
 /* ---------------- regras de dano (Livro Básico pág. 91–113 e 257; Guia Avançado pág. 48–55) ---------------- */
@@ -55,7 +55,14 @@ export const DANO_EFEITO: Record<string, DmgSpec> = {
   "lamina-vento": { kind: { k: "laminas" }, note: "Ação completa. Prontidão ou fica fintado. Só o bônus do elemento." },
   "bracos-serpente": { kind: { k: "arma", arma: 3 }, note: "Arma longa de 6m; bloqueia ataques armados. Contínua depois de criada.", costFixed: 4, noMeta: true },
   "colisao-ondas": { kind: { k: "valor", v: 10 }, note: "Construções sofrem o dobro. Evolução Nv 8: base 14; Nv 10: 18." },
+  "mina-explosiva": {
+    kind: { k: "comum" },
+    note: "Funciona como tarja explosiva (Livro Básico, p. 134), com o dano e a Dif de ativação remota do Kibaku Nendo; sem bônus por tarjas extras. Detona sozinha a 2m ou por ativação remota até o alcance do poder. Lançar exige kunai. Potencializar: ação de movimento na hora da explosão.",
+  },
 };
+
+/** Mina Explosiva Nv 6 (evolução): várias minas à distância com ação completa. */
+const MINA_NV6 = " Nv 6: planta várias minas com ação completa, até 15m, em até tantos locais quanto o nível do poder; só 1 ativação remota por rodada; não precisa de kunai.";
 
 /**
  * Lâmina de Raios (Livro Básico, Raiton): o que cada evolução muda (Nv 5, 7 e 9). Usado abaixo do nível da evolução,
@@ -100,6 +107,11 @@ export const EFEITO_UTIL: Record<string, UtilSpec> = {
   nevoa: { show: "dureza", label: "Dureza imaginária", txt: "Círculo de 30m + 3m por Espírito: além de 1m, camuflagem parcial (Nv 5: total). Sustentada." },
   "prisao-agua": { show: "dureza", durezaHalf: true, txt: "Alvo a 1m fica paralisado (Força com Dif comum para se soltar). Concentração." },
   "infligir-medo": { show: "dif", label: "Inteligência", difAdj: -2, txt: "Alvo assustado por 2 rodadas (Nv 5: amedrontado; Nv 7: aterrorizado). −1 na Dif por alvo extra." },
+  montaria: {
+    show: "absorcao",
+    label: "Absorção",
+    txt: "Animal de argila (Montaria Especial): dureza 0, não ataca e não tem mente. Liga o estado “Montaria de Argila” e enche a absorção dela. As bombas usadas ficam nela: dá para explodi-la como material de um efeito de nível igual ou menor. Viagem: metade do chakra e duração permanente (pague o resto ao entrar em combate).",
+  },
   "espelhos-demoniacos": {
     show: "absorcao",
     label: "Absorção de cada espelho",
@@ -215,6 +227,10 @@ function geo(eff: string, x: { A: number; T: number; lvl: number; ev: number; ke
       return { alcance: "pessoal · lâmina estende até 5m" };
     case "espelhos-demoniacos":
       return { alcance: "ao seu redor", area: `meia-esfera de ${m(lvl)} de diâmetro` };
+    case "montaria":
+      return { alcance: "toque", area: ev >= 1 && lvl >= 5 ? "Enorme · até 5 pessoas" : "Grande · até 2 pessoas" };
+    case "mina-explosiva":
+      return { alcance: ev >= 1 && lvl >= 6 ? "até 15m" : "toque (ou lançada com kunai)", area: "explosão de 5m" };
     default:
       // Energizar, Criar Arma, Afiar, Pele de Pedra, Imergir, Flutuar…
       return { alcance: "pessoal" };
@@ -288,6 +304,10 @@ export interface Calc {
   info?: { v?: number; label?: string; txt: string };
   /** Alcance e área de efeito. */
   geo?: Geo;
+  /** Bombas de argila gastas no uso (Kibaku Nendo: o nível usado). */
+  bombas?: number;
+  /** Estado da mesa ligado pelo uso (Montaria de Argila), na forma indicada. */
+  ativa?: { estado: string; stage: number };
 }
 
 export interface AtkRow {
@@ -307,6 +327,10 @@ export interface AtkRow {
   util?: boolean;
   /** Ataque sem nível de poder (taijutsu e armas): mostra `tags` no lugar do nível. */
   tags?: string[];
+  /** Teste de acerto (CC ou CD) com os bônus de precisão que a ficha conhece (Maestria, Especialista…). */
+  teste?: { k: "CC" | "CD"; v: number; why: string[] };
+  /** Arma à distância: alcance sem penalidade em metros (até o dobro −1, até o quádruplo −3). */
+  faixa?: number;
   calc: (lvl: number, o: { free?: boolean; pot?: PotMode }) => Calc;
 }
 
@@ -328,6 +352,10 @@ export interface AtkGroup {
   tamanho?: number;
   /** Bônus que entram em todo efeito do poder. */
   bonus: { label: string; v: number }[];
+  /** Bônus de precisão do grupo (Maestria), só para mostrar no cabeçalho. */
+  prec?: string;
+  /** Recurso gasto a cada uso, para o cabeçalho (ex.: bombas de argila). */
+  recurso?: string;
   extra: number;
   rows: AtkRow[];
 }
@@ -354,6 +382,39 @@ function chave(c: Character, v: PlayView, powerId: string) {
     }
   }
   return { label, val };
+}
+
+/**
+ * Parâmetros de um poder de efeitos pela ficha (sem estados da mesa), para a criação e a folha: atributo ou perícia
+ * chave (Arte no Kibaku Nendo), dano comum com o bônus do elemento, dificuldade e alcance.
+ */
+export function paramsPoder(c: Character, id: string, lvl: number) {
+  const sk = CHAVE_PERICIA[id];
+  let { label, val }: { label: string; val: number } = espParam(c);
+  if (sk) {
+    const s = skillTotal(c, sk.k) ?? 0;
+    if (!sk.optional || s > val) {
+      label = sk.label;
+      val = s;
+    }
+  }
+  const bonus: { label: string; v: number }[] = [];
+  if (ELEMENTO[id]) bonus.push({ label: (PODER_BY_ID[id]?.name ?? id).split(" (")[0], v: ELEMENTO[id] });
+  if (id === "hibon" && hibonBonus(c).dano) bonus.push({ label: "Hibon", v: hibonBonus(c).dano });
+  if (id === "suiton" && hasApt(c, "elemento-natural-suiton")) bonus.push({ label: "Elemento Natural", v: 2 });
+  if (id === "doton" && hasApt(c, "elemento-natural-terra")) bonus.push({ label: "Elemento Natural", v: 1 });
+  const meio = half(val);
+  const dano = lvl + meio + bonus.reduce((t, b) => t + b.v, 0);
+  const dif = 9 + lvl + meio + difPoder(c, id);
+  return {
+    label,
+    val,
+    dano,
+    danoTxt: [`${lvl}`, `½${label} ${meio}`, ...bonus.map((b) => `${b.label} ${b.v}`)].join(" + "),
+    dif,
+    difTxt: `9 + ${lvl} + ½${label} ${meio}${difPoder(c, id) ? ` + ${difPoder(c, id)}` : ""}`,
+    alcance: alcanceTamanho(id, val).alcance,
+  };
 }
 
 /** Efeito escolhido num poder: nome da técnica e evolução alcançada. */
@@ -734,13 +795,23 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
   const capacidade = hasApt(c, "capacidade") && NINPOU_E_ELEMENTOS.includes(id);
   const extra = p.dmgExtra?.[key] ?? 0;
   const elemTotal = bonus.reduce((t, b) => t + b.v, 0);
+  const maestria = maestriaEm(c, id, key.startsWith("versatilidade:")) ? 1 : 0;
+  // Kibaku Nendo: cada efeito gasta bombas de argila iguais ao nível usado (Livro de Hijutsus vol. 2).
+  const argila = id === "kibaku-nendo";
+  const comArgila = (r: Calc, lvl: number): Calc => (argila ? { ...r, bombas: lvl } : r);
 
   const rows: AtkRow[] = o.picks
     .flatMap(({ eff, tech, ev, talento, tag: from, nivel }): AtkRow[] => {
       const e = EFEITO_BY_ID[eff];
       const spec = DANO_EFEITO[eff];
       const tag = talento ? "Talento Natural" : (from ?? "");
-      if (!spec) return [utilRow(c, key, id, eff, tech, ev, level, k, v, tag)];
+      if (!spec) {
+        const u = utilRow(c, key, id, eff, tech, ev, level, k, v, tag);
+        return [{ ...u, calc: (lvl, opt) => comArgila(u.calc(lvl, opt), lvl) }];
+      }
+      // Teste de acerto: CC nos golpes de toque e armas criadas, CD no resto.
+      const tk: "CC" | "CD" = eff === "lamina-raios" || spec.kind.k === "arma" ? "CC" : "CD";
+      const teste = { k: tk, v: v.combat[tk] + maestria, why: [maestria ? "Maestria +1" : "", eff === "meteoros" ? "−3 se mirar em alguém" : ""].filter(Boolean) };
       const effName = e.name.replace(/ \(.*\)$/, "");
       const evoLvl = ev ? e.evolves?.[ev - 1] : undefined;
       const evoTxt = evoLvl ? `evoluído Nv ${evoLvl}` : "";
@@ -749,16 +820,21 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
         key: `${key}:${eff}`,
         name: tech || effName,
         sub: [tech ? effName : "", evoTxt, tag].filter(Boolean).join(" · "),
-        note: eff === "lamina-raios" ? laminaRaiosNote(ev) : spec.note,
+        note: eff === "lamina-raios" ? laminaRaiosNote(ev) : eff === "mina-explosiva" && ev >= 1 ? spec.note + MINA_NV6 : spec.note,
         min: e.level,
         max: spec.costFixed ? e.level : Math.max(e.level, level, nivel ?? 0),
         meta,
         free: !!spec.free,
-        calc: (lvl, opt) => ({
-          ...dmgCalc(lvl, opt),
-          // Potencializar: dobra o alcance ou a área, à escolha.
-          geo: geo(eff, { A: at.alcance * (meta && opt.pot === "alcance" ? 2 : 1), T: at.tamanho * (meta && opt.pot === "area" ? 2 : 1), lvl, ev, key: k.val }),
-        }),
+        teste,
+        calc: (lvl, opt) =>
+          comArgila(
+            {
+              ...dmgCalc(lvl, opt),
+              // Potencializar: dobra o alcance ou a área, à escolha.
+              geo: geo(eff, { A: at.alcance * (meta && opt.pot === "alcance" ? 2 : 1), T: at.tamanho * (meta && opt.pot === "area" ? 2 : 1), lvl, ev, key: k.val }),
+            },
+            lvl,
+          ),
       };
       // Lâmina de Raios Nv 5 (evolução): atacar com Investida dá +2 de dano, +1 a cada nível do poder acima do 5.
       // Conta o nível do poder (num poder versátil, o da Versatilidade), não o nível usado; usar abaixo do Nv 5 perde a evolução.
@@ -843,7 +919,20 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
     // Primeiro o que causa dano, depois o resto; cada parte pelo nível do efeito.
     .sort((a, b) => Number(!!a.util) - Number(!!b.util) || a.min - b.min);
 
-  return { id: key, title: o.title, level, keyLabel: k.label, keyVal: k.val, alcance: at.alcance, tamanho: at.tamanho, bonus, extra, rows };
+  return {
+    id: key,
+    title: o.title,
+    level,
+    keyLabel: k.label,
+    keyVal: k.val,
+    alcance: at.alcance,
+    tamanho: at.tamanho,
+    bonus,
+    prec: maestria ? "Maestria +1" : undefined,
+    recurso: argila ? "bombas de argila = nível usado" : undefined,
+    extra,
+    rows,
+  };
 }
 
 function utilRow(c: Character, groupKey: string, powerId: string, eff: string, tech: string, ev: number, level: number, k: { label: string; val: number }, v: PlayView, tag = ""): AtkRow {
@@ -868,7 +957,13 @@ function utilRow(c: Character, groupKey: string, powerId: string, eff: string, t
       const cost = spec.costFixed ?? lvl;
       const { alcance: A, tamanho: T } = alcanceTamanho(powerId, k.val);
       const out: Calc = { base: 0, cost, dif, parts: [], noDif: true, info: { txt }, geo: geo(eff, { A, T, lvl, ev, key: k.val }) };
-      if (spec.show === "absorcao") {
+      if (eff === "montaria") {
+        // Montaria (Kibaku Nendo): 5 de chakra, absorção 8 por nível de Arte; a forma Enorme é a evolução do Nv 5.
+        const enorme = ev >= 1 && lvl >= 5;
+        out.cost = 5;
+        out.info = { v: 8 * k.val, label: `Absorção · ${enorme ? "Enorme, Voo" : "Grande"}`, txt };
+        out.ativa = { estado: "montaria-argila", stage: enorme ? 1 : 0 };
+      } else if (spec.show === "absorcao") {
         // Espelhos Demoníacos (Livro de Hijutsus, Hyouton): absorção 8 por nível usado, dureza 0 sem bônus de elemento.
         out.cost = ev >= 1 ? 4 : 3;
         out.info = { v: 8 * lvl, label: spec.label ?? "Absorção", txt: `${txt} Dureza ${ev >= 1 ? 2 : 0}.${ev >= 1 ? ESPELHOS_NV8 : ""}` };
@@ -957,13 +1052,15 @@ export function grupoBasico(c: Character, v: PlayView, p: PlayState, o: { energi
   const rows: AtkRow[] = ataquesBasicos(c, x).map((a) => ({
     key: `basico:${a.key}`,
     name: a.name,
-    sub: [a.tag, `teste de ${a.test} ${v.combat[a.test]}`, a.tipo].filter(Boolean).join(" · "),
+    sub: [a.tag, a.tipo].filter(Boolean).join(" · "),
     note: [a.note, ...a.warn.map((w) => `⚠ ${w}`)].filter(Boolean).join(" "),
     min: a.lvl?.min ?? 1,
     max: a.lvl?.max ?? 1,
     meta: false,
     free: false,
     tags: [letalText(a.letal), `crítico ${critText(a.crit)}`],
+    teste: { k: a.test, v: v.combat[a.test] + (a.prec?.v ?? 0), why: a.prec?.why ?? [] },
+    faixa: a.faixa,
     calc: (lvl) => {
       const r = a.lvl ? a.lvl.calc(lvl) : a;
       const parts = extra ? [...r.parts, `extra ${extra}`] : r.parts;
