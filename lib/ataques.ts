@@ -49,6 +49,7 @@ export const DANO_EFEITO: Record<string, DmgSpec> = {
   cegante: { kind: { k: "comum" }, note: "Alvo com camuflagem parcial por 3 turnos." },
   desastre: { kind: { k: "porNivel", x: 3 }, note: "1× por cena. Ataque de CD no turno de cada um na área.", costX: 3, noMeta: true },
   meteoros: { kind: { k: "fixo", mult: 1, txt: "por meteoro · 6 meteoros" }, note: "Sem bônus de dano. Mirar em alguém: −3 de precisão.", noMeta: true },
+  kajousatsu: { kind: { k: "comum" }, note: "", noMeta: true }, // nota real em kajousatsuNote
   inflamavel: { kind: { k: "canhao2" }, note: "Combustão com o Canhão Katon ou Raiton, na área do efeito.", noMeta: true },
   "lamina-raios": { kind: { k: "comum" }, note: "Ataque de CC. Ignora 1 de dureza e quebra armas no bloqueio." }, // nota real em laminaRaiosNote
   descarga: { kind: { k: "metade" }, note: "Vigor (Dif −3) ou atordoado." },
@@ -73,6 +74,22 @@ function laminaRaiosNote(ev: number): string {
   if (ev >= 1) out.push("Usada no Nv 5+: prepara com ação parcial.");
   if (ev >= 2) out.push("Nv 7+: ignora toda dureza (proteção Raiton: só metade; Fuuton: nenhuma).");
   if (ev >= 3) out.push("Nv 9+: Crítico Aprimorado, cumulativo com o Domínio do Raio.");
+  return out.join(" ");
+}
+
+/**
+ * Kajousatsu (Livro de Hijutsus vol. 2, Shakuton): o que cada evolução muda (Nv 6 e 9). Sem aptidões de técnica,
+ * exceto Mumificar.
+ */
+function kajousatsuNote(ev: number): string {
+  const out = [
+    "Ação completa, concentração até " + (ev >= 2 ? 6 : ev >= 1 ? 5 : 4) + " turnos. Esfera de 0,5m (1 quadrado) com dureza imaginária comum. Quem estiver no quadrado no início do seu turno, ou entrar nele, sofre o dano sem defesa (2d8 para o grau).",
+    "Do 2º turno, ao manter a concentração (ação padrão), move a esfera no alcance; atacar com ela: CD contra a defesa, e quem defende dá um Passo para sair.",
+    "Defensiva: ação de movimento para Defender com Técnica (você ou aliado no alcance) usando CD no lugar de LM; reduz o dano pela dureza da esfera.",
+    "Só é bloqueada por arma especial (Samehada) ou energizada por Suiton. Sem aptidões de técnica, exceto Mumificar.",
+  ];
+  if (ev >= 1) out.push("Nv 6+: esferas iguais a ½ do nível usado (nunca no mesmo espaço); várias numa criatura Grande ou maior: +1 de dano base por esfera, sem somar os danos.");
+  if (ev >= 2) out.push("Nv 9+: sustentada; qualquer outro dano seu cai a zero; move as esferas em qualquer momento do seu turno, 1× por turno.");
   return out.join(" ");
 }
 
@@ -266,6 +283,8 @@ function geo(eff: string, x: { A: number; T: number; lvl: number; ev: number; ke
       return { alcance: `epicentro até ${m(2 * A)}`, area: `área de ${m(3 * T)}` };
     case "meteoros":
       return { alcance: m(A), area: "6 esferas de 5m de diâmetro" };
+    case "kajousatsu":
+      return { alcance: m(A), area: ev >= 1 ? `${Math.max(1, Math.floor(lvl / 2))} esferas de 0,5m` : "esfera de 0,5m (1 quadrado)" };
     case "inflamavel":
     case "restringente":
     case "purificar":
@@ -321,7 +340,7 @@ const DUREZA: Record<string, number> = {
 };
 
 /** Bônus de dano do elemento (“Dano Adicional”). */
-const ELEMENTO: Record<string, number> = {
+export const ELEMENTO: Record<string, number> = {
   fuuton: 2,
   katon: 2,
   raiton: 1,
@@ -332,6 +351,7 @@ const ELEMENTO: Record<string, number> = {
   youton: 1,
   futton: 2,
   ranton: 1,
+  shakuton: 2,
 };
 
 /** “Dificuldade de Resistência Aumentada” de alguns poderes. */
@@ -977,7 +997,7 @@ function effectGroup(c: Character, v: PlayView, p: PlayState, o: { key: string; 
         key: `${key}:${eff}`,
         name: tech || effName,
         sub: [tech ? effName : "", evoTxt, tag].filter(Boolean).join(" · "),
-        note: eff === "lamina-raios" ? laminaRaiosNote(ev) : eff === "mina-explosiva" && ev >= 1 ? spec.note + MINA_NV6 : spec.note,
+        note: eff === "lamina-raios" ? laminaRaiosNote(ev) : eff === "kajousatsu" ? kajousatsuNote(ev) : eff === "mina-explosiva" && ev >= 1 ? spec.note + MINA_NV6 : spec.note,
         min: e.level,
         max: spec.costFixed ? e.level : Math.max(e.level, level, nivel ?? 0),
         meta,

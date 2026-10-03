@@ -1,5 +1,6 @@
 import { armaPorNivel } from "./dano";
 import { BIJUUS } from "./data/poderes";
+import { golemMokuton } from "./golem";
 import { aptLevel, custoVisao, espParam, hasApt, hasMangekyouTec, peritoEm, powerLevel, skillTotal, uid } from "./rules";
 import type { Character, ModTarget, PlayCounter, PlayEffect, PlayMod } from "./types";
 
@@ -578,18 +579,25 @@ export const ESTADOS: EstadoDef[] = [
     id: "senjutsu",
     name: "Modo Eremita",
     has: (c) => aptLevel(c, "senjutsu") >= 1,
-    sig: (c) => `${aptLevel(c, "senjutsu")}|${c.attrs.VIG}|${c.attrs.ESP}|${espParam(c).val}`,
+    // "b": versão com os bônus de energia como escolha (antes o Chakra +20 entrava sozinho ao ativar).
+    sig: (c) => `${aptLevel(c, "senjutsu")}|${c.attrs.VIG}|${c.attrs.ESP}|${espParam(c).val}|b`,
     build(e, c) {
       const lvl = aptLevel(c, "senjutsu");
       const esp = espParam(c).val;
       e.src = `Senjutsu · ${senjutsuPoints(c)} pontos de Chakra Senjutsu`;
-      e.gainChk = lvl >= 2 ? 20 : 0;
+      // Nível 2 (Guia Avançado, pág. 18–19): Chakra +20 e Vitalidade +30 entram na lista de bônus de Senjutsu.
+      // Cada um custa 1 ponto, 1× por cena, ação livre, e dura 1 cena; não vêm sozinhos ao entrar no modo.
+      if (lvl >= 2)
+        e.boosts = [
+          { k: "chk", v: 20, pay: "Chakra Senjutsu" },
+          { k: "vit", v: 30, pay: "Chakra Senjutsu" },
+        ];
       e.mods = [off("FOR", 4), off("dano", 2), off("precAtk", 1), off("precDef", 1), off("acel", 1), off("dif", 1), off("dureza", 1)];
       e.hint = text(
         `Ação padrão de concentração (dano ou defesa quebram); ativa no início do seu próximo turno com ${senjutsuPoints(c)} pontos (contador “Chakra Senjutsu”).`,
         "Cada bônus custa 1 ponto e dura até o início do seu próximo turno (Força +4 não acumula com Dano Base +2). Dura enquanto houver pontos, até 10 minutos por dia.",
         `Sensor de chakra ${lvl >= 2 ? 10 + 2 * esp : 5 + esp}m.`,
-        lvl >= 2 && "Nível 2: Chakra +20 e Vitalidade +30, 1×/cena cada; o modo passa de uma cena para outra.",
+        lvl >= 2 && "Nível 2: Chakra +20 e Vitalidade +30 entram nos bônus (1 ponto cada, 1×/cena cada, ação livre). Duram até o fim da cena, mesmo saindo do modo; aí o que passar do máximo some. O modo passa de uma cena para outra.",
         lvl >= 3 && "Nível 3: Surto de Chakra Natural (ação padrão, 1× por descanso) entra no modo na hora.",
       );
     },
@@ -628,6 +636,8 @@ export const senjutsuPoints = (c: Character) => half(Math.max(c.attrs.VIG, c.att
 /** Remonta o estado a partir da ficha, mantendo a forma escolhida e os bônus ligados/desligados. */
 export function refreshEstado(e: PlayEffect, def: EstadoDef, c: Character) {
   const was = new Map(e.mods.map((m) => [`${m.t}:${m.v}`, m.on]));
+  const usados = new Set((e.boosts ?? []).filter((b) => b.used).map((b) => b.k));
+  delete e.boosts;
   const stages = def.stages?.(c);
   if (stages) e.stage = clamp(e.stage ?? def.defaultStage?.(c) ?? 0, 0, stages.length - 1);
   e.costVit = 0;
@@ -640,6 +650,8 @@ export function refreshEstado(e: PlayEffect, def: EstadoDef, c: Character) {
   e.turns = 0;
   e.pick = undefined;
   def.build(e, c);
+  // O build preenche os bônus de novo (o TS não vê isso e estreita e.boosts para undefined).
+  (e as PlayEffect).boosts?.forEach((b) => (b.used = usados.has(b.k)));
   e.name = def.name;
   e.auto = def.id;
   e.sig = def.sig(c);
@@ -671,5 +683,7 @@ export const CONTADORES: { id: string; n: string; has: (c: Character) => boolean
   { id: "izanagi", n: "Izanagi", has: (c) => hasApt(c, "izanagi"), max: (c) => Math.ceil(Math.max(c.attrs.ESP, c.attrs.INT) / 2), reset: "cena" },
   // Kibaku Nendo (Livro de Hijutsus vol. 2): bombas feitas na preparação diária, 30 por compartimento.
   { id: "bombas-argila", n: BOMBAS_ARGILA, has: (c) => powerLevel(c, "kibaku-nendo") > 0, max: () => 30, reset: "descanso" },
+  // Golem do Mokuton (Livro Básico): metade da Vitalidade; um golem por cena.
+  { id: "golem-vit", n: "Vitalidade do Golem", has: (c) => !!golemMokuton(c)?.escolhido, max: (c) => golemMokuton(c)?.vit ?? 0, reset: "cena", refresh: true },
   { id: "montaria-absorcao", n: ABSORCAO_MONTARIA, has: (c) => effectCount(c, "montaria") > 0, max: (c) => 8 * arteNivel(c), reset: "cena", refresh: true },
 ];

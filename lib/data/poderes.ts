@@ -134,6 +134,15 @@ export const EFEITOS: Efeito[] = [
     req: [{ t: "apt", id: "ingestao-chakra" }, { t: "apt", id: "terra-insaciavel" }],
     libera: [{ t: "apt", id: "ingestao-chakra" }, { t: "apt", id: "terra-insaciavel" }],
   },
+  // Shakuton: efeito exclusivo (Livro de Hijutsus vol. 2, p.122–123).
+  {
+    id: "kajousatsu",
+    name: "Kajousatsu (Shakuton)",
+    level: 3,
+    source: "Hijutsus 2",
+    desc: "Assassinato de Vapor Extremo: esfera de calor de 0,5m sob concentração (até 4 turnos), com dureza imaginária comum. Quem estiver ou entrar no quadrado dela sofre o dano comum sem defesa; também defende ataques (Defender com Técnica, com CD). Nv 6: ½ do nível em esferas, 5 turnos. Nv 9: 6 turnos e sustentada.",
+    evolves: [6, 9],
+  },
   { id: "inflamavel", name: "Inflamável (Katon)", level: 5, source: "Guia Avançado", desc: "Espalha material inflamável na área.", evolves: [8] },
   { id: "meteoros", name: "Meteoros (Katon)", level: 9, source: "Básico", desc: "Chuva de projéteis flamejantes." },
   { id: "venenoso", name: "Venenoso (Fuuton)", level: 5, source: "Básico", desc: "Ventos carregam veneno." },
@@ -177,7 +186,7 @@ export const EFEITO_BY_ID: Record<string, Efeito> = Object.fromEntries(EFEITOS.m
 export const EFEITOS_KEKKEI_TOUTA = ["reducao-peso", "adicao-peso", "golem-pedra"];
 
 /** Efeitos exclusivos de elemento/poder (Capacidade não soma neles e o Talento Natural não pode escolhê-los). */
-export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "reducao-peso", "adicao-peso", "golem-pedra", "cortina-poeira", "golem-insaciavel", "transmissor", "selar-chakra", "golem-mokuton", "efemeroptero", "chuva-esporos", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
+export const EXCLUSIVOS = ["espelhos-demoniacos", "bracos-serpente", "infligir-medo", "imergir", "tremor", "pele-pedra", "reducao-peso", "adicao-peso", "golem-pedra", "cortina-poeira", "golem-insaciavel", "kajousatsu", "transmissor", "selar-chakra", "golem-mokuton", "efemeroptero", "chuva-esporos", "inflamavel", "meteoros", "venenoso", "afiar", "lamina-vento", "flutuar", "lamina-raios", "arma-eletrica", "descarga", "nevoa", "prisao-agua", "colisao-ondas", "montaria", "mina-explosiva"];
 
 /** Símbolo de cada poder elemental (e dos que costumam virar versáteis), usado nos seletores. */
 export const KANJI_PODER: Record<string, string> = { ninpou: "忍", doton: "土", fuuton: "風", katon: "火", raiton: "雷", suiton: "水", fuuinjutsu: "封", mokuton: "木", "kibaku-nendo": "粘" };
@@ -295,7 +304,7 @@ export const PODERES: Poder[] = [
   { id: "futton", name: "Futton (Vapor)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Mei Kekkei Genkai: vapor.", effects: [...NINPOU_BASE, "dano-continuo"] },
   { id: "youton", name: "Youton (Lava)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Mei Kekkei Genkai: lava.", effects: [...NINPOU_BASE, "dano-continuo", "desastre"] },
   { id: "ranton", name: "Ranton (Tempestade)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Água + Raio: tempestade.", effects: [...NINPOU_BASE, "lamina-raios"] },
-  { id: "shakuton", name: "Shakuton (Calor)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Fogo + Vento: calor que seca.", effects: [...NINPOU_BASE, "dano-continuo"] },
+  { id: "shakuton", name: "Shakuton (Calor)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Fogo + Vento: calor que seca. +2 de dano base em todo efeito.", effects: [...NINPOU_BASE, "dano-continuo", "kajousatsu", "meteoros"] },
   { id: "shouton", name: "Shouton (Cristal)", mode: "efeitos", restricted: true, source: "Hijutsus 2", desc: "Cristal.", effects: [...NINPOU_BASE, "dano-continuo", "deslocamento-vacuo"] },
 ];
 

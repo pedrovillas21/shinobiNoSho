@@ -15,6 +15,7 @@ import { StepCla } from "./steps/StepCla";
 import { StepConceito } from "./steps/StepConceito";
 import { StepEquipamento } from "./steps/StepEquipamento";
 import { StepFicha } from "./steps/StepFicha";
+import { StepGolem } from "./steps/StepGolem";
 import { StepHistoria } from "./steps/StepHistoria";
 import { CriaturaResumo, StepInvocacoes } from "./steps/StepInvocacoes";
 import { StepPericias } from "./steps/StepPericias";
@@ -117,7 +118,7 @@ function BuilderView({
     return m;
   }, [issues]);
   const STEPS = stepsFor(c);
-  // Invocações some se o Kuchiyose deixar de existir: quem estava nela volta para Poderes.
+  // Invocações (ou Golem) some se o Kuchiyose (ou o Mokuton) deixar de existir: quem estava nela volta para Poderes.
   const found = STEPS.findIndex((x) => x.key === stepKey);
   const step = found >= 0 ? found : Math.max(0, STEPS.findIndex((x) => x.key === "poderes"));
   const key = STEPS[step].key;
@@ -299,6 +300,7 @@ function BuilderView({
               {key === "pericias" && <StepPericias c={c} set={set} />}
               {key === "aptidoes" && <StepAptidoes c={c} set={set} />}
               {key === "poderes" && <StepPoderes c={c} set={set} />}
+              {key === "golem" && <StepGolem c={c} set={set} />}
               {key === "invocacoes" && <StepInvocacoes c={c} set={set} nav={nav} setNav={setNav} />}
               {key === "equipamento" && <StepEquipamento c={c} set={set} />}
               {key === "historia" && <StepHistoria c={c} set={set} />}

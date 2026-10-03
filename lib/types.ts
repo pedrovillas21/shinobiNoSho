@@ -66,6 +66,8 @@ export interface Aptidao {
   levelsFree?: boolean;
   /** Aptidões recebidas de graça na compra (ex.: Técnica Avançada dá 2 de técnica). */
   grants?: { cat: AptCategory; n: number };
+  /** Pontos por compra, quando não são os 2 de sempre (ex.: 0 no Mangekyou Eterno, conquistado na história). */
+  cost?: number;
   source: Source;
 }
 
@@ -290,6 +292,8 @@ export interface Character {
   extraOrigins: string[];
   customOrigin: CustomOrigin;
   bijuu?: string;
+  /** Golem do Mokuton: nome e aparência (a ficha dele é calculada da sua; ver lib/golem.ts). */
+  golem?: { name?: string; look?: string };
   // números
   attrs: Record<AttrKey, number>;
   combatBase: Record<CombatKey, number>;
@@ -374,7 +378,18 @@ export interface PlayEffect {
   stage?: number;
   /** Opção liga/desliga do estado do catálogo (Controle Total, pílula…). */
   opt?: boolean;
+  /** Bônus de energia de uso único por cena, pagos com um ponto do contador (ex.: Modo Eremita Nv 2). */
+  boosts?: PlayBoost[];
   mods: PlayMod[];
+}
+
+/** Bônus de energia (Chakra +20, Vitalidade +30): soma na hora, 1× por cena, e o que sobrar acaba no fim da cena. */
+export interface PlayBoost {
+  k: "chk" | "vit";
+  v: number;
+  /** Nome do contador que paga 1 ponto por uso (ex.: "Chakra Senjutsu"). */
+  pay?: string;
+  used?: boolean;
 }
 
 export interface PlayCond {
@@ -433,6 +448,8 @@ export interface PlayState {
   dmgExtra?: Record<string, number>;
   /** Pílulas do Soldado tomadas desde o último descanso (o efeito colateral acumula). */
   pills?: number;
+  /** Bônus de energia que duram até o fim da cena (Modo Eremita Nv 2): no fim da cena, o que passar do máximo some. */
+  temp?: { chk: number; vit: number };
   /**
    * Pontos de visão do Mangekyou Sharingan (10, não se recuperam). `zeros` conta quantas vezes zeraram
    * (1ª: Desativação Forçada e Descanso do Sharingan; 2ª: cego); `lock` = Sharingan indisponível.

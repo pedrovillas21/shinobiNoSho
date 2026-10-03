@@ -38,7 +38,7 @@ function Descanso({ c, v, commit }: MesaProps) {
       sub: "Zera usos “por cena” e tira fintado, flanqueado, desprevenido e caído",
       color: "var(--color-chakra)",
       icon: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
-      run: () => commit((pl, log) => endScene(pl, log)),
+      run: () => commit((pl, log, ch) => endScene(pl, log, ch)),
     },
   ];
   return (

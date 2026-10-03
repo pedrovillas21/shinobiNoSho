@@ -5,6 +5,7 @@ import { ATTRS, COMBAT, JUTSUS_BASICOS, SKILLS } from "@/lib/data/base";
 import { ATIRADOR, ataquesBasicos, critText, fichaCtx, letalText } from "@/lib/dano";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { SENSOR_LIMITES } from "@/lib/estados";
+import { golemMokuton, golemRegras } from "@/lib/golem";
 import { contrato, especieDe, formaDe, hasInvocacoes, kuchiyoseLevel, ncMaxFor, qtyOptions, statsInvocacao, tecnicaAtiva } from "@/lib/kuchiyose";
 import { CUSTOM_ORIGIN, HIBON_BONUS, budgetFor, mangekyou, combatTotal, derived, evolucaoDe, evolutionLevel, gratisFonte, hasApt, hibonEntry, isRepurchase, kekkeiGratis, maestriaEm, nivelGratis, originName, peritoEm, powerLevel, rankLabel, skillTest, socialTests, tecIndex, versatileName, versatilePicksDe, versatileTechs } from "@/lib/rules";
 import type { Character } from "@/lib/types";
@@ -66,6 +67,41 @@ function Ataques({ c }: { c: Character }) {
       <p className="text-xs text-paper-muted">
         Dano base: ½ Força + dano de arma no corpo-a-corpo, ½ Destreza + dano de arma à distância (Livro Básico, pág. 257). Dano final = base × grau do 2d8. Estados (Hachimon, Baika, Selo…) entram na Mesa.
       </p>
+    </section>
+  );
+}
+
+/** Ficha do Golem do Mokuton (Livro Básico, efeito de nível 7), quando o efeito foi escolhido. */
+function Golem({ c }: { c: Character }) {
+  const g = golemMokuton(c);
+  if (!g?.escolhido) return null;
+  return (
+    <section className="print-avoid flex flex-col gap-3">
+      <H>
+        Golem (Mokuton){c.golem?.name?.trim() ? `: ${c.golem.name.trim()}` : ""} · {g.tamanho}
+        {g.nv10 ? " · Nv 10" : ""}
+      </H>
+      {c.golem?.look?.trim() && <p className="text-sm text-paper-muted">{c.golem.look.trim()}</p>}
+      <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-paper-3 text-center">
+        {ATTRS.map((a) => (
+          <div key={a.key} className={`py-1 ${g.attrNota[a.key] ? "bg-paper-2" : ""}`}>
+            <div className={`text-[10px] font-bold ${g.attrNota[a.key] ? "text-seal-dark" : "text-paper-muted"}`}>{a.key}</div>
+            <div className="font-display text-lg font-extrabold leading-tight">{g.attrs[a.key]}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-sm">
+        Vit <strong>{g.vit}</strong> · Dureza <strong>0</strong> · Dano CC <strong>{g.dano}</strong> · CC/CD/ESQ/LM{" "}
+        <strong>
+          {g.combat.CC}/{g.combat.CD}/{g.combat.ESQ}/{g.combat.LM}
+        </strong>{" "}
+        · Reação de Esquiva <strong>{g.reacaoEsquiva}</strong> · Desloc. <strong>{g.desloc}m</strong> · Alcance CC <strong>{g.alcanceCC}m</strong> · Perícias 0
+      </p>
+      <ul className="flex flex-col gap-0.5 text-xs text-paper-muted">
+        {golemRegras(g).map((r) => (
+          <li key={r}>• {r}</li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -361,6 +397,7 @@ export function FichaSheet({ c }: { c: Character }) {
         </div>
       </section>
 
+      <Golem c={c} />
       <Contrato c={c} />
 
       <section className="grid gap-6 md:grid-cols-2">

@@ -9,9 +9,10 @@ import { SKILLS } from "@/lib/data/base";
 import { EFEITO_BY_ID, PODER_BY_ID } from "@/lib/data/poderes";
 import { ATIRADOR } from "@/lib/dano";
 import { SENSOR_LIMITES } from "@/lib/estados";
-import { APT_COST, FREE_APTS, MANGEKYOU_PARES, MAXIMIZAR, allowedRestricted, aptCost, combatTotal, mangekyou, budgetFor, grantedApts, isFreeEligible, ownersText, reqsMet, skillTest, skillTotal, spent, talentoEffects, talentoTargets, uid, versatileName } from "@/lib/rules";
+import { APT_COST, FREE_APTS, MANGEKYOU_PARES, MAXIMIZAR, allowedRestricted, aptCost, combatTotal, mangekyou, budgetFor, grantedApts, isFreeEligible, maximizarOpcoes, ownersText, reqsMet, skillTest, skillTotal, spent, talentoEffects, talentoTargets, temJinton, uid, versatileName } from "@/lib/rules";
 import type { AptCategory, AptEntry, Aptidao, Character } from "@/lib/types";
 import { Badge, IconCheck, IconPlus, IconRight, IconSearch, IconTrash, RulesNote, Sheet, Stepper, StepHeader, Toggle } from "../../ui";
+import { EffectPicker, type PickGroup, type PickOption } from "../EffectPicker";
 import { stepKicker, type StepProps } from "../shared";
 
 const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -270,6 +271,8 @@ function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; 
   const freeOk = a ? isFreeEligible(a) : false;
   const name = a?.name ?? e.customName;
   const falta = pending(a, e);
+  // Sem custo (ex.: Mangekyou Eterno, conquistado na história): não usa uma das gratuitas.
+  const semCusto = a?.cost === 0;
   return (
     <motion.li layout="position" className={`border-t border-line first:border-t-0 ${open ? "bg-panel-2" : ""}`}>
       <div className="flex min-h-12 items-center gap-2 py-1 pr-2 pl-3">
@@ -284,13 +287,18 @@ function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; 
               {st?.restricted && <Badge tone="bad">restrita</Badge>}
               {st?.banned && <Badge tone="bad">banida</Badge>}
               {st && !st.met && <Badge tone="bad">pré-req.</Badge>}
-              {e.free && !freeOk && <Badge tone="bad">gratuita fora da regra</Badge>}
+              {e.free && !freeOk && !semCusto && <Badge tone="bad">gratuita fora da regra</Badge>}
               {falta && <Badge tone="chakra">escolher</Badge>}
             </span>
             <span className="min-w-0 flex-1 truncate text-xs text-muted sm:text-[13px]">{a?.desc ?? e.note ?? "Aptidão personalizada"}</span>
           </span>
           <IconRight className={`size-4 shrink-0 text-faint transition ${open ? "rotate-90" : ""}`} />
         </button>
+        {semCusto ? (
+          <span className="chip min-h-10 shrink-0 border-ok bg-ok/15 px-2.5 text-xs font-bold text-ok" title="Conquistada na história: não custa pontos nem usa uma das aptidões gratuitas">
+            <IconCheck className="size-3.5" /> Sem custo
+          </span>
+        ) : (
         <button
           type="button"
           onClick={() => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.free = !e.free))}
@@ -306,6 +314,7 @@ function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; 
             `${aptCost(e)} pts`
           )}
         </button>
+        )}
       </div>
       {open && (
         <div className="flex flex-col gap-2.5 px-3 pb-3 sm:pl-9">
@@ -318,7 +327,7 @@ function AptRow({ c, e, set, st, open, onToggle }: { c: Character; e: AptEntry; 
           {a?.id === "talento-natural" && <TalentoChoices c={c} e={e} set={set} />}
           {a?.id === "sensor" && <SensorChoice e={e} set={set} />}
           {a?.id === "atirador" && <AtiradorChoice e={e} set={set} />}
-          {a?.id === "maximizar" && <MaximizarChoice e={e} set={set} />}
+          {a?.id === "maximizar" && <MaximizarChoice c={c} e={e} set={set} />}
           {a?.id === "mangekyou" && <MangekyouChoice c={c} e={e} set={set} />}
           {!a && (
             <textarea
@@ -394,6 +403,7 @@ function AptCatalog({ c, status, granted, onAdd, onAddCustom }: { c: Character; 
                 <span className="flex flex-wrap items-center gap-1.5">
                   <span className="text-sm font-bold text-paper">{a.name}</span>
                   {isFreeEligible(a) && <Badge tone="ok">gratuita</Badge>}
+                  {a.cost === 0 && <Badge tone="ok">sem custo</Badge>}
                   {a.maxLevel && a.maxLevel > 1 && <Badge>até nv {a.maxLevel}</Badge>}
                   {a.repeatable && st.owned && <Badge>{c.aptidoes.filter((x) => x.id === a.id).length}×</Badge>}
                   {granted.includes(a.id) && <Badge tone="ok">pela Técnica Avançada</Badge>}
@@ -573,20 +583,52 @@ function AtiradorChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
   );
 }
 
-/** Maximizar: Mokuton ou Suiton (Senju/Tensai); Jinton ou Doton pelo hijutsu Jinton. */
-function MaximizarChoice({ e, set }: { e: AptEntry; set: StepProps["set"] }) {
+/** Símbolo e o que o Maximizar faz em cada elemento. */
+const MAXIMIZAR_INFO: Record<string, { kanji: string; desc: string }> = {
+  mokuton: { kanji: "木", desc: "Madeira (Senju ou Tensai)." },
+  suiton: { kanji: "水", desc: "Água (Senju ou Tensai)." },
+  jinton: { kanji: "塵", desc: "Poeira: só a partir do Jinton 10 (Destruição Avançada)." },
+  doton: { kanji: "土", desc: "Terra, pelo hijutsu Jinton." },
+};
+
+/** Maximizar: Mokuton ou Suiton (Senju/Tensai); Jinton ou Doton só com o hijutsu Jinton na ficha. */
+function MaximizarChoice({ c, e, set }: { c: Character; e: AptEntry; set: StepProps["set"] }) {
+  const ok = maximizarOpcoes(c);
+  const jinton = temJinton(c);
+  // Uma escolha que a ficha não permite mais continua visível (riscada) até ser trocada.
+  const keys = Object.keys(MAXIMIZAR).filter((k) => ok.includes(k) || k === e.variant);
+  const options: PickOption[] = keys.map((k) => ({
+    value: k,
+    name: MAXIMIZAR[k],
+    level: 0,
+    pill: MAXIMIZAR_INFO[k].kanji,
+    desc: ok.includes(k) ? MAXIMIZAR_INFO[k].desc : "Indisponível: a ficha não tem o hijutsu Jinton.",
+    tone: ok.includes(k) ? (k === "jinton" || k === "doton" ? "excl" : "geral") : "acima",
+    group: ok.includes(k) ? (k === "jinton" || k === "doton" ? "jinton" : "base") : "fora",
+    disabled: !ok.includes(k),
+  }));
+  const groups: PickGroup[] = [
+    { key: "base", label: "Senju · Tensai" },
+    { key: "jinton", label: "Hijutsu Jinton", kanji: "塵", tone: "excl" },
+    { key: "fora", label: "Indisponível", tone: "acima" },
+  ];
   return (
-    <label className="mt-1 flex max-w-sm flex-col gap-1 text-xs text-muted">
-      Elemento
-      <select className="field py-1.5 text-sm" value={e.variant ?? ""} onChange={(ev) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.variant = ev.target.value))}>
-        <option value="">Escolher…</option>
-        {Object.entries(MAXIMIZAR).map(([k, l]) => (
-          <option key={k} value={k}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="mt-1 flex max-w-sm flex-col gap-1">
+      <span className="label">Elemento</span>
+      <EffectPicker
+        value={e.variant || null}
+        options={options}
+        groups={groups}
+        onChange={(v) => set((d) => void (d.aptidoes.find((x) => x.uid === e.uid)!.variant = v ?? undefined))}
+        label="Elemento do Maximizar"
+        context="Maximizar"
+        placeholder="Escolher elemento…"
+        noun="elemento"
+        none="Nenhum elemento"
+        searchHint="Mokuton, Suiton…"
+      />
+      {!jinton && <span className="text-xs text-muted">Jinton e Doton aparecem quando a ficha tem o hijutsu Jinton.</span>}
+    </div>
   );
 }
 

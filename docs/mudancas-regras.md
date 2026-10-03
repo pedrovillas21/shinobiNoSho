@@ -269,6 +269,18 @@ Regra confirmada com o criador do sistema. Não é opcional e não está escrita
   - Efemeróptero (nível 5): pede Imergir; custo 5, viaja 50m × Espírito por rodada;
   - Chuva de Esporos (nível 7, evolui no 10): pede Transmissor, Nuvem, Selar Chakra e Clone Zetsu.
 
+## Shakuton, Corpo Esguio, Modo Eremita, Maximizar e Golem — 03/10/2026
+
+- **Shakuton (Livro de Hijutsus vol. 2, pág. 121–123):**
+  - +2 de dano base em todo efeito (faltava na tabela de Dano Adicional);
+  - efeitos Meteoros (Katon, 9) e Kajousatsu (exclusivo, Nv 3, evolui no 6 e no 9).
+- **Dano Adicional conferido nos 4 livros:** Fuuton, Katon, Raiton, Mokuton, Hibon, Kami Ninpou, Kujaku, Kibaku Nendo, Youton, Futton e Ranton já estavam certos; só faltava o Shakuton. O Satetsu (Jiton) dá +1 de dano, mas o app ainda não separa Satetsu de Sakin.
+- **Corpo Esguio (Guia Avançado, pág. 25):** aptidão de combate que faltava (sair de agarrado com ação parcial e +2; +2 também contra algemas e cordas).
+- **Eien no Mangekyou Sharingan:** conquistado na história, não comprado. Continua como aptidão, mas sem custo e sem usar uma das gratuitas.
+- **Modo Eremita, Senjutsu Nv 2 (Guia Avançado, pág. 18–19):** Chakra +20 e Vitalidade +30 são bônus da lista de Senjutsu (1 ponto cada, 1×/cena, ação livre) e duram 1 cena. Antes o app dava o +20 sozinho ao entrar no modo. Agora são botões no estado; no fim da cena (ou na noite de descanso), o que ainda passar do máximo some.
+- **Maximizar:** Jinton e Doton só aparecem para quem tem o hijutsu Jinton (o poder Jinton). O seletor usa o mesmo painel dos efeitos.
+- **Golem do Mokuton (Livro Básico, efeito de nível 7):** etapa "Golem" no construtor (aparece com Mokuton), seção na ficha impressa e contador "Vitalidade do Golem" na mesa. Atributos iguais aos seus com Força = Espírito, +5 de Força e Vigor (imenso) ou +7 (colossal, Nv 10); metade da Vitalidade calculada com esse Vigor; combate igual ao seu; dano corporal comum do Mokuton.
+
 ## Pendências e decisões
 
 - **Elementos Irrestritos + Mokuton:** em aberto se o nível grátis soma (Doton 2 e Suiton 2). O app não soma. Contexto e o que mudar: [pendencia-elementos-irrestritos.md](pendencia-elementos-irrestritos.md).

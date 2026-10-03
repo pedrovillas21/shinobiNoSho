@@ -18,6 +18,7 @@ import {
   toggleEffect,
   toggleEstadoOpt,
   toggleMod,
+  usarBonusEnergia,
 } from "@/lib/play";
 import { hasApt, powerLevel } from "@/lib/rules";
 import type { Character, ModTarget, PlayEffect } from "@/lib/types";
@@ -293,6 +294,32 @@ function EffectCard({
         })}
         {e.mods.length === 0 && <span className="text-[13px] text-muted">Sem bônus ainda. Use “Editar” para adicionar.</span>}
       </div>
+
+      {e.boosts && e.boosts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[13px] text-muted">Energia (1×/cena{e.boosts[0].pay ? `, 1 ${e.boosts[0].pay}` : ""})</span>
+          {e.boosts.map((b, i) => {
+            const what = b.k === "chk" ? "Chakra" : "Vitalidade";
+            const pago = b.pay ? p.counters.find((k) => k.n === b.pay) : undefined;
+            const why = b.used ? "Já usado nesta cena" : !e.active ? "Ative o estado primeiro" : pago && pago.cur < 1 ? `Sem ${pago.n}` : undefined;
+            return (
+              <button
+                key={b.k}
+                type="button"
+                disabled={!!why}
+                title={why}
+                onClick={() => commit((pl, log) => usarBonusEnergia(pl, e.id, i, log))}
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-bold transition disabled:cursor-not-allowed ${
+                  b.used ? "border-line-2 text-faint line-through" : b.k === "chk" ? "border-chk/50 text-chk hover:border-chk disabled:opacity-50" : "border-bad/50 text-vit hover:border-bad disabled:opacity-50"
+                }`}
+              >
+                <IconPlus className="size-4" /> {what} +{b.v}
+                {b.used && <span className="text-xs font-normal no-underline">(usado)</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {e.hint && <p className="text-[13px] leading-relaxed text-muted">{e.hint}</p>}
 

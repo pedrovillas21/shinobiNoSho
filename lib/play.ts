@@ -619,6 +619,46 @@ export function toggleEffect(p: PlayState, id: string, log: Logger, c?: Characte
   checkGates(p, log);
 }
 
+/**
+ * Usa um bônus de energia do estado (Modo Eremita Nv 2: Chakra +20 ou Vitalidade +30): ação livre, 1× por cena,
+ * paga 1 ponto do contador. Soma na hora (pode passar do máximo) e dura até o fim da cena.
+ */
+export function usarBonusEnergia(p: PlayState, id: string, i: number, log: Logger) {
+  const e = p.effects.find((x) => x.id === id);
+  const b = e?.boosts?.[i];
+  if (!e || !b) return;
+  const what = b.k === "chk" ? "Chakra" : "Vitalidade";
+  if (!e.active) return log(`${e.name}: ative o estado para usar ${what} +${b.v}`, "bad");
+  if (b.used) return log(`${e.name}: ${what} +${b.v} já usado nesta cena`, "bad");
+  const k = b.pay ? p.counters.find((x) => x.n === b.pay) : undefined;
+  if (k) {
+    if (k.cur < 1) return log(`${e.name}: sem ${k.n} para ${what} +${b.v}`, "bad");
+    k.cur -= 1;
+  }
+  b.used = true;
+  const t = (p.temp ??= { chk: 0, vit: 0 });
+  if (b.k === "chk") p.chk += b.v;
+  else p.vit += b.v;
+  t[b.k] += b.v;
+  log(`${e.name}: ${what} +${b.v} até o fim da cena${k ? ` (−1 ${k.n})` : ""}`, b.k === "chk" ? "chk" : "ok");
+  checkChakra(p, log);
+}
+
+/** Fim da cena: os bônus de energia temporários acabam; some o que deles ainda passar do máximo. */
+function fimBonusTemp(p: PlayState, c: Character | undefined, log: Logger) {
+  const t = p.temp;
+  p.temp = undefined;
+  if (!t || !c) return;
+  const v = playView(c, p);
+  const chk = Math.min(t.chk, Math.max(0, p.chk - v.chkMax));
+  const vit = Math.min(t.vit, Math.max(0, p.vit - v.vitMax));
+  if (chk) p.chk -= chk;
+  if (vit) p.vit -= vit;
+  if (chk || vit) log(`Fim dos bônus de energia da cena: ${[chk && `−${chk} Chakra`, vit && `−${vit} Vit`].filter(Boolean).join(", ")}`, "n");
+}
+
+const resetBoosts = (p: PlayState) => p.effects.forEach((e) => e.boosts?.forEach((b) => (b.used = false)));
+
 const onLabels = (e: PlayEffect) =>
   e.mods
     .filter((m) => m.on)
@@ -1004,6 +1044,8 @@ export function curarOlhos(p: PlayState, log: Logger) {
 }
 
 export function restNight(p: PlayState, c: Character, v: PlayView, log: Logger) {
+  // A noite de descanso também encerra a cena dos bônus de energia.
+  fimBonusTemp(p, c, log);
   const gv = 10 + 2 * c.attrs.VIG;
   const gc = 5 + 2 * c.attrs.ESP;
   const nv = Math.max(p.vit, Math.min(v.vitMax, p.vit + gv));
@@ -1016,13 +1058,16 @@ export function restNight(p: PlayState, c: Character, v: PlayView, log: Logger) 
   fimIzanagi(p, log);
   p.counters.forEach((k) => k.reset !== "nunca" && (k.cur = k.max));
   p.effects.forEach((e) => (e.usedScene = false));
+  resetBoosts(p);
 }
 
-export function endScene(p: PlayState, log: Logger) {
+export function endScene(p: PlayState, log: Logger, c?: Character) {
   fimIzanagi(p, log);
+  fimBonusTemp(p, c, log);
   p.conds = p.conds.filter((x) => !SCENE_CONDS.includes(x.k));
   p.counters.forEach((k) => k.reset === "cena" && (k.cur = k.max));
   p.effects.forEach((e) => (e.usedScene = false));
+  resetBoosts(p);
   log("Fim da cena: usos por cena repostos", "ok");
 }
 
@@ -1032,6 +1077,8 @@ export function restoreAll(p: PlayState, c: Character, log: Logger) {
     e.left = 0;
     e.usedScene = false;
   });
+  resetBoosts(p);
+  p.temp = undefined;
   // A perda de visão do Mangekyou e os olhos perdidos são permanentes: “restaurar tudo” não os desfaz.
   p.conds = p.conds.filter((x) => x.note === VISAO_PERM || x.note === OLHO_PERM);
   p.pills = 0;

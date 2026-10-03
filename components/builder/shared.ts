@@ -1,3 +1,4 @@
+import { golemMokuton } from "@/lib/golem";
 import { hasInvocacoes } from "@/lib/kuchiyose";
 import type { Character } from "@/lib/types";
 
@@ -15,6 +16,7 @@ export const STEPS = [
   { key: "pericias", label: "Perícias" },
   { key: "aptidoes", label: "Aptidões" },
   { key: "poderes", label: "Poderes" },
+  { key: "golem", label: "Golem" },
   { key: "invocacoes", label: "Invocações" },
   { key: "equipamento", label: "Equipamento" },
   { key: "historia", label: "História" },
@@ -24,8 +26,12 @@ export const STEPS = [
 export type StepKey = (typeof STEPS)[number]["key"];
 export type Step = (typeof STEPS)[number];
 
-/** Etapas da ficha: Invocações só aparece para quem tem o poder Kuchiyose (ou uma origem que o traz). */
-export const stepsFor = (c: Character): Step[] => STEPS.filter((s) => s.key !== "invocacoes" || hasInvocacoes(c));
+/**
+ * Etapas da ficha: Invocações só aparece para quem tem o poder Kuchiyose (ou uma origem que o traz), e Golem para
+ * quem tem Mokuton.
+ */
+export const stepsFor = (c: Character): Step[] =>
+  STEPS.filter((s) => (s.key !== "invocacoes" || hasInvocacoes(c)) && (s.key !== "golem" || !!golemMokuton(c)));
 
 /** "Etapa N" de uma etapa, contando só as que aparecem nesta ficha. */
 export const stepKicker = (c: Character, key: StepKey) => `Etapa ${stepsFor(c).findIndex((s) => s.key === key) + 1}`;

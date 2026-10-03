@@ -82,8 +82,9 @@ export const hasApt = (c: Character, id: string, level = 1) => aptLevel(c, id) >
  * inclusive numa aptidão gratuita: a gratuidade cobre só o nível 1. Aptidões com `levelsFree` (Kurohigi) são compradas uma vez.
  */
 export function aptCost(e: AptEntry): number {
-  const buys = APT_BY_ID[e.id]?.levelsFree ? 1 : Math.max(1, e.level);
-  return (buys - (e.free ? 1 : 0)) * APT_COST;
+  const a = APT_BY_ID[e.id];
+  const buys = a?.levelsFree ? 1 : Math.max(1, e.level);
+  return Math.max(0, buys - (e.free ? 1 : 0)) * (a?.cost ?? APT_COST);
 }
 
 export function powerLevel(c: Character, id: string): number {
@@ -750,7 +751,8 @@ export function spent(c: Character) {
   // elemento que a kekkei genkai já dá também.
   const powerLevels = c.poderes.reduce((t, p, i) => t + p.level - (isRepurchase(c, i) || nivelGratis(c, i) ? 1 : 0), 0);
   const paidApts = c.aptidoes.reduce((t, a) => t + aptCost(a), 0);
-  const freeUsed = c.aptidoes.filter((a) => a.free).length;
+  // Aptidões sem custo (conquistadas na história) não gastam uma das gratuitas.
+  const freeUsed = c.aptidoes.filter((a) => a.free && APT_BY_ID[a.id]?.cost !== 0).length;
   const social = c.social.car + c.social.man;
   const ryos = c.items.reduce((t, i) => t + i.price * i.qty, 0);
   const comps = c.items.reduce((t, i) => t + i.comps, 0);
@@ -777,6 +779,10 @@ export const jintonOpcao2 = (c: Character) => !hasApt(c, "elemento-natural-terra
 /** Elemento escolhido no Maximizar (Livro Básico, Senju; Livro de Hijutsus vol. 2, Jinton). */
 export const MAXIMIZAR: Record<string, string> = { mokuton: "Mokuton", suiton: "Suiton", jinton: "Jinton (hijutsu Jinton)", doton: "Doton (hijutsu Jinton)" };
 export const maximizarEm = (c: Character) => c.aptidoes.find((e) => e.id === "maximizar")?.variant;
+/** Jinton e Doton só entram no Maximizar com o hijutsu Jinton (o poder Jinton na ficha). */
+export const temJinton = (c: Character) => c.poderes.some((p) => p.id === "jinton");
+/** Elementos que a ficha pode escolher no Maximizar. */
+export const maximizarOpcoes = (c: Character) => Object.keys(MAXIMIZAR).filter((k) => (k === "jinton" || k === "doton" ? temJinton(c) : true));
 const NATURAL: Record<string, string> = {
   "elemento-natural-katon": "katon",
   "elemento-natural-suiton": "suiton",
@@ -942,7 +948,7 @@ export function validate(c: Character): Issue[] {
     }
     if (a.id === "maximizar") {
       if (!e.variant) push("aviso", "aptidoes", "Maximizar: escolha o elemento.");
-      else if ((e.variant === "jinton" || e.variant === "doton") && !c.poderes.some((p) => p.id === "jinton"))
+      else if (!maximizarOpcoes(c).includes(e.variant))
         push("erro", "aptidoes", "Maximizar: Jinton ou Doton só pelo hijutsu Jinton (Kekkei Touta); fora dele, Mokuton ou Suiton.");
     }
     if (a.grants) {
